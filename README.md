@@ -322,6 +322,17 @@ Client Response
 
 ---
 
+## 기여하기
+
+오타, 내용 보완, 새 챕터 추가 등 모든 기여를 환영합니다.
+
+- **간단한 제보** → [GitHub Issue](https://github.com/ssi02014/nest-study/issues) 등록
+- **직접 수정** → Fork 후 Pull Request 제출
+
+자세한 기여 방법은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요.
+
+---
+
 ## License
 
 [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE)
