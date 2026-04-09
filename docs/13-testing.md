@@ -8,14 +8,18 @@
 4. [NestJS의 Test.createTestingModule](#4-nestjs의-testcreatetestingmodule)
 5. [모킹이란?](#5-모킹이란)
 6. [기본 예제: Service 단위 테스트](#6-기본-예제-service-단위-테스트)
-7. [기본 예제: Controller 단위 테스트](#7-기본-예제-controller-단위-테스트)
-8. [기본 예제: E2E 테스트 (supertest)](#8-기본-예제-e2e-테스트-supertest)
-9. [블로그 API: PostsService 단위 테스트](#9-블로그-api-postsservice-단위-테스트)
-10. [블로그 API: AuthService 단위 테스트](#10-블로그-api-authservice-단위-테스트)
-11. [블로그 API: PostsController 단위 테스트](#11-블로그-api-postscontroller-단위-테스트)
-12. [블로그 API: E2E 테스트 전체 플로우](#12-블로그-api-e2e-테스트-전체-플로우)
-13. [테스트 실행 명령어 정리](#13-테스트-실행-명령어-정리)
-14. [정리](#14-정리)
+7. [비동기 테스트 심화](#7-비동기-테스트-심화)
+8. [기본 예제: Controller 단위 테스트](#8-기본-예제-controller-단위-테스트)
+9. [기본 예제: E2E 테스트 (supertest)](#9-기본-예제-e2e-테스트-supertest)
+10. [통합 테스트 (Integration Test)](#10-통합-테스트-integration-test)
+11. [블로그 API: PostsService 단위 테스트](#11-블로그-api-postsservice-단위-테스트)
+12. [블로그 API: AuthService 단위 테스트](#12-블로그-api-authservice-단위-테스트)
+13. [블로그 API: PostsController 단위 테스트](#13-블로그-api-postscontroller-단위-테스트)
+14. [블로그 API: E2E 테스트 전체 플로우](#14-블로그-api-e2e-테스트-전체-플로우)
+15. [Guard, Interceptor, Pipe 테스트](#15-guard-interceptor-pipe-테스트)
+16. [테스트 커버리지 설정](#16-테스트-커버리지-설정)
+17. [테스트 실행 명령어 정리](#17-테스트-실행-명령어-정리)
+18. [정리](#18-정리)
 
 ---
 
@@ -463,7 +467,250 @@ describe('ItemsService', () => {
 
 ---
 
-## 7. 기본 예제: Controller 단위 테스트
+## 7. 비동기 테스트 심화
+
+async/await를 활용한 비동기 로직 테스트, 예외 검증, 타이머 모킹 등 실무에서 자주 마주치는 패턴을 다룬다.
+
+### async/await를 사용하는 Service 테스트
+
+비동기 함수를 테스트할 때는 `async/await`를 반드시 사용해야 한다. `await`를 빠뜨리면 Promise가 실행되기 전에 테스트가 끝나버려 항상 통과하는 것처럼 보이는 오탐(False Positive)이 발생한다.
+
+```typescript
+// src/notifications/notifications.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotificationsService } from './notifications.service';
+
+// 테스트 대상 Service 예시
+// async sendWelcomeEmail(userId: number): Promise<{ sent: boolean; to: string }>
+// async getUserNotifications(userId: number): Promise<Notification[]>
+
+describe('NotificationsService (async/await)', () => {
+  let service: NotificationsService;
+
+  const mockMailer = {
+    sendMail: jest.fn(),
+  };
+
+  const mockNotificationRepository = {
+    find: jest.fn(),
+    save: jest.fn(),
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        NotificationsService,
+        { provide: 'MAILER', useValue: mockMailer },
+        { provide: 'NOTIFICATION_REPOSITORY', useValue: mockNotificationRepository },
+      ],
+    }).compile();
+
+    service = module.get<NotificationsService>(NotificationsService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('sendWelcomeEmail', () => {
+    it('메일 발송 성공 시 sent: true를 반환한다', async () => {
+      // Mock 반환값 설정
+      mockMailer.sendMail.mockResolvedValue({ messageId: 'abc123' });
+
+      // async/await로 결과를 기다린다
+      const result = await service.sendWelcomeEmail(1);
+
+      expect(result.sent).toBe(true);
+      expect(mockMailer.sendMail).toHaveBeenCalledTimes(1);
+    });
+
+    it('여러 비동기 작업이 순서대로 실행됨을 검증한다', async () => {
+      const callOrder: string[] = [];
+
+      mockMailer.sendMail.mockImplementation(async () => {
+        callOrder.push('sendMail');
+        return { messageId: 'abc' };
+      });
+      mockNotificationRepository.save.mockImplementation(async () => {
+        callOrder.push('save');
+        return {};
+      });
+
+      await service.sendWelcomeEmail(1);
+
+      // 메일 발송 후 DB 저장 순서 검증
+      expect(callOrder).toEqual(['sendMail', 'save']);
+    });
+  });
+
+  describe('getUserNotifications', () => {
+    it('사용자의 알림 목록을 비동기로 조회한다', async () => {
+      const mockNotifications = [
+        { id: 1, message: '새 댓글이 달렸습니다', read: false },
+        { id: 2, message: '게시글이 좋아요를 받았습니다', read: true },
+      ];
+      mockNotificationRepository.find.mockResolvedValue(mockNotifications);
+
+      const result = await service.getUserNotifications(1);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].read).toBe(false);
+      // Repository가 올바른 조건으로 호출되었는지 검증
+      expect(mockNotificationRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId: 1 } }),
+      );
+    });
+  });
+});
+```
+
+### Promise.reject를 테스트하는 예제 (예외 발생 검증)
+
+비동기 함수에서 예외가 발생하는 경우를 검증할 때는 `rejects` 체이닝을 사용한다. 동기 예외는 `toThrow()`로 검증하지만, 비동기 예외는 반드시 `rejects.toThrow()`를 사용해야 한다.
+
+```typescript
+// src/payments/payments.service.spec.ts
+import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+
+describe('PaymentsService (예외 검증)', () => {
+  let service: PaymentsService;
+
+  const mockPaymentGateway = {
+    charge: jest.fn(),
+  };
+  const mockOrderRepository = {
+    findOne: jest.fn(),
+    save: jest.fn(),
+  };
+
+  // ... beforeEach 설정 생략 ...
+
+  describe('processPayment', () => {
+    it('주문이 존재하지 않으면 NotFoundException을 던진다', async () => {
+      mockOrderRepository.findOne.mockResolvedValue(null);
+
+      // rejects.toThrow()로 비동기 예외를 검증
+      await expect(service.processPayment(999, 10000)).rejects.toThrow(NotFoundException);
+      // 예외 메시지까지 정확히 검증
+      await expect(service.processPayment(999, 10000)).rejects.toThrow('주문 #999을 찾을 수 없습니다.');
+    });
+
+    it('결제 금액이 0 이하면 BadRequestException을 던진다', async () => {
+      mockOrderRepository.findOne.mockResolvedValue({ id: 1, amount: 5000 });
+
+      await expect(service.processPayment(1, -100)).rejects.toThrow(BadRequestException);
+      await expect(service.processPayment(1, -100)).rejects.toThrow('결제 금액은 0보다 커야 합니다.');
+    });
+
+    it('결제 게이트웨이 오류 시 ServiceUnavailableException을 던진다', async () => {
+      mockOrderRepository.findOne.mockResolvedValue({ id: 1, amount: 10000 });
+
+      // Promise.reject로 외부 서비스 오류를 시뮬레이션
+      mockPaymentGateway.charge.mockRejectedValue(new Error('Gateway timeout'));
+
+      await expect(service.processPayment(1, 10000)).rejects.toThrow(ServiceUnavailableException);
+    });
+
+    it('예외의 타입과 메시지를 동시에 검증한다', async () => {
+      mockOrderRepository.findOne.mockResolvedValue(null);
+
+      // 예외 객체의 세부 속성까지 검증
+      await expect(service.processPayment(999, 10000)).rejects.toMatchObject({
+        status: 404,
+        message: '주문 #999을 찾을 수 없습니다.',
+      });
+    });
+
+    it('예외가 발생해도 Repository가 올바르게 호출되었는지 검증한다', async () => {
+      mockOrderRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.processPayment(999, 10000);
+      } catch {
+        // 예외 발생 후에도 findOne이 호출되었는지 확인
+        expect(mockOrderRepository.findOne).toHaveBeenCalledWith({ where: { id: 999 } });
+        // save는 호출되지 않아야 한다
+        expect(mockOrderRepository.save).not.toHaveBeenCalled();
+      }
+    });
+  });
+});
+```
+
+### jest.useFakeTimers() 타이머 모킹
+
+`setTimeout`, `setInterval`, `Date` 등 시간에 의존하는 로직을 테스트할 때 사용한다. 실제 시간을 기다리지 않고 타이머를 인위적으로 앞당길 수 있다.
+
+```typescript
+// src/cache/cache.service.spec.ts
+describe('CacheService (타이머 모킹)', () => {
+  beforeEach(() => {
+    // 가짜 타이머를 활성화한다 (setTimeout, setInterval, Date 등이 모두 제어된다)
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    // 반드시 원래 타이머로 복구한다
+    jest.useRealTimers();
+  });
+
+  describe('set (TTL이 있는 캐시 저장)', () => {
+    it('TTL이 만료되기 전에는 값을 반환한다', () => {
+      service.set('key1', 'value1', 5000); // 5초 TTL
+
+      // 3초를 앞으로 돌린다 (실제로 기다리지 않음)
+      jest.advanceTimersByTime(3000);
+
+      expect(service.get('key1')).toBe('value1');
+    });
+
+    it('TTL이 만료되면 null을 반환한다', () => {
+      service.set('key1', 'value1', 5000); // 5초 TTL
+
+      // 5초 이상 앞으로 돌린다
+      jest.advanceTimersByTime(6000);
+
+      expect(service.get('key1')).toBeNull();
+    });
+  });
+
+  describe('Date 모킹', () => {
+    it('특정 날짜를 기준으로 만료 여부를 계산한다', () => {
+      // 현재 시각을 2024-01-01 00:00:00으로 고정
+      jest.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+
+      service.set('key1', 'data', 60 * 60 * 1000); // 1시간 TTL
+
+      // 30분 경과 시뮬레이션
+      jest.advanceTimersByTime(30 * 60 * 1000);
+      expect(service.get('key1')).toBe('data'); // 아직 유효
+
+      // 추가 40분 경과 (총 70분)
+      jest.advanceTimersByTime(40 * 60 * 1000);
+      expect(service.get('key1')).toBeNull(); // 만료됨
+    });
+  });
+
+  describe('setInterval 테스트', () => {
+    it('주기적으로 캐시를 정리하는 cleanup이 호출된다', () => {
+      const cleanupSpy = jest.spyOn(service, 'cleanup');
+
+      service.startAutoCleanup(10000); // 10초마다 정리
+
+      // 25초 경과 → cleanup이 2번 호출되어야 한다
+      jest.advanceTimersByTime(25000);
+
+      expect(cleanupSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+});
+```
+
+> **Tip**: `jest.useFakeTimers()`는 `beforeEach`에서 활성화하고 `afterEach`에서 반드시 `jest.useRealTimers()`로 복구해야 한다. 복구하지 않으면 다른 테스트에 영향을 준다. `jest.advanceTimersByTime(ms)`로 시간을 앞당기고, `jest.runAllTimers()`로 모든 대기 중인 타이머를 즉시 실행할 수 있다.
+
+---
+
+## 8. 기본 예제: Controller 단위 테스트
 
 Controller 테스트에서는 **Service를 모킹**하여, Controller가 Service의 메서드를 올바르게 호출하고 결과를 그대로 반환하는지 검증한다.
 
@@ -571,7 +818,7 @@ describe('ItemsController', () => {
 
 ---
 
-## 8. 기본 예제: E2E 테스트 (supertest)
+## 9. 기본 예제: E2E 테스트 (supertest)
 
 E2E 테스트는 실제 HTTP 요청을 보내서 API 전체 흐름을 검증한다. `supertest` 라이브러리를 사용한다.
 
@@ -654,7 +901,159 @@ describe('ItemsController (E2E)', () => {
 
 ---
 
-## 9. 블로그 API: PostsService 단위 테스트
+## 10. 통합 테스트 (Integration Test)
+
+통합 테스트는 단위 테스트처럼 모킹을 사용하지 않고, 실제 DB(인메모리 SQLite)와 함께 여러 컴포넌트가 올바르게 협력하는지를 검증한다. 단위 테스트보다 현실적이고, E2E 테스트보다 빠르다.
+
+### 단위 테스트 vs 통합 테스트 비교
+
+```
+단위 테스트:  Service → Mock Repository → (DB 없음)
+통합 테스트:  Service → 실제 Repository → SQLite 인메모리 DB
+E2E 테스트:   HTTP 요청 → Controller → Service → Repository → SQLite 인메모리 DB
+```
+
+### 실제 DB(SQLite in-memory)를 사용하는 통합 테스트
+
+```typescript
+// src/posts/posts.service.integration.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotFoundException } from '@nestjs/common';
+import { PostsService } from './posts.service';
+import { Post } from './entities/post.entity';
+import { User } from '../users/entities/user.entity';
+
+describe('PostsService (통합 테스트)', () => {
+  let module: TestingModule;
+  let service: PostsService;
+
+  beforeAll(async () => {
+    module = await Test.createTestingModule({
+      imports: [
+        // 실제 인메모리 SQLite DB 사용 - 모킹 없이 실제 Repository 동작 검증
+        TypeOrmModule.forRoot({
+          type: 'sqlite',
+          database: ':memory:',        // 메모리 내 DB (파일 생성 없음)
+          entities: [Post, User],
+          synchronize: true,           // 엔티티 구조를 자동으로 DB에 동기화
+          dropSchema: true,            // 테스트 시작 시 스키마 초기화
+          logging: false,              // 쿼리 로그 비활성화 (테스트 출력 간결화)
+        }),
+        TypeOrmModule.forFeature([Post, User]),
+      ],
+      providers: [PostsService],
+    }).compile();
+
+    service = module.get<PostsService>(PostsService);
+  });
+
+  afterAll(async () => {
+    await module.close(); // 앱 종료 시 DB 연결도 정리된다
+  });
+
+  // 각 테스트 후 데이터 초기화 (테스트 간 데이터 오염 방지)
+  afterEach(async () => {
+    const postRepository = module.get('PostRepository');
+    await postRepository.clear();
+  });
+
+  describe('create', () => {
+    it('게시글을 실제 DB에 저장하고 ID가 부여된다', async () => {
+      const result = await service.create(
+        { title: '통합 테스트 게시글', content: '실제 DB에 저장됩니다.' },
+        1,
+      );
+
+      // 실제 DB에서 ID가 자동 생성되었는지 검증
+      expect(result.id).toBeDefined();
+      expect(result.id).toBeGreaterThan(0);
+      expect(result.title).toBe('통합 테스트 게시글');
+    });
+  });
+
+  describe('findAll', () => {
+    it('저장된 모든 게시글을 조회한다', async () => {
+      // 실제 DB에 게시글 저장
+      await service.create({ title: '첫 번째 글', content: '내용1' }, 1);
+      await service.create({ title: '두 번째 글', content: '내용2' }, 1);
+
+      const result = await service.findAll();
+
+      // 실제 DB에서 2개가 조회되어야 한다
+      expect(result).toHaveLength(2);
+      expect(result[0].title).toBe('두 번째 글'); // createdAt DESC 정렬 검증
+      expect(result[1].title).toBe('첫 번째 글');
+    });
+  });
+
+  describe('findOne', () => {
+    it('존재하는 게시글을 ID로 조회한다', async () => {
+      const created = await service.create({ title: '조회 테스트', content: '내용' }, 1);
+
+      const result = await service.findOne(created.id);
+
+      expect(result.id).toBe(created.id);
+      expect(result.title).toBe('조회 테스트');
+    });
+
+    it('존재하지 않는 ID 조회 시 NotFoundException을 던진다', async () => {
+      // 실제 DB에는 해당 ID가 없으므로 예외가 발생한다
+      await expect(service.findOne(99999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('실제 DB의 게시글을 수정하고 변경사항이 영속된다', async () => {
+      const created = await service.create({ title: '수정 전', content: '원래 내용' }, 1);
+
+      await service.update(created.id, { title: '수정 후' });
+
+      // 수정 후 다시 조회하여 실제로 DB에 반영되었는지 검증
+      const updated = await service.findOne(created.id);
+      expect(updated.title).toBe('수정 후');
+      expect(updated.content).toBe('원래 내용'); // 변경하지 않은 필드는 유지
+    });
+  });
+
+  describe('remove', () => {
+    it('게시글을 실제 DB에서 삭제한다', async () => {
+      const created = await service.create({ title: '삭제 대상', content: '내용' }, 1);
+
+      await service.remove(created.id);
+
+      // 삭제 후 조회하면 예외가 발생해야 한다
+      await expect(service.findOne(created.id)).rejects.toThrow(NotFoundException);
+    });
+  });
+});
+```
+
+### 통합 테스트에서 `TypeOrmModule.forRoot` 주요 옵션
+
+```json
+{
+  "type": "sqlite",
+  "database": ":memory:",
+  "entities": ["경로 또는 엔티티 클래스 배열"],
+  "synchronize": true,
+  "dropSchema": true,
+  "logging": false
+}
+```
+
+| 옵션 | 설명 |
+|------|------|
+| `database: ':memory:'` | 파일을 생성하지 않고 메모리 내에서만 동작하는 SQLite DB |
+| `synchronize: true` | 앱 시작 시 엔티티 기반으로 테이블을 자동 생성/수정 |
+| `dropSchema: true` | 테스트 시작 시 기존 스키마를 모두 삭제하고 다시 생성 |
+| `logging: false` | SQL 쿼리 로그를 비활성화하여 테스트 출력을 간결하게 유지 |
+
+> **Tip**: 통합 테스트는 단위 테스트보다 느리므로, 순수 비즈니스 로직은 단위 테스트로, DB와의 상호작용(쿼리 조건, 관계, 정렬 등)은 통합 테스트로 검증하는 것이 좋다. `afterEach`에서 `repository.clear()`를 호출하여 테스트 간 데이터가 섞이지 않도록 항상 초기화한다.
+
+---
+
+## 11. 블로그 API: PostsService 단위 테스트
 
 이제 챕터 10(TypeORM)과 챕터 12(Authentication)에서 구축한 블로그 API의 핵심 로직을 테스트한다.
 
@@ -887,7 +1286,7 @@ describe('PostsService', () => {
 
 ---
 
-## 10. 블로그 API: AuthService 단위 테스트
+## 12. 블로그 API: AuthService 단위 테스트
 
 챕터 12에서 구현한 AuthService의 로그인, 토큰 발급 로직을 검증한다. AuthService는 UsersService, JwtService, ConfigService에 의존하므로 이 세 가지를 모두 모킹한다.
 
@@ -1095,7 +1494,7 @@ describe('AuthService', () => {
 
 ---
 
-## 11. 블로그 API: PostsController 단위 테스트
+## 13. 블로그 API: PostsController 단위 테스트
 
 PostsController는 인증된 사용자만 게시글을 작성/수정/삭제할 수 있다. 하지만 단위 테스트에서는 Guard를 거치지 않으므로, Controller가 Service를 올바르게 호출하는지에 집중한다.
 
@@ -1267,7 +1666,7 @@ describe('PostsController', () => {
 
 ---
 
-## 12. 블로그 API: E2E 테스트 전체 플로우
+## 14. 블로그 API: E2E 테스트 전체 플로우
 
 가장 중요한 E2E 테스트다. **회원가입 -> 로그인 -> 게시글 작성 -> 조회 -> 수정 -> 삭제**의 전체 흐름을 하나의 테스트 파일에서 검증한다.
 
@@ -1517,7 +1916,403 @@ describe('블로그 API 전체 플로우 (E2E)', () => {
 
 ---
 
-## 13. 테스트 실행 명령어 정리
+## 15. Guard, Interceptor, Pipe 테스트
+
+Guard, Interceptor, Pipe는 NestJS의 핵심 미들웨어 계층이다. 각각 독립적으로 단위 테스트를 작성할 수 있다.
+
+### Guard 테스트 (canActivate 검증)
+
+Guard는 `canActivate(context: ExecutionContext): boolean | Promise<boolean>` 메서드를 구현한다. 단위 테스트에서는 `ExecutionContext`를 모킹하여 Guard의 허용/차단 로직을 검증한다.
+
+```typescript
+// src/auth/guards/roles.guard.spec.ts
+import { RolesGuard } from './roles.guard';
+import { Reflector } from '@nestjs/core';
+import { ExecutionContext } from '@nestjs/common';
+
+// 테스트 대상 Guard 예시
+// @Injectable()
+// export class RolesGuard implements CanActivate {
+//   constructor(private reflector: Reflector) {}
+//   canActivate(context: ExecutionContext): boolean {
+//     const requiredRoles = this.reflector.get<string[]>('roles', context.getHandler());
+//     if (!requiredRoles) return true;
+//     const { user } = context.switchToHttp().getRequest();
+//     return requiredRoles.includes(user.role);
+//   }
+// }
+
+describe('RolesGuard', () => {
+  let guard: RolesGuard;
+  let reflector: Reflector;
+
+  beforeEach(() => {
+    reflector = new Reflector();
+    guard = new RolesGuard(reflector);
+  });
+
+  // ExecutionContext 모킹 헬퍼 함수
+  const createMockExecutionContext = (user: object): ExecutionContext => ({
+    switchToHttp: () => ({
+      getRequest: () => ({ user }),
+    }),
+    getHandler: () => jest.fn(),
+    getClass: () => jest.fn(),
+  } as unknown as ExecutionContext);
+
+  describe('canActivate', () => {
+    it('@Roles() 데코레이터가 없으면 모든 요청을 허용한다', () => {
+      // Reflector가 roles 메타데이터를 찾지 못하면 undefined를 반환
+      jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+
+      const context = createMockExecutionContext({ role: 'user' });
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
+
+    it('사용자 역할이 요구 역할에 포함되면 허용한다', () => {
+      jest.spyOn(reflector, 'get').mockReturnValue(['admin']); // @Roles('admin') 시뮬레이션
+
+      const context = createMockExecutionContext({ id: 1, role: 'admin' });
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
+
+    it('사용자 역할이 요구 역할에 포함되지 않으면 차단한다', () => {
+      jest.spyOn(reflector, 'get').mockReturnValue(['admin']);
+
+      const context = createMockExecutionContext({ id: 2, role: 'user' });
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(false);
+    });
+
+    it('여러 허용 역할 중 하나라도 일치하면 허용한다', () => {
+      jest.spyOn(reflector, 'get').mockReturnValue(['admin', 'moderator']);
+
+      const context = createMockExecutionContext({ id: 3, role: 'moderator' });
+      const result = guard.canActivate(context);
+
+      expect(result).toBe(true);
+    });
+  });
+});
+```
+
+```typescript
+// src/auth/guards/jwt-auth.guard.spec.ts
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+describe('JwtAuthGuard', () => {
+  let guard: JwtAuthGuard;
+
+  beforeEach(() => {
+    guard = new JwtAuthGuard();
+  });
+
+  const createMockContext = (authHeader?: string): ExecutionContext => ({
+    switchToHttp: () => ({
+      getRequest: () => ({
+        headers: authHeader ? { authorization: authHeader } : {},
+      }),
+    }),
+    getHandler: () => jest.fn(),
+    getClass: () => jest.fn(),
+  } as unknown as ExecutionContext);
+
+  it('JWT 토큰이 유효하면 canActivate가 true를 반환한다', async () => {
+    // AuthGuard('jwt')의 canActivate를 모킹
+    jest.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(true);
+
+    const context = createMockContext('Bearer valid.jwt.token');
+    const result = await guard.canActivate(context);
+
+    expect(result).toBe(true);
+  });
+
+  it('JWT 토큰이 없으면 UnauthorizedException을 던진다', async () => {
+    jest.spyOn(AuthGuard('jwt').prototype, 'canActivate').mockResolvedValue(false);
+
+    const context = createMockContext();
+
+    await expect(guard.canActivate(context)).rejects.toThrow(UnauthorizedException);
+  });
+});
+```
+
+### ValidationPipe 동작 테스트
+
+`ValidationPipe`는 요청 본문을 DTO 클래스로 변환하고, `class-validator` 규칙에 따라 검증한다. 단위 테스트에서 Pipe 자체의 동작을 직접 검증할 수 있다.
+
+```typescript
+// src/posts/dto/create-post.dto.spec.ts
+import { ValidationPipe, BadRequestException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { CreatePostDto } from './create-post.dto';
+
+// CreatePostDto 예시:
+// export class CreatePostDto {
+//   @IsString()
+//   @IsNotEmpty()
+//   @MaxLength(100)
+//   title: string;
+//
+//   @IsString()
+//   @IsNotEmpty()
+//   content: string;
+// }
+
+describe('CreatePostDto (ValidationPipe 동작)', () => {
+  // class-validator를 직접 사용하는 방식
+  const validateDto = async (data: object) => {
+    const dto = plainToInstance(CreatePostDto, data);
+    const errors = await validate(dto);
+    return errors;
+  };
+
+  it('올바른 데이터는 유효성 검사를 통과한다', async () => {
+    const errors = await validateDto({
+      title: 'NestJS 테스트',
+      content: '테스트 내용입니다.',
+    });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('title이 없으면 유효성 검사에 실패한다', async () => {
+    const errors = await validateDto({
+      content: '내용만 있습니다.',
+    });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].property).toBe('title');
+  });
+
+  it('title이 빈 문자열이면 유효성 검사에 실패한다', async () => {
+    const errors = await validateDto({
+      title: '',
+      content: '내용입니다.',
+    });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].constraints).toHaveProperty('isNotEmpty');
+  });
+
+  it('title이 100자를 초과하면 유효성 검사에 실패한다', async () => {
+    const errors = await validateDto({
+      title: 'a'.repeat(101),
+      content: '내용입니다.',
+    });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].constraints).toHaveProperty('maxLength');
+  });
+
+  it('content가 없으면 유효성 검사에 실패한다', async () => {
+    const errors = await validateDto({
+      title: '제목입니다.',
+    });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].property).toBe('content');
+  });
+});
+
+// ValidationPipe를 직접 인스턴스화하여 테스트하는 방식
+describe('ValidationPipe 직접 테스트', () => {
+  let pipe: ValidationPipe;
+
+  beforeEach(() => {
+    pipe = new ValidationPipe({
+      whitelist: true,            // DTO에 없는 프로퍼티 제거
+      forbidNonWhitelisted: true, // DTO에 없는 프로퍼티 수신 시 400 에러
+      transform: true,            // 자동 타입 변환
+    });
+  });
+
+  it('유효한 DTO는 변환 후 반환된다', async () => {
+    const result = await pipe.transform(
+      { title: '제목', content: '내용' },
+      { type: 'body', metatype: CreatePostDto },
+    );
+    expect(result).toBeInstanceOf(CreatePostDto);
+    expect(result.title).toBe('제목');
+  });
+
+  it('유효하지 않은 데이터는 BadRequestException을 던진다', async () => {
+    await expect(
+      pipe.transform(
+        { title: '', content: '내용' }, // 빈 title
+        { type: 'body', metatype: CreatePostDto },
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('whitelist 옵션으로 DTO에 없는 프로퍼티가 제거된다', async () => {
+    const result = await pipe.transform(
+      { title: '제목', content: '내용', unknownField: '제거될 값' },
+      { type: 'body', metatype: CreatePostDto },
+    );
+    expect(result).not.toHaveProperty('unknownField');
+  });
+
+  it('forbidNonWhitelisted 옵션으로 허용되지 않은 프로퍼티 수신 시 400을 던진다', async () => {
+    const strictPipe = new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    });
+
+    await expect(
+      strictPipe.transform(
+        { title: '제목', content: '내용', hackerField: '악의적 데이터' },
+        { type: 'body', metatype: CreatePostDto },
+      ),
+    ).rejects.toThrow(BadRequestException);
+  });
+});
+```
+
+> **Tip**: Guard 테스트에서 `ExecutionContext`는 복잡한 인터페이스이므로, `as unknown as ExecutionContext`로 타입 캐스팅하여 테스트에 필요한 부분만 구현하는 것이 일반적이다. `jest.spyOn(reflector, 'get')`을 사용하면 실제 `Reflector` 인스턴스의 특정 메서드만 선택적으로 모킹할 수 있다.
+
+---
+
+## 16. 테스트 커버리지 설정
+
+테스트 커버리지는 전체 소스 코드 중 테스트가 실행한 비율을 나타낸다. NestJS 프로젝트에서 커버리지 목표를 설정하고 강제하는 방법을 알아보자.
+
+### 커버리지 지표의 종류
+
+| 지표 | 설명 | 예시 |
+|------|------|------|
+| **Statements** | 실행된 구문(statement) 비율 | `if`, `return`, 변수 선언 등 |
+| **Branches** | 실행된 분기(branch) 비율 | `if/else`, 삼항 연산자, `switch` 등 |
+| **Functions** | 호출된 함수 비율 | 함수, 메서드, 화살표 함수 등 |
+| **Lines** | 실행된 줄(line) 비율 | 실행 가능한 코드 줄 수 기준 |
+
+### package.json의 coverageThreshold 설정 예제
+
+`coverageThreshold`를 설정하면 커버리지가 목표치에 미달할 경우 `npm run test:cov` 명령어가 실패한다. CI/CD 파이프라인에서 품질 게이트로 활용할 수 있다.
+
+```json
+// package.json
+{
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "**/*.(t|j)s",
+      "!**/*.module.ts",
+      "!**/*.dto.ts",
+      "!**/*.entity.ts",
+      "!**/main.ts",
+      "!**/*.interface.ts"
+    ],
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+
+    // 커버리지 80% 목표 설정
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "branches": 80,
+        "functions": 80,
+        "lines": 80
+      }
+    }
+  }
+}
+```
+
+### 디렉터리별 개별 커버리지 목표 설정
+
+핵심 비즈니스 로직 디렉터리에는 더 높은 목표를 설정할 수 있다.
+
+```json
+// package.json - 세분화된 커버리지 목표 설정
+{
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "statements": 80,
+        "branches": 75,
+        "functions": 80,
+        "lines": 80
+      },
+      "./src/posts/": {
+        "statements": 90,
+        "branches": 85,
+        "functions": 90,
+        "lines": 90
+      },
+      "./src/auth/": {
+        "statements": 95,
+        "branches": 90,
+        "functions": 95,
+        "lines": 95
+      }
+    }
+  }
+}
+```
+
+### 커버리지 제외 설정
+
+모든 파일을 커버리지 측정에 포함할 필요는 없다. `collectCoverageFrom`에서 측정 대상과 제외 대상을 지정한다.
+
+```json
+{
+  "jest": {
+    "collectCoverageFrom": [
+      "**/*.(t|j)s",
+      "!**/*.module.ts",       // 모듈 파일 제외 (로직이 없음)
+      "!**/*.dto.ts",          // DTO 파일 제외 (데코레이터만 있음)
+      "!**/*.entity.ts",       // 엔티티 파일 제외 (컬럼 정의만 있음)
+      "!**/*.interface.ts",    // 인터페이스 파일 제외 (타입 정의만)
+      "!**/main.ts",           // 앱 진입점 제외
+      "!**/__mocks__/**"       // 수동 Mock 파일 제외
+    ]
+  }
+}
+```
+
+### 커버리지 리포트 실행 및 결과 확인
+
+```bash
+# 커버리지 리포트 생성 (coverage/ 폴더에 HTML 리포트 생성)
+npm run test:cov
+```
+
+커버리지 목표 미달 시 출력 예시:
+
+```
+Jest: "global" coverage threshold for statements (80%) not met: 72%
+Jest: "global" coverage threshold for branches (80%) not met: 65%
+```
+
+커버리지 목표 달성 시 출력 예시:
+
+```
+--------------------|---------|----------|---------|---------|
+File                 | % Stmts | % Branch | % Funcs | % Lines |
+--------------------|---------|----------|---------|---------|
+All files            |   85.71 |    81.25 |   88.89 |   85.71 |
+ posts/              |         |          |         |         |
+  posts.service.ts   |   92.31 |    87.50 |  100.00 |   92.31 |
+  posts.controller.ts|  100.00 |   100.00 |  100.00 |  100.00 |
+ auth/               |         |          |         |         |
+  auth.service.ts    |   96.15 |    91.67 |  100.00 |   96.15 |
+--------------------|---------|----------|---------|---------|
+```
+
+> **Tip**: 커버리지 80%를 처음부터 강제하기보다는, 팀 상황에 맞게 점진적으로 목표를 높이는 것이 좋다. 처음에는 `statements: 60`으로 시작하고, 테스트가 쌓이면서 70, 80으로 올린다. 커버리지 100%가 목표가 아니라, 핵심 로직이 테스트되고 있는지가 중요하다.
+
+---
+
+## 17. 테스트 실행 명령어 정리
 
 ### 기본 명령어
 
@@ -1599,7 +2394,7 @@ Time:        2.341 s
 
 ---
 
-## 14. 정리
+## 18. 정리
 
 이 챕터에서 학습한 내용을 정리한다.
 
@@ -1608,32 +2403,51 @@ Time:        2.341 s
 | 개념 | 설명 |
 |------|------|
 | 단위 테스트 | 개별 클래스를 독립적으로 테스트. 외부 의존성은 모킹 |
-| 통합 테스트 | 여러 컴포넌트가 함께 동작하는지 검증 |
+| 통합 테스트 | 실제 인메모리 DB와 함께 여러 컴포넌트가 협력하는지 검증 |
 | E2E 테스트 | 실제 HTTP 요청으로 전체 흐름 검증 |
 | `Test.createTestingModule()` | NestJS DI 시스템을 활용한 테스트 모듈 생성 |
 | 모킹 (Mocking) | 외부 의존성을 가짜 객체로 대체하여 독립적 테스트 보장 |
 | `jest.fn()` | 호출 추적 가능한 가짜 함수 생성 |
+| `jest.useFakeTimers()` | setTimeout, setInterval, Date를 가짜로 대체하여 시간 제어 |
 | `getRepositoryToken()` | TypeORM Repository의 DI 토큰을 가져와 모킹에 사용 |
 | `supertest` | HTTP 요청 시뮬레이션 라이브러리 |
+| Guard 테스트 | `ExecutionContext` 모킹으로 canActivate 로직 검증 |
+| ValidationPipe 테스트 | `class-validator`의 validate() 또는 Pipe 직접 인스턴스화로 검증 |
+| `coverageThreshold` | 커버리지 최솟값 설정. 미달 시 CI 실패 처리 가능 |
 
 ### 이 챕터에서 작성한 테스트 파일
 
 ```
 src/
 ├── posts/
-│   ├── posts.service.spec.ts        ← PostsService CRUD 단위 테스트
-│   └── posts.controller.spec.ts     ← PostsController 단위 테스트
+│   ├── posts.service.spec.ts              ← PostsService CRUD 단위 테스트
+│   ├── posts.service.integration.spec.ts  ← PostsService 통합 테스트 (SQLite in-memory)
+│   ├── posts.controller.spec.ts           ← PostsController 단위 테스트
+│   └── dto/
+│       └── create-post.dto.spec.ts        ← ValidationPipe/DTO 유효성 검사 테스트
 ├── auth/
-│   └── auth.service.spec.ts         ← AuthService 로그인/토큰 단위 테스트
+│   ├── auth.service.spec.ts               ← AuthService 로그인/토큰 단위 테스트
+│   └── guards/
+│       ├── roles.guard.spec.ts            ← RolesGuard canActivate 단위 테스트
+│       └── jwt-auth.guard.spec.ts         ← JwtAuthGuard 단위 테스트
+├── notifications/
+│   └── notifications.service.spec.ts     ← async/await 비동기 테스트 예제
+├── payments/
+│   └── payments.service.spec.ts          ← Promise.reject 예외 검증 예제
+└── cache/
+    └── cache.service.spec.ts             ← jest.useFakeTimers() 타이머 모킹 예제
 test/
-└── blog.e2e-spec.ts                 ← 회원가입→로그인→CRUD 전체 플로우 E2E 테스트
+└── blog.e2e-spec.ts                       ← 회원가입→로그인→CRUD 전체 플로우 E2E 테스트
 ```
 
 ### 이 챕터를 마치면
 
-- PostsService의 CRUD 로직이 테스트 코드로 검증된다.
+- PostsService의 CRUD 로직이 단위 테스트와 통합 테스트(실제 SQLite DB) 두 가지로 검증된다.
 - AuthService의 로그인, 토큰 발급, 갱신, 로그아웃 로직이 테스트 코드로 검증된다.
 - PostsController의 라우트 핸들러가 Service를 올바르게 호출하는지 검증된다.
+- async/await, Promise.reject, 타이머 모킹 등 비동기 테스트 심화 패턴을 적용할 수 있다.
+- Guard의 canActivate 로직과 ValidationPipe의 DTO 검증 동작을 독립적으로 테스트할 수 있다.
+- `coverageThreshold`로 커버리지 80% 목표를 강제하여 품질 게이트를 설정할 수 있다.
 - 회원가입부터 게시글 삭제까지의 전체 API 플로우가 E2E 테스트로 검증된다.
 - `npm run test`와 `npm run test:e2e` 명령어로 언제든 핵심 로직의 정상 동작을 확인할 수 있다.
 

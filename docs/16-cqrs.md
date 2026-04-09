@@ -426,11 +426,32 @@ Saga의 핵심 포인트:
 
 > **Tip**: Saga를 사용하면 "게시글이 생성되면 → 자동으로 검색 인덱스를 업데이트한다" 같은 워크플로우를 이벤트 핸들러가 아닌 별도의 흐름으로 분리할 수 있다. 이벤트 핸들러와의 차이점은 Saga는 반드시 새로운 Command를 반환한다는 것이다.
 
+### Saga vs EventHandler: 언제 어느 것을 써야 할까?
+
+둘 다 이벤트에 반응한다는 점은 같지만, **결과물의 성격**이 다르다.
+
+| 기준 | EventHandler (`@EventsHandler`) | Saga (`@Saga`) |
+|------|----------------------------------|----------------|
+| 반환값 | 없음 (void) | 새로운 **Command** |
+| 주된 용도 | 이벤트 발생을 기록·통지하는 **부수 작업** | 이벤트를 트리거로 **다음 비즈니스 흐름**을 이어가는 것 |
+| 전형적인 예 | 로그 기록, 알림 이메일 발송, 통계 갱신 | "게시글 생성 → 검색 인덱스 업데이트 Command 실행" |
+| RxJS 필요 여부 | 불필요 | 필수 (`Observable` 반환) |
+| 복잡한 흐름 제어 | 어렵다 | `delay`, `filter`, `switchMap` 등 RxJS 연산자 활용 가능 |
+
+**판단 기준 요약**:
+
+- 이벤트에 반응해서 **또 다른 상태 변경(Command)** 이 필요하다면 → **Saga**
+- 이벤트에 반응해서 **로그·알림·외부 연동** 처럼 단순히 처리하고 끝난다면 → **EventHandler**
+
+예를 들어 "게시글이 생성되면 작성자에게 이메일을 보낸다"는 요구사항이라면 EventHandler가 적합하다. 반면 "게시글이 생성되면 검색 인덱스 업데이트 Command를 자동으로 실행한다"처럼 후속 Command가 필요하다면 Saga를 선택한다.
+
 ---
 
 ## 실전: 블로그 PostsModule을 CQRS로 리팩토링
 
 이전 챕터에서 만들어 온 블로그 게시글 도메인을 CQRS 패턴으로 리팩토링한다. 기존의 `PostsService` 한 곳에 모여 있던 로직을 Command, Query, Event로 분리하는 것이 목표다.
+
+> **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티(`@Entity()` 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
 
 ### 디렉토리 구조
 
@@ -475,69 +496,41 @@ src/posts/
 
 ### 1. Entity와 Repository
 
+챕터 10에서 만든 TypeORM 엔티티를 그대로 사용한다. 별도의 인메모리 `PostsRepository` 클래스는 더 이상 필요하지 않다. 각 Handler가 TypeORM의 `Repository<Post>`를 직접 주입받아 사용한다.
+
 ```typescript
-// src/posts/entities/post.entity.ts
+// src/posts/entities/post.entity.ts  (챕터 10에서 작성한 코드 그대로)
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+@Entity()
 export class Post {
+  @PrimaryGeneratedColumn()
   id: number;
+
+  @Column()
   title: string;
+
+  @Column('text')
   content: string;
+
+  @Column()
   author: string;
+
+  @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
   updatedAt: Date;
 }
 ```
 
-```typescript
-// src/posts/posts.repository.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Post } from './entities/post.entity';
-
-@Injectable()
-export class PostsRepository {
-  private posts: Post[] = [];
-  private nextId = 1;
-
-  save(postData: Omit<Post, 'id' | 'createdAt' | 'updatedAt'>): Post {
-    const post: Post = {
-      ...postData,
-      id: this.nextId++,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    this.posts.push(post);
-    return post;
-  }
-
-  findAll(): Post[] {
-    return [...this.posts];
-  }
-
-  findById(id: number): Post | undefined {
-    return this.posts.find((post) => post.id === id);
-  }
-
-  update(id: number, data: Partial<Pick<Post, 'title' | 'content'>>): Post {
-    const index = this.posts.findIndex((post) => post.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`게시글을 찾을 수 없습니다: ${id}`);
-    }
-    this.posts[index] = {
-      ...this.posts[index],
-      ...data,
-      updatedAt: new Date(),
-    };
-    return this.posts[index];
-  }
-
-  delete(id: number): void {
-    const index = this.posts.findIndex((post) => post.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`게시글을 찾을 수 없습니다: ${id}`);
-    }
-    this.posts.splice(index, 1);
-  }
-}
-```
+> **Tip**: `@CreateDateColumn()`과 `@UpdateDateColumn()`은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
 
 ### 2. DTO 정의
 
@@ -598,30 +591,33 @@ export class DeletePostCommand {
 ```typescript
 // src/posts/commands/handlers/create-post.handler.ts
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreatePostCommand } from '../impl/create-post.command';
 import { PostCreatedEvent } from '../../events/impl/post-created.event';
-import { PostsRepository } from '../../posts.repository';
 import { Post } from '../../entities/post.entity';
 
 @CommandHandler(CreatePostCommand)
 export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
   constructor(
-    private readonly postsRepository: PostsRepository,
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
     private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: CreatePostCommand): Promise<Post> {
     const { title, content, author } = command;
 
-    // 1. 게시글 저장
-    const post = this.postsRepository.save({ title, content, author });
+    // 1. 엔티티 인스턴스 생성 후 DB에 저장
+    const post = this.postRepository.create({ title, content, author });
+    const savedPost = await this.postRepository.save(post);
 
     // 2. 게시글 생성 이벤트 발행
     this.eventBus.publish(
-      new PostCreatedEvent(post.id, post.title, post.author),
+      new PostCreatedEvent(savedPost.id, savedPost.title, savedPost.author),
     );
 
-    return post;
+    return savedPost;
   }
 }
 ```
@@ -629,28 +625,39 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
 ```typescript
 // src/posts/commands/handlers/update-post.handler.ts
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NotFoundException } from '@nestjs/common';
 import { UpdatePostCommand } from '../impl/update-post.command';
 import { PostUpdatedEvent } from '../../events/impl/post-updated.event';
-import { PostsRepository } from '../../posts.repository';
 import { Post } from '../../entities/post.entity';
 
 @CommandHandler(UpdatePostCommand)
 export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
   constructor(
-    private readonly postsRepository: PostsRepository,
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
     private readonly eventBus: EventBus,
   ) {}
 
   async execute(command: UpdatePostCommand): Promise<Post> {
     const { id, title, content } = command;
 
-    // 1. 게시글 수정
-    const post = this.postsRepository.update(id, { title, content });
+    // 1. 존재 여부 확인
+    const post = await this.postRepository.findOneBy({ id });
+    if (!post) {
+      throw new NotFoundException(`게시글을 찾을 수 없습니다: ${id}`);
+    }
 
-    // 2. 게시글 수정 이벤트 발행
-    this.eventBus.publish(new PostUpdatedEvent(post.id, post.title));
+    // 2. 변경 필드만 업데이트 후 저장
+    if (title !== undefined) post.title = title;
+    if (content !== undefined) post.content = content;
+    const updatedPost = await this.postRepository.save(post);
 
-    return post;
+    // 3. 게시글 수정 이벤트 발행
+    this.eventBus.publish(new PostUpdatedEvent(updatedPost.id, updatedPost.title));
+
+    return updatedPost;
   }
 }
 ```
@@ -658,15 +665,18 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
 ```typescript
 // src/posts/commands/handlers/delete-post.handler.ts
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NotFoundException } from '@nestjs/common';
 import { DeletePostCommand } from '../impl/delete-post.command';
 import { PostDeletedEvent } from '../../events/impl/post-deleted.event';
-import { PostsRepository } from '../../posts.repository';
-import { NotFoundException } from '@nestjs/common';
+import { Post } from '../../entities/post.entity';
 
 @CommandHandler(DeletePostCommand)
 export class DeletePostHandler implements ICommandHandler<DeletePostCommand> {
   constructor(
-    private readonly postsRepository: PostsRepository,
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
     private readonly eventBus: EventBus,
   ) {}
 
@@ -674,13 +684,13 @@ export class DeletePostHandler implements ICommandHandler<DeletePostCommand> {
     const { id } = command;
 
     // 1. 존재 여부 확인
-    const post = this.postsRepository.findById(id);
+    const post = await this.postRepository.findOneBy({ id });
     if (!post) {
       throw new NotFoundException(`게시글을 찾을 수 없습니다: ${id}`);
     }
 
-    // 2. 게시글 삭제
-    this.postsRepository.delete(id);
+    // 2. DB에서 삭제
+    await this.postRepository.remove(post);
 
     // 3. 게시글 삭제 이벤트 발행
     this.eventBus.publish(new PostDeletedEvent(id, post.title));
@@ -711,17 +721,21 @@ export class GetPostListQuery {
 ```typescript
 // src/posts/queries/handlers/get-post.handler.ts
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
-import { GetPostQuery } from '../impl/get-post.query';
-import { PostsRepository } from '../../posts.repository';
-import { Post } from '../../entities/post.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
+import { GetPostQuery } from '../impl/get-post.query';
+import { Post } from '../../entities/post.entity';
 
 @QueryHandler(GetPostQuery)
 export class GetPostHandler implements IQueryHandler<GetPostQuery> {
-  constructor(private readonly postsRepository: PostsRepository) {}
+  constructor(
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+  ) {}
 
   async execute(query: GetPostQuery): Promise<Post> {
-    const post = this.postsRepository.findById(query.id);
+    const post = await this.postRepository.findOneBy({ id: query.id });
 
     if (!post) {
       throw new NotFoundException(`게시글을 찾을 수 없습니다: ${query.id}`);
@@ -735,16 +749,23 @@ export class GetPostHandler implements IQueryHandler<GetPostQuery> {
 ```typescript
 // src/posts/queries/handlers/get-post-list.handler.ts
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { GetPostListQuery } from '../impl/get-post-list.query';
-import { PostsRepository } from '../../posts.repository';
 import { Post } from '../../entities/post.entity';
 
 @QueryHandler(GetPostListQuery)
 export class GetPostListHandler implements IQueryHandler<GetPostListQuery> {
-  constructor(private readonly postsRepository: PostsRepository) {}
+  constructor(
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+  ) {}
 
   async execute(query: GetPostListQuery): Promise<Post[]> {
-    return this.postsRepository.findAll();
+    // 최신 게시글이 먼저 오도록 정렬
+    return this.postRepository.find({
+      order: { createdAt: 'DESC' },
+    });
   }
 }
 ```
@@ -987,8 +1008,9 @@ export class PostsController {
 // src/posts/posts.module.ts
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Post } from './entities/post.entity';
 import { PostsController } from './posts.controller';
-import { PostsRepository } from './posts.repository';
 
 // Command Handlers
 import { CreatePostHandler } from './commands/handlers/create-post.handler';
@@ -1020,10 +1042,12 @@ const QueryHandlers = [GetPostHandler, GetPostListHandler];
 const EventHandlers = [PostCreatedHandler, PostUpdatedHandler, PostDeletedHandler];
 
 @Module({
-  imports: [CqrsModule],
+  imports: [
+    CqrsModule,
+    TypeOrmModule.forFeature([Post]),  // Repository<Post>를 DI 컨테이너에 등록
+  ],
   controllers: [PostsController],
   providers: [
-    PostsRepository,
     ...CommandHandlers,
     ...QueryHandlers,
     ...EventHandlers,
@@ -1033,7 +1057,7 @@ const EventHandlers = [PostCreatedHandler, PostUpdatedHandler, PostDeletedHandle
 export class PostsModule {}
 ```
 
-> **Tip**: Handler 배열을 `CommandHandlers`, `QueryHandlers`, `EventHandlers`로 분리하면 한눈에 어떤 핸들러가 등록되어 있는지 파악하기 쉽다. 핸들러를 추가할 때도 해당 배열에만 추가하면 된다.
+> **Tip**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 `@InjectRepository(Post)`로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
 
 ### 전체 실행 흐름
 
@@ -1048,7 +1072,7 @@ export class PostsModule {}
    │
    ▼
 3. CreatePostHandler.execute()
-   │  - PostsRepository.save()           ← DB 저장
+   │  - postRepository.save()            ← TypeORM DB 저장
    │  - EventBus.publish(PostCreatedEvent) ← 이벤트 발행
    │
    ▼ (동시에 두 갈래로 진행)
@@ -1072,6 +1096,25 @@ export class PostsModule {}
 | 파일 수 | 적음 (Service 1개) | 많음 (Command, Handler, Event 등) |
 | 결합도 | 높음 | 낮음 (이벤트 기반 느슨한 결합) |
 | 적합한 경우 | 간단한 CRUD | 복잡한 비즈니스 로직, 이벤트 기반 처리 |
+
+---
+
+## Event Sourcing과 CQRS의 차이
+
+CQRS를 공부하다 보면 **Event Sourcing**이라는 용어가 자주 함께 등장한다. 둘은 궁합이 잘 맞아 함께 쓰이는 경우가 많지만, **별개의 독립적인 개념**이다.
+
+**CQRS**는 읽기(Query)와 쓰기(Command)의 책임을 분리하는 아키텍처 패턴이다. DB에 현재 상태를 저장하는 방식은 그대로 유지한다. 즉, `post` 테이블에는 게시글의 최신 상태만 남는다.
+
+**Event Sourcing**은 상태 자체를 저장하지 않고, 상태 변화를 일으킨 **이벤트의 이력(event log)을 전부 저장**하는 패턴이다. 현재 상태가 필요하면 처음부터 모든 이벤트를 순서대로 재생(replay)해 재구성한다. "게시글이 생성됨 → 제목이 수정됨 → 삭제됨" 같은 전체 이력이 DB에 그대로 남는다.
+
+| 구분 | CQRS | Event Sourcing |
+|------|------|----------------|
+| 핵심 목표 | 읽기/쓰기 책임 분리 | 상태 변화 이력 전체 보존 |
+| DB에 저장되는 것 | 현재 상태 | 이벤트 이력 (event log) |
+| 함께 사용해야 하나? | 아니다, 독립적으로 사용 가능 | CQRS와 함께 쓰면 시너지가 좋다 |
+| 복잡도 | 중간 | 높음 |
+
+이 챕터에서 구현한 코드는 **순수 CQRS**다. TypeORM Repository에 현재 상태를 저장하며, Event Sourcing을 도입하지 않는다. Event Sourcing은 금융·감사 로그처럼 변경 이력 자체가 중요한 도메인에서 주로 고려한다.
 
 ---
 

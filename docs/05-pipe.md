@@ -7,10 +7,12 @@
 3. [파이프 바인딩 레벨](#3-파이프-바인딩-레벨)
 4. [DTO(Data Transfer Object) 패턴](#4-dtodata-transfer-object-패턴)
 5. [class-validator와 class-transformer](#5-class-validator와-class-transformer)
-6. [ValidationPipe 옵션](#6-validationpipe-옵션)
-7. [커스텀 파이프 만들기](#7-커스텀-파이프-만들기)
-8. [기본 예제](#8-기본-예제)
-9. [블로그 API에 Pipe 적용하기](#9-블로그-api에-pipe-적용하기)
+6. [배열 검증](#6-배열-검증)
+7. [중첩 객체 검증 (Nested Validation)](#7-중첩-객체-검증-nested-validation)
+8. [ValidationPipe 옵션](#8-validationpipe-옵션)
+9. [커스텀 파이프 만들기](#9-커스텀-파이프-만들기)
+10. [기본 예제](#10-기본-예제)
+11. [블로그 API에 Pipe 적용하기](#11-블로그-api에-pipe-적용하기)
 
 ---
 
@@ -255,7 +257,240 @@ export class PaginationQueryDto {
 
 ---
 
-## 6. ValidationPipe 옵션
+## 6. 배열 검증
+
+배열 타입의 필드를 검증할 때는 `@IsArray()`, `@ArrayMinSize()`, `@ArrayMaxSize()` 데코레이터를 조합해 사용한다.
+
+### 주요 배열 관련 데코레이터
+
+| 데코레이터 | 설명 |
+|------------|------|
+| `@IsArray()` | 값이 배열인지 검증 |
+| `@ArrayMinSize(n)` | 배열의 최소 원소 개수 |
+| `@ArrayMaxSize(n)` | 배열의 최대 원소 개수 |
+| `@ArrayNotEmpty()` | 배열이 비어있지 않은지 검증 |
+| `@ArrayUnique()` | 배열 원소가 고유한지 검증 |
+
+### 태그 배열 검증 예제
+
+블로그 게시글 작성 시 태그를 최대 5개까지 붙일 수 있는 경우를 예로 들어보자.
+
+```typescript
+// dto/create-post.dto.ts
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  MinLength,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
+  IsOptional,
+} from 'class-validator';
+
+export class CreatePostDto {
+  @IsString()
+  @IsNotEmpty({ message: '제목은 필수 입력 항목입니다.' })
+  @MaxLength(100, { message: '제목은 100자 이내로 작성해주세요.' })
+  title: string;
+
+  @IsString()
+  @IsNotEmpty({ message: '내용은 필수 입력 항목입니다.' })
+  @MinLength(10, { message: '내용은 최소 10자 이상이어야 합니다.' })
+  content: string;
+
+  @IsOptional()
+  @IsArray({ message: 'tags는 배열이어야 합니다.' })
+  @ArrayMinSize(1, { message: '태그는 최소 1개 이상이어야 합니다.' })
+  @ArrayMaxSize(5, { message: '태그는 최대 5개까지 입력할 수 있습니다.' })
+  @IsString({ each: true, message: '각 태그는 문자열이어야 합니다.' })
+  @MaxLength(20, { each: true, message: '각 태그는 20자 이내여야 합니다.' })
+  tags?: string[];
+}
+```
+
+> **`{ each: true }` 옵션:** `@IsString({ each: true })`처럼 `each: true`를 붙이면 배열의 **각 원소**에 데코레이터를 적용한다. `each: true` 없이 `@IsString()`만 쓰면 배열 자체가 문자열인지를 검사하므로 항상 실패한다.
+
+유효하지 않은 요청 예시:
+
+```json
+// POST /posts
+{ "title": "제목", "content": "충분히 긴 내용입니다.", "tags": ["NestJS", "NestJS", "A", "B", "C", "D"] }
+```
+
+```json
+// 응답 400
+{
+  "statusCode": 400,
+  "message": ["태그는 최대 5개까지 입력할 수 있습니다."],
+  "error": "Bad Request"
+}
+```
+
+---
+
+## 7. 중첩 객체 검증 (Nested Validation)
+
+단순한 스칼라 값이 아니라 **객체 안에 객체**가 중첩된 경우에는 `@ValidateNested()`와 `@Type(() => ...)` 두 데코레이터를 함께 사용해야 한다.
+
+### @Type() 데코레이터가 필요한 이유
+
+`ValidationPipe`가 요청 본문을 받으면 내부적으로 class-transformer를 이용해 일반 JSON 객체를 DTO 클래스 인스턴스로 변환한다. 그런데 **중첩 객체**는 자동으로 변환되지 않는다.
+
+```
+클라이언트 JSON    →    일반 Object    →    DTO 클래스 인스턴스
+{ "tag": { "name": "NestJS" } }
+         ↓ class-transformer
+   CreatePostDto {
+     tag: { name: "NestJS" }   // ← 여전히 일반 Object! TagDto 인스턴스가 아님
+   }
+```
+
+`@Type(() => TagDto)`를 붙여야 class-transformer가 중첩된 객체를 `TagDto` 클래스의 인스턴스로 변환한다. 클래스 인스턴스로 변환되어야 비로소 `TagDto`에 정의된 데코레이터(`@IsString()` 등)가 동작한다.
+
+> **핵심:** `@ValidateNested()`는 "이 필드 안을 검증하라"는 지시이고, `@Type()`은 "이 필드를 어떤 클래스로 변환할지"를 알려준다. 둘 중 하나라도 빠지면 중첩 검증이 동작하지 않는다.
+
+### 예제 1: 태그 객체 배열 검증
+
+태그에 이름과 색상 정보를 함께 저장하는 경우다.
+
+```typescript
+// src/posts/dto/tag.dto.ts
+import { IsString, IsNotEmpty, MaxLength, IsHexColor, IsOptional } from 'class-validator';
+
+export class TagDto {
+  @IsString()
+  @IsNotEmpty({ message: '태그 이름은 필수입니다.' })
+  @MaxLength(20, { message: '태그 이름은 20자 이내여야 합니다.' })
+  name: string;
+
+  @IsOptional()
+  @IsHexColor({ message: '색상은 HEX 코드 형식이어야 합니다. (예: #FF5733)' })
+  color?: string;
+}
+```
+
+```typescript
+// src/posts/dto/create-post.dto.ts
+import {
+  IsString,
+  IsNotEmpty,
+  MaxLength,
+  MinLength,
+  IsArray,
+  ArrayMaxSize,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { TagDto } from './tag.dto';
+
+export class CreatePostDto {
+  @IsString()
+  @IsNotEmpty({ message: '제목은 필수 입력 항목입니다.' })
+  @MaxLength(100, { message: '제목은 100자 이내로 작성해주세요.' })
+  title: string;
+
+  @IsString()
+  @IsNotEmpty({ message: '내용은 필수 입력 항목입니다.' })
+  @MinLength(10, { message: '내용은 최소 10자 이상이어야 합니다.' })
+  content: string;
+
+  @IsOptional()
+  @IsArray({ message: 'tags는 배열이어야 합니다.' })
+  @ArrayMaxSize(5, { message: '태그는 최대 5개까지 입력할 수 있습니다.' })
+  @ValidateNested({ each: true }) // 배열의 각 원소(TagDto)를 검증
+  @Type(() => TagDto)             // 각 원소를 TagDto 인스턴스로 변환
+  tags?: TagDto[];
+}
+```
+
+유효한 요청:
+
+```json
+// POST /posts
+{
+  "title": "NestJS 파이프 정리",
+  "content": "NestJS의 Pipe는 변환과 유효성 검사를 담당합니다.",
+  "tags": [
+    { "name": "NestJS", "color": "#E0234E" },
+    { "name": "백엔드" }
+  ]
+}
+```
+
+유효하지 않은 요청 (태그 이름 누락, 잘못된 색상 코드):
+
+```json
+// POST /posts
+{
+  "title": "NestJS 파이프 정리",
+  "content": "NestJS의 Pipe는 변환과 유효성 검사를 담당합니다.",
+  "tags": [
+    { "name": "", "color": "빨강" }
+  ]
+}
+```
+
+```json
+// 응답 400
+{
+  "statusCode": 400,
+  "message": [
+    "tags.0.태그 이름은 필수입니다.",
+    "tags.0.색상은 HEX 코드 형식이어야 합니다. (예: #FF5733)"
+  ],
+  "error": "Bad Request"
+}
+```
+
+### 예제 2: 단일 중첩 객체 검증
+
+게시글에 위치 정보(주소)를 포함하는 경우다.
+
+```typescript
+// src/posts/dto/location.dto.ts
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from 'class-validator';
+
+export class LocationDto {
+  @IsString()
+  @IsNotEmpty({ message: '시/도는 필수입니다.' })
+  @MaxLength(20)
+  city: string;
+
+  @IsString()
+  @IsNotEmpty({ message: '구/군은 필수입니다.' })
+  @MaxLength(20)
+  district: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  detail?: string;
+}
+```
+
+```typescript
+// src/posts/dto/create-post.dto.ts 에 location 필드 추가
+import { ValidateNested, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { LocationDto } from './location.dto';
+
+export class CreatePostDto {
+  // ... title, content 필드 생략
+
+  @IsOptional()
+  @ValidateNested()        // 중첩 객체 내부를 검증
+  @Type(() => LocationDto) // LocationDto 인스턴스로 변환 (없으면 검증 안 됨!)
+  location?: LocationDto;
+}
+```
+
+> **자주 하는 실수:** `@Type(() => LocationDto)`를 빠뜨리면 `location` 필드가 일반 Object로 남아서 `@ValidateNested()`가 있어도 내부 필드가 **전혀 검증되지 않는다**. 반드시 두 데코레이터를 함께 사용해야 한다.
+
+---
+
+## 8. ValidationPipe 옵션
 
 `ValidationPipe`는 다양한 옵션을 통해 동작을 세밀하게 제어할 수 있다.
 
@@ -324,7 +559,7 @@ create(@Body() dto: CreatePostDto) {
 
 ---
 
-## 7. 커스텀 파이프 만들기
+## 9. 커스텀 파이프 만들기
 
 `PipeTransform` 인터페이스를 구현하여 커스텀 파이프를 만들 수 있다.
 
@@ -415,7 +650,7 @@ export class CustomParseIntPipe implements PipeTransform<string, number> {
 
 ---
 
-## 8. 기본 예제
+## 10. 기본 예제
 
 개념을 코드로 확인하는 간단한 예제 모음이다.
 
@@ -549,11 +784,11 @@ create(@Body() createPostDto: CreatePostDto) {
 
 ---
 
-## 9. 블로그 API에 Pipe 적용하기
+## 11. 블로그 API에 Pipe 적용하기
 
 이전 챕터에서 만든 블로그 API(Users, Posts, Comments)에 DTO 유효성 검사를 추가한다. 이 단계를 마치면 **잘못된 데이터가 들어오면 자동으로 에러가 반환**된다.
 
-### 9-1. 패키지 설치
+### 11-1. 패키지 설치
 
 ```bash
 npm install class-validator class-transformer
@@ -562,7 +797,7 @@ npm install @nestjs/mapped-types
 
 > **@nestjs/mapped-types**는 `PartialType`, `PickType`, `OmitType` 등 DTO 변환 유틸리티를 제공하는 패키지다. `UpdatePostDto`를 만들 때 사용한다.
 
-### 9-2. ValidationPipe 글로벌 적용
+### 11-2. ValidationPipe 글로벌 적용
 
 가장 먼저 `main.ts`에 글로벌 `ValidationPipe`를 설정한다. 이렇게 하면 모든 엔드포인트에서 자동으로 유효성 검사가 적용된다.
 
@@ -593,7 +828,7 @@ bootstrap();
 > - `forbidNonWhitelisted`: 허용되지 않은 필드를 보내면 즉시 에러로 알려준다. 개발 단계에서 실수를 빠르게 발견할 수 있다.
 > - `transform`: URL 파라미터 `"123"`이 자동으로 숫자 `123`으로 변환된다. `@Type()` 데코레이터와 함께 쿼리 파라미터도 자동 변환된다.
 
-### 9-3. CreateUserDto
+### 11-3. CreateUserDto
 
 사용자 생성 시 이메일, 비밀번호, 이름을 검증한다.
 

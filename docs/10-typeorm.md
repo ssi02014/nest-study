@@ -24,6 +24,10 @@
 13. [페이지네이션 구현](#13-페이지네이션-구현)
 14. [정리](#14-정리)
 
+### 4단계: 심화 주제
+15. [PostgreSQL/MySQL 전환 방법](#15-postgresqlmysql-전환-방법)
+16. [N+1 문제와 해결법](#16-n1-문제와-해결법)
+
 ---
 
 # 1단계: 개념 학습
@@ -2005,9 +2009,9 @@ take = 10                    → 11번째~20번째 레코드를 가져옴
 async findAll(page = 1, limit = 10) {
   const [data, total] = await this.postsRepository.findAndCount({
     relations: ['author'],
-    skip: (page - 1) * limit,
-    take: limit,
-    order: { createdAt: 'DESC' },
+    skip: (page - 1) * limit,          // 건너뛸 개수: (페이지-1) × 페이지크기
+    take: limit,                        // 가져올 개수
+    order: { createdAt: 'DESC' },       // 최신순 정렬 (오래된 순은 'ASC')
   });
 
   return {
@@ -2113,13 +2117,16 @@ curl http://localhost:3000/posts/1
 | 관계 | `@OneToMany` / `@ManyToOne` (1:N), `@OneToOne` (1:1), `@ManyToMany` (N:M) |
 | 마이그레이션 | 프로덕션에서는 `synchronize: false` + 마이그레이션으로 스키마 관리 |
 | 트랜잭션 | `DataSource.transaction()` 또는 `QueryRunner`로 원자적 작업 보장 |
-| 페이지네이션 | `findAndCount()` + `skip` / `take`로 구현 |
+| 페이지네이션 | `findAndCount()` + `skip` / `take` + `order`로 구현 |
+| DB 전환 | Entity 코드 변경 없이 설정(`type`, 패키지)만 교체하면 됨 |
+| N+1 문제 | `relations` 옵션 또는 `leftJoinAndSelect`로 해결 |
 
 ### 블로그 API 현재 상태
 
 ```
 ✅ 챕터 1~9: 모듈, 컨트롤러, 서비스, 미들웨어, 파이프, 가드, 인터셉터, 예외 필터, 커스텀 데코레이터
 ✅ 챕터 10: TypeORM + SQLite 연동 → 데이터가 실제 DB에 저장됨!
+           + PostgreSQL 전환 전략 / N+1 문제 해결 패턴
 
 앞으로:
 📋 챕터 11: Configuration (환경 변수 관리)
@@ -2134,5 +2141,271 @@ curl http://localhost:3000/posts/1
 3. 서비스에서 주입      →  @InjectRepository(Entity) private repo: Repository<Entity>
 4. CRUD 구현           →  repo.create(), repo.save(), repo.find(), repo.delete()
 5. 관계 조회           →  find({ relations: ['관계명'] })
-6. 페이지네이션        →  findAndCount({ skip, take })
+6. 페이지네이션        →  findAndCount({ skip, take, order: { createdAt: 'DESC' } })
+7. N+1 해결            →  relations 옵션 또는 leftJoinAndSelect
+8. DB 전환             →  type + 패키지만 교체 (SQLite → PostgreSQL)
 ```
+
+---
+
+# 4단계: 심화 주제
+
+---
+
+## 15. PostgreSQL/MySQL 전환 방법
+
+학습과 개발 초기에는 SQLite로 빠르게 시작하고, 운영 환경(프로덕션)에서는 PostgreSQL이나 MySQL을 사용하는 전략이 일반적이다. TypeORM의 큰 장점 중 하나는 **Entity 코드를 변경하지 않고 설정만 바꿔서 DB를 전환**할 수 있다는 것이다.
+
+### 패키지 차이
+
+| 구분 | SQLite | PostgreSQL | MySQL |
+|------|--------|------------|-------|
+| **드라이버 패키지** | `better-sqlite3` | `pg` | `mysql2` |
+| **TypeORM type 값** | `'better-sqlite3'` | `'postgres'` | `'mysql'` |
+| **별도 DB 서버** | 불필요 (파일 기반) | 필요 | 필요 |
+| **운영 환경 적합성** | 낮음 | 매우 높음 | 높음 |
+
+```bash
+# SQLite → PostgreSQL로 전환 시 패키지 교체
+npm uninstall better-sqlite3
+npm install pg
+```
+
+### SQLite 설정 vs PostgreSQL 설정 비교
+
+```typescript
+// ❌ SQLite 설정 (개발용)
+TypeOrmModule.forRoot({
+  type: 'better-sqlite3',
+  database: 'database.sqlite',   // 파일 경로
+  autoLoadEntities: true,
+  synchronize: true,
+})
+
+// ✅ PostgreSQL 설정 (운영용)
+TypeOrmModule.forRoot({
+  type: 'postgres',
+  host: 'localhost',             // DB 서버 호스트
+  port: 5432,                    // PostgreSQL 기본 포트
+  username: 'postgres',          // DB 사용자명
+  password: 'password',          // DB 비밀번호
+  database: 'blog_db',           // DB 이름
+  autoLoadEntities: true,
+  synchronize: false,            // 운영에서는 반드시 false + 마이그레이션 사용
+})
+```
+
+### 환경 변수로 개발/운영 분리 (권장 패턴)
+
+```typescript
+// src/app.module.ts
+TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => {
+    const isProduction = config.get('NODE_ENV') === 'production';
+
+    if (isProduction) {
+      // 운영: PostgreSQL
+      return {
+        type: 'postgres',
+        host: config.get('DB_HOST'),
+        port: config.get<number>('DB_PORT', 5432),
+        username: config.get('DB_USERNAME'),
+        password: config.get('DB_PASSWORD'),
+        database: config.get('DB_DATABASE'),
+        autoLoadEntities: true,
+        synchronize: false,
+      };
+    } else {
+      // 개발: SQLite
+      return {
+        type: 'better-sqlite3',
+        database: 'database.sqlite',
+        autoLoadEntities: true,
+        synchronize: true,
+      };
+    }
+  },
+}),
+```
+
+### 주요 차이점
+
+TypeORM이 대부분의 차이를 추상화해주지만, 몇 가지는 직접 대응해야 한다.
+
+| 항목 | SQLite | PostgreSQL / MySQL |
+|------|--------|--------------------|
+| **대소문자 무시 검색** | `LIKE` (ASCII는 기본 무시) | PostgreSQL: `ILIKE` / MySQL: `LIKE` |
+| **Enum 컬럼 타입** | `'varchar'`로 대체 | `'enum'` 직접 사용 가능 |
+| **JSON 컬럼** | `'simple-json'` (문자열 직렬화) | `'jsonb'` (PostgreSQL), `'json'` (MySQL) |
+| **Boolean 저장 방식** | `0` / `1` (정수) | `true` / `false` |
+| **동시 접속 수** | 사실상 1개 (파일 잠금) | 다수 동시 접속 지원 |
+
+#### LIKE vs ILIKE 코드 예시
+
+```typescript
+// SQLite / MySQL: LIKE (대소문자 무시 여부는 DB·설정에 따라 다름)
+.where('post.title LIKE :keyword', { keyword: `%${keyword}%` })
+
+// PostgreSQL: ILIKE (대소문자를 항상 무시)
+.where('post.title ILIKE :keyword', { keyword: `%${keyword}%` })
+```
+
+> **Tip - 환경별 검색 쿼리 분기**
+> 운영(PostgreSQL)과 개발(SQLite) 모두를 지원해야 한다면, `process.env.NODE_ENV`에 따라 `LIKE`/`ILIKE`를 분기하거나, 처음부터 PostgreSQL에서도 `LIKE`만 사용하고 대소문자 처리는 애플리케이션 레이어에서 담당하는 방식을 택할 수 있다.
+
+### "개발은 SQLite, 운영은 PostgreSQL" 전략
+
+```
+[ 권장 워크플로우 ]
+
+개발 단계
+  └─ SQLite 사용
+       ├─ 별도 DB 서버 설치 불필요
+       ├─ synchronize: true → Entity 변경이 즉시 반영
+       └─ 빠른 피드백 사이클
+
+스테이징 / 운영 단계
+  └─ PostgreSQL 사용
+       ├─ 실제 서비스와 동일한 환경
+       ├─ synchronize: false + 마이그레이션
+       └─ 동시 접속, 트랜잭션 격리 등 안정성 확보
+```
+
+> **주의 - SQLite와 PostgreSQL 동작 차이 주의**
+> 개발(SQLite)에서 잘 돌아가도 운영(PostgreSQL)에서 문제가 생길 수 있다. 특히 Enum 타입 컬럼, JSON 컬럼, 대소문자 검색을 사용한다면 스테이징 환경에서 PostgreSQL로 반드시 검증하자.
+
+---
+
+## 16. N+1 문제와 해결법
+
+### N+1 문제란?
+
+N+1 문제는 ORM에서 가장 흔하게 만나는 성능 문제다. **1번의 쿼리로 목록을 가져온 뒤, 각 항목의 관계 데이터를 가져오기 위해 N번의 추가 쿼리가 발생**하는 상황이다.
+
+```
+[ 예시: 게시글 10개와 각 댓글을 조회하는 경우 ]
+
+N+1 문제가 있을 때:
+  쿼리 1: SELECT * FROM posts LIMIT 10          → 게시글 10개 조회
+  쿼리 2: SELECT * FROM comments WHERE postId=1 → 1번 게시글의 댓글
+  쿼리 3: SELECT * FROM comments WHERE postId=2 → 2번 게시글의 댓글
+  쿼리 4: SELECT * FROM comments WHERE postId=3 → 3번 게시글의 댓글
+  ...
+  쿼리 11: SELECT * FROM comments WHERE postId=10
+  → 총 11번 쿼리 실행! (게시글이 100개면 101번)
+
+N+1 문제를 해결했을 때:
+  쿼리 1: SELECT * FROM posts LIMIT 10
+  쿼리 2: SELECT * FROM comments WHERE postId IN (1,2,3,...,10)
+  → 총 2번 쿼리로 끝!
+```
+
+N+1 문제는 데이터가 적을 때는 잘 드러나지 않다가, **데이터가 늘어날수록 응답 시간이 급격히 증가**하는 형태로 나타난다.
+
+### 해결법 1: relations 옵션 사용
+
+`find()` / `findOne()` / `findAndCount()`에 `relations` 옵션을 지정하면 TypeORM이 JOIN 쿼리를 생성해 한 번에 데이터를 가져온다.
+
+```typescript
+// N+1 문제가 있는 코드
+async findAll(): Promise<Post[]> {
+  const posts = await this.postsRepository.find();
+  // posts 배열을 순회하며 post.comments에 접근하면 N번 추가 쿼리 발생!
+  return posts;
+}
+
+// relations 옵션으로 해결
+async findAll(): Promise<Post[]> {
+  return this.postsRepository.find({
+    relations: ['author', 'comments'],  // JOIN으로 한 번에 조회
+    order: { createdAt: 'DESC' },
+  });
+}
+
+// 중첩 관계도 한 번에 (댓글의 작성자까지)
+async findOne(id: number): Promise<Post> {
+  return this.postsRepository.findOne({
+    where: { id },
+    relations: ['author', 'comments', 'comments.author'],
+  });
+}
+```
+
+### 해결법 2: QueryBuilder + leftJoinAndSelect
+
+복잡한 조건이 있거나 성능을 더 세밀하게 제어하고 싶을 때는 QueryBuilder를 사용한다.
+
+```typescript
+// QueryBuilder로 N+1 해결
+async findAllWithComments(): Promise<Post[]> {
+  return this.postsRepository
+    .createQueryBuilder('post')
+    .leftJoinAndSelect('post.author', 'author')        // author JOIN
+    .leftJoinAndSelect('post.comments', 'comment')     // comments JOIN
+    .leftJoinAndSelect('comment.author', 'commentAuthor') // 댓글 작성자 JOIN
+    .orderBy('post.createdAt', 'DESC')
+    .addOrderBy('comment.createdAt', 'ASC')            // 댓글은 오래된 순
+    .getMany();
+}
+
+// 조건 + 페이지네이션 + 관계를 모두 한 번에
+async findAndCountWithRelations(page = 1, limit = 10) {
+  const [data, total] = await this.postsRepository
+    .createQueryBuilder('post')
+    .leftJoinAndSelect('post.author', 'author')
+    .leftJoinAndSelect('post.comments', 'comment')
+    .orderBy('post.createdAt', 'DESC')
+    .skip((page - 1) * limit)
+    .take(limit)
+    .getManyAndCount();
+
+  return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+```
+
+> **Tip - relations vs leftJoinAndSelect 선택 기준**
+> 조건이 단순하고 관계 이름만 지정하면 될 때는 `relations` 옵션이 간결하다. WHERE 조건을 JOIN 대상에 걸거나, 정렬·집계가 복잡할 때는 `QueryBuilder`를 사용한다.
+
+### Eager Loading vs Lazy Loading
+
+TypeORM은 관계 데이터를 로드하는 두 가지 방식을 제공한다.
+
+| 구분 | Eager Loading | Lazy Loading |
+|------|---------------|--------------|
+| **로드 시점** | 항상 자동으로 함께 조회 | 실제로 접근할 때 쿼리 실행 |
+| **설정 방법** | `@OneToMany(..., { eager: true })` | 관계 타입을 `Promise<T[]>`로 선언 |
+| **추가 설정** | 없음 | `TypeOrmModule.forRoot`에 별도 설정 필요 |
+| **쿼리 수** | 적음 (JOIN 사용) | 많아질 수 있음 (N+1 위험) |
+| **NestJS 권장** | 상황에 따라 사용 | 비권장 (복잡성 증가) |
+
+```typescript
+// Eager Loading - find()만 해도 항상 author가 함께 조회됨
+@Entity('posts')
+export class Post {
+  // ...
+
+  @ManyToOne(() => User, (user) => user.posts, { eager: true })
+  author: User;  // find() 시 항상 자동 로드
+}
+
+// 사용 예
+const posts = await this.postsRepository.find(); // author가 자동 포함됨
+
+// Lazy Loading - 접근 시점에 쿼리 실행 (Promise로 감쌈)
+@Entity('posts')
+export class Post {
+  // ...
+
+  @ManyToOne(() => User, (user) => user.posts)
+  author: Promise<User>;  // await post.author 시점에 쿼리 실행
+}
+
+// 사용 예
+const post = await this.postsRepository.findOne({ where: { id: 1 } });
+const author = await post.author; // 이 시점에 SELECT 쿼리 실행
+```
+
+> **실무 권장: Eager Loading은 신중하게 사용하자**
+> `eager: true`를 남발하면, 간단한 목록 조회에도 불필요한 JOIN이 발생해 오히려 성능이 나빠질 수 있다. 대부분의 경우 **필요할 때만 `relations` 옵션이나 `leftJoinAndSelect`로 명시적으로 로드**하는 방식이 더 예측 가능하고 관리하기 쉽다.

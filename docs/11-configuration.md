@@ -24,6 +24,8 @@
   - [main.ts에서 ConfigService 활용](#maints에서-configservice-활용)
   - [최종 AppModule 통합](#최종-appmodule-통합)
   - [완성된 디렉토리 구조](#완성된-디렉토리-구조)
+  - [환경별 설정 파일 분리 전략](#환경별-설정-파일-분리-전략)
+  - [민감 정보 관리 팁](#민감-정보-관리-팁)
 
 ---
 
@@ -757,6 +759,130 @@ export class AppModule {}
 │   └── main.ts                       # ConfigService로 포트 설정
 └── ...
 ```
+
+---
+
+## 환경별 설정 파일 분리 전략
+
+실제 프로젝트에서는 개발(development), 운영(production), 테스트(test) 환경마다 설정값이 다르다. `.env` 파일을 환경별로 분리하면 이를 깔끔하게 관리할 수 있다.
+
+### 환경별 .env 파일 역할
+
+| 파일 | 역할 |
+|------|------|
+| `.env` | 로컬 개발 기본값. `NODE_ENV`가 명시되지 않을 때 fallback으로 사용된다 |
+| `.env.development` | 개발 서버 전용 설정 (로컬 DB 경로, 디버그 모드 등) |
+| `.env.production` | 운영 서버 전용 설정 (실제 DB 접속 정보, 강화된 보안 값 등) |
+| `.env.test` | 테스트 실행 전용 설정 (인메모리 DB, 짧은 토큰 만료 시간 등) |
+
+### NODE_ENV에 따라 파일을 자동으로 선택하기
+
+`ConfigModule.forRoot()`의 `envFilePath`에 템플릿 문자열을 사용하면 `NODE_ENV` 값에 맞는 파일을 자동으로 읽는다.
+
+```typescript
+// src/app.module.ts
+ConfigModule.forRoot({
+  isGlobal: true,
+  envFilePath: `.env.${process.env.NODE_ENV}`, // ex) .env.development, .env.production
+  load: [databaseConfig, jwtConfig],
+  validationSchema: envValidationSchema,
+}),
+```
+
+> **Tip**: `envFilePath`에 배열을 전달하면 앞에 오는 파일이 우선순위가 높다. 환경별 파일을 앞에, 공통 `.env`를 뒤에 두면 환경별 값이 공통 값을 덮어쓴다.
+>
+> ```typescript
+> envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
+> ```
+
+### cross-env로 NODE_ENV 통일하기
+
+Windows와 macOS/Linux는 환경 변수를 설정하는 문법이 다르다. `cross-env` 패키지를 사용하면 OS에 관계없이 동일한 스크립트를 쓸 수 있다.
+
+```bash
+npm install --save-dev cross-env
+```
+
+```json
+// package.json
+{
+  "scripts": {
+    "start:dev": "cross-env NODE_ENV=development nest start --watch",
+    "start:prod": "cross-env NODE_ENV=production node dist/main",
+    "test": "cross-env NODE_ENV=test jest"
+  }
+}
+```
+
+이제 `npm run start:dev`를 실행하면 `NODE_ENV=development`가 설정되고, `ConfigModule`이 `.env.development` 파일을 자동으로 읽는다.
+
+### .gitignore 설정
+
+모든 `.env` 파일에는 민감한 정보가 포함될 수 있으므로 Git에서 반드시 제외한다. `.env.example`만 커밋하여 팀원에게 필요한 변수 목록을 전달한다.
+
+```bash
+# .gitignore
+.env
+.env.development
+.env.production
+.env.test
+# .env.example 은 제외하지 않는다 — 팀원을 위해 커밋한다
+```
+
+```bash
+# .env.example - 이 파일은 Git에 커밋한다
+# 사용법: cp .env.example .env.development 후 값을 채운다
+
+PORT=3000
+DATABASE_PATH=./blog.sqlite
+JWT_SECRET=           # 10자 이상의 안전한 값을 입력할 것
+JWT_ACCESS_EXPIRATION=1h
+```
+
+---
+
+## 민감 정보 관리 팁
+
+설정 관리에서 가장 중요한 원칙은 **민감한 정보를 코드에 하드코딩하지 않는 것**이다.
+
+### 절대 코드에 하드코딩하지 말아야 할 값들
+
+```typescript
+// 잘못된 예 — 절대 이렇게 하지 말 것
+@Module({
+  imports: [
+    JwtModule.register({
+      secret: 'my-hardcoded-secret', // 위험! Git에 노출된다
+    }),
+    TypeOrmModule.forRoot({
+      password: 'db-password-1234',  // 위험! 공격자가 바로 확인 가능
+    }),
+  ],
+})
+```
+
+| 민감 정보 예시 | 올바른 관리 방법 |
+|----------------|-----------------|
+| DB 비밀번호 | `.env`에 저장, `ConfigService`로 읽기 |
+| JWT 시크릿 키 | `.env`에 저장, 충분한 길이(32자 이상) 권장 |
+| API 키 / 토큰 | `.env`에 저장, `.gitignore`로 제외 |
+| OAuth 클라이언트 시크릿 | `.env`에 저장 또는 시크릿 매니저 사용 |
+
+### 프로덕션 환경 권고 사항
+
+개발 환경에서는 `.env` 파일로 충분하지만, 실제 운영 서버에서는 더 강화된 방법을 사용하는 것이 좋다.
+
+1. **시스템 환경 변수 직접 주입**: CI/CD 파이프라인(GitHub Actions, GitLab CI 등)이나 Docker Compose의 `environment` 블록에서 직접 값을 주입한다. 이 경우 `.env` 파일 없이도 동작하도록 `ignoreEnvFile: true` 옵션을 함께 사용한다.
+
+   ```typescript
+   ConfigModule.forRoot({
+     ignoreEnvFile: process.env.NODE_ENV === 'production', // 운영에서는 .env 파일을 읽지 않는다
+   }),
+   ```
+
+2. **시크릿 매니저 사용**: AWS Secrets Manager, GCP Secret Manager, HashiCorp Vault 같은 전용 서비스를 활용하면 비밀 값의 접근 권한을 세밀하게 제어하고, 값 변경 이력을 추적하며, 자동 교체(rotation)까지 지원한다.
+
+> **핵심 원칙**: 비밀 키나 비밀번호가 Git 히스토리에 한 번이라도 올라갔다면, 그 값은 이미 노출된 것으로 간주하고 즉시 교체해야 한다. `git revert`나 `git reset`으로 커밋을 되돌려도 원격 저장소 히스토리에서 완전히 삭제하기는 매우 어렵다.
 
 ---
 

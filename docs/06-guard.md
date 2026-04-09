@@ -9,6 +9,8 @@
 5. [Reflector와 SetMetadata를 활용한 역할 기반 접근 제어(RBAC)](#5-reflector와-setmetadata를-활용한-역할-기반-접근-제어rbac)
 6. [기본 예제: AuthGuard와 RolesGuard](#6-기본-예제-authguard와-rolesguard)
 7. [블로그 API 적용: 인증과 권한 시스템 구축](#7-블로그-api-적용-인증과-권한-시스템-구축)
+8. [여러 Guard 동시 적용 시 실행 순서](#8-여러-guard-동시-적용-시-실행-순서)
+9. [비동기 Guard](#9-비동기-guard)
 
 ---
 
@@ -1023,6 +1025,95 @@ src/
 └── comments/
     └── comments.controller.ts             # @Public(), @Roles() 적용
 ```
+
+---
+
+## 8. 여러 Guard 동시 적용 시 실행 순서
+
+`@UseGuards()`에 여러 Guard를 전달하면 **왼쪽에서 오른쪽** 순서로 순차 실행된다.
+
+```typescript
+// src/posts/posts.controller.ts
+@UseGuards(JwtAuthGuard, RolesGuard) // JwtAuthGuard 먼저, 그 다음 RolesGuard
+@Get('admin')
+findAll() { ... }
+```
+
+### 실행 흐름
+
+```
+Request
+   │
+   ▼
+JwtAuthGuard.canActivate()   ← 1번째 실행
+   │ true 반환
+   ▼
+RolesGuard.canActivate()     ← 2번째 실행
+   │ true 반환
+   ▼
+Controller Handler 실행
+```
+
+> **중요:** 앞의 Guard가 `false`를 반환하거나 예외를 throw하면 **뒤의 Guard는 실행되지 않는다.** 따라서 인증(AuthGuard)을 인가(RolesGuard)보다 항상 앞에 배치해야 한다. 인증되지 않은 사용자는 역할 검사까지 갈 필요가 없기 때문이다.
+
+### 글로벌 Guard와 로컬 Guard 순서
+
+```
+APP_GUARD (글로벌) → @UseGuards() (컨트롤러/메서드 레벨) 순서로 실행
+```
+
+```typescript
+// 글로벌로 JwtAuthGuard 등록
+providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }]
+
+// 컨트롤러에서 추가로 RolesGuard 적용
+@UseGuards(RolesGuard) // 글로벌 JwtAuthGuard 이후에 실행
+@Controller('posts')
+export class PostsController { ... }
+```
+
+---
+
+## 9. 비동기 Guard
+
+Guard는 `async/await`를 지원한다. DB를 조회하거나 외부 서비스를 호출하는 경우 유용하다.
+
+```typescript
+// src/common/guards/db-permission.guard.ts
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
+
+@Injectable()
+export class DbPermissionGuard implements CanActivate {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const userId = request.user?.id;
+
+    if (!userId) return false;
+
+    // DB에서 유저의 최신 권한을 조회
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'role', 'isActive'],
+    });
+
+    if (!user || !user.isActive) return false;
+
+    // request에 최신 유저 정보 저장
+    request.user = user;
+    return true;
+  }
+}
+```
+
+> **언제 쓰는가?** JWT 토큰에는 발급 당시의 역할(role)이 저장된다. 만약 관리자가 특정 유저의 권한을 박탈했어도 토큰이 만료되기 전까지는 그 권한으로 요청할 수 있다. DB를 직접 조회하는 Guard를 사용하면 이런 문제를 방지할 수 있다. 단, 매 요청마다 DB 쿼리가 발생하므로 성능에 주의하자.
 
 ---
 

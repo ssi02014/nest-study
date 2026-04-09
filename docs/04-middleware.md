@@ -12,6 +12,8 @@
 8. [여러 미들웨어 체이닝](#8-여러-미들웨어-체이닝)
 9. [기본 예제](#9-기본-예제)
 10. [블로그 API에 적용하기](#10-블로그-api에-적용하기)
+11. [CORS 설정](#11-cors-설정)
+12. [에러 발생 시 미들웨어 동작](#12-에러-발생-시-미들웨어-동작)
 
 ---
 
@@ -677,6 +679,142 @@ src/
 
 ---
 
+## 11. CORS 설정
+
+CORS(Cross-Origin Resource Sharing)는 **브라우저가 다른 출처(origin)의 서버에 HTTP 요청을 보낼 때 적용되는 보안 정책**이다. 예를 들어 `http://localhost:3000`에서 실행 중인 프론트엔드가 `http://localhost:3001`의 API를 호출하면, 출처가 달라 브라우저가 요청을 차단한다. 서버에서 CORS를 허용해줘야 브라우저가 정상적으로 응답을 받을 수 있다.
+
+### CORS 활성화 방법
+
+#### 방법 1: 기본 활성화 (app.enableCors())
+
+`main.ts`에서 `app.enableCors()`를 호출하면 모든 출처에서의 요청을 허용한다.
+
+```typescript
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // 모든 출처 허용 (개발 초기에 빠르게 확인할 때 유용)
+  app.enableCors();
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+#### 방법 2: 세부 설정으로 활성화
+
+출처, 인증 정보 전송 여부, 허용 메서드 등을 세밀하게 제어할 수 있다.
+
+```typescript
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors({
+    origin: 'http://localhost:3001',   // 허용할 프론트엔드 출처
+    credentials: true,                  // 쿠키/인증 헤더 전송 허용
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+> **Tip**: `credentials: true`를 사용할 때는 `origin`을 `'*'`(와일드카드)로 설정할 수 없다. 반드시 명시적인 출처를 지정해야 한다. 쿠키 기반 인증을 사용한다면 이 설정이 필수다.
+
+### 개발 환경과 운영 환경에서의 CORS 설정 차이
+
+개발 중에는 여러 출처에서 테스트해야 할 수 있지만, 운영 환경에서는 허용 출처를 엄격하게 제한해야 한다. 환경 변수를 활용해 환경별로 다른 CORS 설정을 적용하는 것이 좋다.
+
+```typescript
+// src/main.ts
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  app.enableCors({
+    // 개발: 로컬 프론트엔드 허용 / 운영: 실제 도메인만 허용
+    origin: isProduction
+      ? 'https://my-blog.com'
+      : 'http://localhost:3001',
+    credentials: true,
+  });
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+> **Tip**: 운영 환경에서 `origin: '*'`(전체 허용)은 보안 위협이 될 수 있으므로 피하자. 허용할 도메인 목록을 배열로 명시하거나(`origin: ['https://my-blog.com', 'https://www.my-blog.com']`), 정규식으로 패턴을 지정하는 방법도 있다.
+
+---
+
+## 12. 에러 발생 시 미들웨어 동작
+
+미들웨어 실행 중 에러가 발생했을 때의 처리 방법을 알아두자.
+
+### next(err)로 에러 전달
+
+Express 스타일의 방법으로, `next(err)`에 에러 객체를 전달하면 NestJS의 **Exception Filter**로 제어가 넘어간다.
+
+```typescript
+// src/common/middleware/safe-logger.middleware.ts
+import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+
+@Injectable()
+export class SafeLoggerMiddleware implements NestMiddleware {
+  use(req: Request, res: Response, next: NextFunction) {
+    try {
+      // 미들웨어 로직 실행
+      console.log(`[LOG] ${req.method} ${req.originalUrl}`);
+      next();
+    } catch (err) {
+      // 에러 발생 시 next(err)로 전달 → Exception Filter가 처리
+      next(err);
+    }
+  }
+}
+```
+
+### throw로 NestJS 예외 던지기
+
+NestJS에서 권장하는 방법으로, `HttpException` 또는 그 하위 클래스를 `throw`하면 Exception Filter가 자동으로 잡아서 처리한다.
+
+```typescript
+// src/common/middleware/auth-check.middleware.ts
+import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+
+@Injectable()
+export class AuthCheckMiddleware implements NestMiddleware {
+  use(req: Request, res: Response, next: NextFunction) {
+    const token = req.headers['authorization'];
+
+    if (!token) {
+      // NestJS 예외를 throw → Exception Filter가 401 응답을 자동으로 생성
+      throw new UnauthorizedException('인증 토큰이 없습니다.');
+    }
+
+    next();
+  }
+}
+```
+
+> **Tip**: `next(err)` 방식과 `throw` 방식 모두 Exception Filter로 전달된다. NestJS 스타일에 맞추려면 `HttpException` 계열의 예외를 `throw`하는 것이 더 권장된다. 두 방식 모두 `next()`를 직접 호출하지 않으므로 요청이 라우트 핸들러로 넘어가지 않는다.
+
+---
+
 ## 핵심 정리
 
 | 개념 | 설명 |
@@ -692,3 +830,8 @@ src/
 | **체이닝** | `apply(A, B, C)` 순서로 실행됨 |
 
 > **다음 챕터 예고**: 챕터 5에서는 **Pipe**를 배운다. 클라이언트가 보낸 데이터를 변환하고 유효성을 검사하는 방법을 다룬다. 블로그 API에 `CreatePostDto`, `UpdatePostDto` 등의 DTO를 만들고 `ValidationPipe`으로 입력값을 검증할 것이다.
+
+
+```
+
+> **팁:** 미들웨어에서 발생한 에러는 NestJS의 Exception Filter가 처리합니다 (챕터 8 참고).

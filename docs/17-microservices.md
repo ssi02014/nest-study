@@ -10,7 +10,10 @@
 6. [하이브리드 애플리케이션](#하이브리드-애플리케이션)
 7. [기본 예제: TCP 마이크로서비스](#기본-예제-tcp-마이크로서비스)
 8. [블로그 API 적용: 알림 마이크로서비스](#블로그-api-적용-알림-마이크로서비스)
-9. [전체 프로젝트 완성](#전체-프로젝트-완성)
+9. [RpcException과 에러 처리](#rpcexception과-에러-처리)
+10. [재시도 로직 (Retry)](#재시도-로직-retry)
+11. [마이크로서비스 실행 방법](#마이크로서비스-실행-방법)
+12. [전체 프로젝트 완성](#전체-프로젝트-완성)
 
 ---
 
@@ -535,6 +538,8 @@ export class AuthController {
 ---
 
 ## 블로그 API 적용: 알림 마이크로서비스
+
+> **챕터 16과의 연결**: 챕터 16에서 CQRS 패턴으로 리팩토링한 `PostsModule`은 그대로 유지한다. `CreatePostCommand` → `CreatePostHandler` 흐름은 변경하지 않고, 댓글 작성 시점에만 알림 서비스를 분리하여 **기존 CQRS 아키텍처 위에 마이크로서비스를 점진적으로 추가**하는 방식을 사용한다. 예를 들어 `CreateCommentHandler` 내부에서 `notificationClient.emit()`을 호출하면, CQRS와 마이크로서비스를 자연스럽게 결합할 수 있다.
 
 드디어 우리 블로그 API에 마이크로서비스를 적용할 차례다! **알림(Notification) 기능을 별도의 마이크로서비스로 분리**한다.
 
@@ -1110,6 +1115,403 @@ curl http://localhost:3000/notifications/user/99/unread-count
 # 4. 알림 읽음 처리
 curl -X PATCH http://localhost:3000/notifications/1/read
 # → { "success": true, "notification": { ... , "isRead": true } }
+```
+
+---
+
+## RpcException과 에러 처리
+
+마이크로서비스에서 에러가 발생하면 HTTP 에러와 다른 방식으로 처리해야 한다. NestJS는 이를 위해 `RpcException`을 제공한다.
+
+### RpcException 사용법
+
+마이크로서비스 측(핸들러)에서 에러를 발생시킬 때는 `throw new Error()` 대신 **`RpcException`**을 사용한다.
+
+```typescript
+// src/notifications/notifications.controller.ts
+import { Controller } from '@nestjs/common';
+import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
+import { NotificationsService } from './notifications.service';
+
+@Controller()
+export class NotificationsController {
+  constructor(private readonly notificationsService: NotificationsService) {}
+
+  @MessagePattern({ cmd: 'mark_as_read' })
+  markAsRead(@Payload() data: { notificationId: number }) {
+    const notification = this.notificationsService.markAsRead(data.notificationId);
+
+    if (!notification) {
+      // RpcException으로 에러를 던져야 클라이언트가 올바르게 받을 수 있다
+      throw new RpcException({
+        statusCode: 404,
+        message: `알림 ID ${data.notificationId}를 찾을 수 없습니다`,
+      });
+    }
+
+    return { success: true, notification };
+  }
+
+  @MessagePattern({ cmd: 'get_notifications' })
+  getNotifications(@Payload() data: { recipientId: number }) {
+    if (!data.recipientId) {
+      throw new RpcException({
+        statusCode: 400,
+        message: 'recipientId는 필수입니다',
+      });
+    }
+    return this.notificationsService.findByRecipient(data.recipientId);
+  }
+}
+```
+
+> **Tip**: 일반 `Error`를 던지면 클라이언트에서 에러 객체를 제대로 파싱하지 못하는 경우가 있다. 마이크로서비스 핸들러에서는 항상 `RpcException`을 사용하자.
+
+### ExceptionFilter로 마이크로서비스 에러를 HTTP 에러로 변환
+
+API Gateway(HTTP 서버)에서 마이크로서비스 에러를 받으면, 기본적으로 `500 Internal Server Error`로 처리된다. `ExceptionFilter`를 사용해 **마이크로서비스 에러를 적절한 HTTP 상태코드로 변환**해야 한다.
+
+```typescript
+// src/common/filters/rpc-exception.filter.ts
+import { Catch, ArgumentsHost, ExceptionFilter, HttpStatus } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
+import { Response } from 'express';
+import { throwError } from 'rxjs';
+
+@Catch(RpcException)
+export class RpcExceptionFilter implements ExceptionFilter {
+  catch(exception: RpcException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+
+    // RpcException의 에러 객체를 꺼낸다
+    const error = exception.getError() as {
+      statusCode?: number;
+      message?: string;
+    };
+
+    const statusCode = error?.statusCode ?? HttpStatus.INTERNAL_SERVER_ERROR;
+    const message = error?.message ?? '마이크로서비스 에러가 발생했습니다';
+
+    response.status(statusCode).json({
+      statusCode,
+      message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+```
+
+```typescript
+// src/main.ts - 글로벌 필터 등록
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { RpcExceptionFilter } from './common/filters/rpc-exception.filter';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // 글로벌 RPC 예외 필터 등록
+  app.useGlobalFilters(new RpcExceptionFilter());
+
+  // ... 나머지 설정
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+컨트롤러 단위로 적용하고 싶다면 `@UseFilters` 데코레이터를 사용한다.
+
+```typescript
+// src/notifications/notifications-http.controller.ts
+import { Controller, Get, Param, ParseIntPipe, UseFilters } from '@nestjs/common';
+import { RpcExceptionFilter } from '../common/filters/rpc-exception.filter';
+
+@Controller('notifications')
+@UseFilters(new RpcExceptionFilter())  // 이 컨트롤러에만 적용
+export class NotificationsHttpController {
+  // ...
+}
+```
+
+### API Gateway에서 마이크로서비스 에러 처리 패턴
+
+`firstValueFrom()`으로 감싼 `send()` 호출에서 에러가 발생하면, `try-catch`로 잡아서 HTTP 에러로 재변환할 수도 있다.
+
+```typescript
+// src/notifications/notifications-http.controller.ts
+import {
+  Controller, Get, Patch, Param, Inject, ParseIntPipe,
+  NotFoundException, BadRequestException,
+} from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
+
+@Controller('notifications')
+export class NotificationsHttpController {
+  constructor(
+    @Inject('NOTIFICATION_SERVICE')
+    private readonly notificationClient: ClientProxy,
+  ) {}
+
+  @Patch(':id/read')
+  async markAsRead(@Param('id', ParseIntPipe) id: number) {
+    try {
+      return await firstValueFrom(
+        this.notificationClient.send({ cmd: 'mark_as_read' }, { notificationId: id }),
+      );
+    } catch (error) {
+      // RpcException에서 전달된 에러 객체를 HTTP 에러로 변환
+      const statusCode = error?.statusCode ?? error?.status;
+      if (statusCode === 404) {
+        throw new NotFoundException(error.message);
+      }
+      if (statusCode === 400) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+}
+```
+
+```
+에러 흐름:
+마이크로서비스: throw new RpcException({ statusCode: 404, message: '...' })
+       │
+       ▼ TCP
+API Gateway: catch(error) → throw new NotFoundException(...)
+       │
+       ▼ HTTP
+클라이언트: { "statusCode": 404, "message": "..." }
+```
+
+---
+
+## 재시도 로직 (Retry)
+
+네트워크 불안정이나 마이크로서비스 일시 중단으로 요청이 실패할 수 있다. RxJS의 `retry()` 연산자를 활용하면 자동 재시도 로직을 쉽게 구현할 수 있다.
+
+### retry() 기본 사용
+
+```typescript
+// src/notifications/notifications-http.controller.ts
+import { Controller, Get, Param, ParseIntPipe, Inject } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import { firstValueFrom, retry } from 'rxjs';
+
+@Controller('notifications')
+export class NotificationsHttpController {
+  constructor(
+    @Inject('NOTIFICATION_SERVICE')
+    private readonly notificationClient: ClientProxy,
+  ) {}
+
+  @Get('user/:userId')
+  async getNotifications(@Param('userId', ParseIntPipe) userId: number) {
+    const notifications = await firstValueFrom(
+      this.notificationClient
+        .send({ cmd: 'get_notifications' }, { recipientId: userId })
+        .pipe(
+          retry(3), // 실패 시 최대 3번 재시도
+        ),
+    );
+    return { data: notifications };
+  }
+}
+```
+
+### 타임아웃 + 재시도 조합 패턴
+
+실무에서는 `timeout()`과 `retry()`를 함께 사용하는 것이 일반적이다. 응답이 너무 오래 걸리면 타임아웃 처리하고, 그 후 재시도한다.
+
+```typescript
+// src/notifications/notifications-http.controller.ts
+import {
+  Controller, Get, Param, ParseIntPipe, Inject,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
+import {
+  firstValueFrom,
+  timeout,
+  retry,
+  catchError,
+  throwError,
+  TimeoutError,
+} from 'rxjs';
+
+@Controller('notifications')
+export class NotificationsHttpController {
+  constructor(
+    @Inject('NOTIFICATION_SERVICE')
+    private readonly notificationClient: ClientProxy,
+  ) {}
+
+  @Get('user/:userId/unread-count')
+  async getUnreadCount(@Param('userId', ParseIntPipe) userId: number) {
+    return firstValueFrom(
+      this.notificationClient
+        .send({ cmd: 'get_unread_count' }, { recipientId: userId })
+        .pipe(
+          timeout(3000),  // 3초 안에 응답이 없으면 TimeoutError 발생
+          retry({
+            count: 2,       // 최대 2번 재시도
+            delay: 1000,    // 재시도 전 1초 대기 (RxJS 7.4+)
+          }),
+          catchError((err) => {
+            if (err instanceof TimeoutError) {
+              return throwError(
+                () => new InternalServerErrorException('알림 서비스 응답 시간 초과'),
+              );
+            }
+            return throwError(() => err);
+          }),
+        ),
+    );
+  }
+
+  // ─── 헬퍼: 공통 재시도 로직을 별도 메서드로 분리 ───
+  private withRetry<T>(observable: import('rxjs').Observable<T>) {
+    return observable.pipe(
+      timeout(5000),
+      retry({ count: 3, delay: 500 }),
+      catchError((err) => {
+        if (err instanceof TimeoutError) {
+          return throwError(
+            () => new InternalServerErrorException('서비스 응답 시간 초과'),
+          );
+        }
+        return throwError(() => err);
+      }),
+    );
+  }
+
+  @Get('user/:userId')
+  async getNotifications(@Param('userId', ParseIntPipe) userId: number) {
+    const notifications = await firstValueFrom(
+      this.withRetry(
+        this.notificationClient.send(
+          { cmd: 'get_notifications' },
+          { recipientId: userId },
+        ),
+      ),
+    );
+    return { data: notifications };
+  }
+}
+```
+
+```
+타임아웃 + 재시도 흐름:
+
+1차 시도: send() → 3초 대기 → TimeoutError
+2차 시도: (1초 후) send() → 3초 대기 → TimeoutError
+3차 시도: (1초 후) send() → 성공 → 응답 반환
+                             (or)
+                          TimeoutError → InternalServerErrorException
+```
+
+> **Tip**: `retry()`는 `RpcException`이 발생해도 재시도한다. 비즈니스 로직 에러(404, 400 등)는 재시도가 의미 없으므로, `catchError`에서 `RpcException` 여부를 판별해 재시도 여부를 결정하는 것이 좋다.
+
+---
+
+## 마이크로서비스 실행 방법
+
+### 하이브리드 앱 방식 (같은 프로세스)
+
+하이브리드 앱은 하나의 터미널에서 실행한다.
+
+```bash
+# 터미널 1개만 필요
+npm run start:dev
+# → HTTP(3000) + TCP(3001) 동시 기동
+```
+
+### 독립 서비스 방식 (별도 프로세스)
+
+알림 서비스를 별도 앱으로 분리했다면, **두 개의 터미널**에서 각각 실행한다.
+
+```bash
+# 터미널 1: 알림 마이크로서비스 먼저 실행
+cd notification-service
+npm run start:dev
+# → TCP 마이크로서비스: 포트 3001
+
+# 터미널 2: 블로그 API (HTTP) 실행
+cd blog-api
+npm run start:dev
+# → HTTP 서버: http://localhost:3000
+```
+
+> **순서 중요**: 마이크로서비스(알림 서비스)를 먼저 실행해야 한다. API Gateway가 시작될 때 마이크로서비스에 연결을 시도하기 때문이다.
+
+### package.json 스크립트 추가
+
+모노레포 구조나 루트 `package.json`에 편의 스크립트를 추가하면 관리가 쉬워진다.
+
+```json
+// package.json (루트 또는 블로그 API 루트)
+{
+  "scripts": {
+    "start:dev": "nest start --watch",
+    "start:notification": "nest start notification-service --watch",
+    "start:all": "concurrently \"npm run start:notification\" \"npm run start:dev\"",
+    "build:notification": "nest build notification-service",
+    "build:all": "npm run build && npm run build:notification"
+  }
+}
+```
+
+`concurrently` 패키지를 사용하면 **하나의 터미널**에서 두 서비스를 동시에 실행할 수 있다.
+
+```bash
+# concurrently 설치
+npm install --save-dev concurrently
+
+# 두 서비스를 동시에 실행
+npm run start:all
+```
+
+```
+터미널 출력 예시:
+[notification] 알림 마이크로서비스 시작! TCP: 포트 3001
+[blog-api]     블로그 API 서버 시작!
+[blog-api]       HTTP: http://localhost:3000
+[blog-api]       TCP 마이크로서비스: 포트 3002 (하이브리드)
+```
+
+### NestJS CLI 워크스페이스(Monorepo) 방식
+
+`nest-cli.json`에 여러 앱을 등록하면 NestJS CLI 명령어로 각 앱을 편리하게 관리할 수 있다.
+
+```json
+// nest-cli.json
+{
+  "monorepo": true,
+  "root": "apps/blog-api",
+  "sourceRoot": "apps/blog-api/src",
+  "projects": {
+    "blog-api": {
+      "type": "application",
+      "root": "apps/blog-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/blog-api/src"
+    },
+    "notification-service": {
+      "type": "application",
+      "root": "apps/notification-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/notification-service/src"
+    }
+  }
+}
+```
+
+```bash
+# 각 앱을 NestJS CLI로 실행
+nest start blog-api --watch
+nest start notification-service --watch
 ```
 
 ---

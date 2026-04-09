@@ -11,6 +11,8 @@
 7. [기본 예제: 메시지 브로드캐스트](#7-기본-예제-메시지-브로드캐스트)
 8. [기본 예제: Room 활용](#8-기본-예제-room-활용)
 9. [블로그 API 적용: 실시간 댓글 알림](#9-블로그-api-적용-실시간-댓글-알림)
+10. [Redis Adapter (다중 서버 환경)](#10-redis-adapter-다중-서버-환경)
+11. [소켓 인증 미들웨어](#11-소켓-인증-미들웨어)
 
 ---
 
@@ -948,207 +950,46 @@ bootstrap();
 
 ### 9-9. 테스트용 HTML 페이지
 
-실제로 WebSocket이 동작하는지 확인할 수 있는 간단한 테스트 페이지다. 프로젝트 루트에 `public` 폴더를 만들고 아래 파일을 생성한다.
+실제로 WebSocket이 동작하는지 확인할 수 있는 테스트 페이지다. 프로젝트 루트에 `public` 폴더를 만들고 `blog-test.html` 파일을 생성한다.
+
+> **전체 HTML 코드는 프로젝트 `public/blog-test.html`에 작성합니다.** 아래는 핵심 Socket.IO 연결 로직만 발췌한 것이다.
 
 ```html
-<!-- public/blog-test.html -->
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>블로그 실시간 댓글 알림 테스트</title>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; padding: 20px; }
-    h1 { color: #333; margin-bottom: 20px; }
-    .container { max-width: 700px; margin: 0 auto; }
+<!-- public/blog-test.html (핵심 Socket.IO 로직) -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  // /blog 네임스페이스에 연결
+  const socket = io('http://localhost:3000/blog');
 
-    .card {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .card h2 { color: #555; font-size: 16px; margin-bottom: 12px; }
+  // 연결/해제 이벤트
+  socket.on('connect', () => console.log('연결됨:', socket.id));
+  socket.on('disconnect', () => console.log('연결 해제'));
 
-    .status {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 13px;
-      font-weight: bold;
-    }
-    .status.connected { background: #d4edda; color: #155724; }
-    .status.disconnected { background: #f8d7da; color: #721c24; }
+  // 실시간 댓글 알림 수신
+  socket.on('newComment', (data) => {
+    console.log(`[게시글 #${data.postId}] ${data.comment.author}: "${data.comment.content}"`);
+  });
 
-    input, button {
-      padding: 8px 14px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    input { width: 120px; }
-    button {
-      background: #4a90d9;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    button:hover { background: #357abd; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    button.leave { background: #e74c3c; }
-    button.leave:hover { background: #c0392b; }
+  // Room 입장 (게시글 페이지 진입 시)
+  function joinRoom(postId) {
+    socket.emit('joinPostRoom', postId, (res) => console.log(res.data.message));
+  }
 
-    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  // Room 퇴장 (게시글 페이지 이탈 시)
+  function leaveRoom(postId) {
+    socket.emit('leavePostRoom', postId, (res) => console.log(res.data.message));
+  }
 
-    #log {
-      background: #1e1e1e;
-      color: #d4d4d4;
-      padding: 16px;
-      border-radius: 8px;
-      font-family: 'Consolas', monospace;
-      font-size: 13px;
-      height: 300px;
-      overflow-y: auto;
-    }
-    .log-entry { margin-bottom: 4px; }
-    .log-time { color: #6a9955; }
-    .log-event { color: #569cd6; }
-    .log-info { color: #dcdcaa; }
-    .log-error { color: #f44747; }
-
-    .comment-form { display: flex; gap: 8px; flex-wrap: wrap; }
-    .comment-form input[type="text"] { flex: 1; min-width: 200px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>블로그 실시간 댓글 알림 테스트</h1>
-
-    <!-- 연결 상태 -->
-    <div class="card">
-      <h2>연결 상태</h2>
-      <span id="status" class="status disconnected">연결 안됨</span>
-    </div>
-
-    <!-- Room 관리 -->
-    <div class="card">
-      <h2>게시글 Room 입장/퇴장</h2>
-      <div class="controls">
-        <label>게시글 ID:</label>
-        <input type="number" id="postId" value="1" min="1" />
-        <button id="joinBtn" onclick="joinRoom()">Room 입장</button>
-        <button id="leaveBtn" class="leave" onclick="leaveRoom()">Room 퇴장</button>
-      </div>
-    </div>
-
-    <!-- 댓글 작성 (REST API) -->
-    <div class="card">
-      <h2>댓글 작성 (REST API로 전송)</h2>
-      <div class="comment-form">
-        <input type="text" id="author" placeholder="작성자" value="테스터" />
-        <input type="text" id="commentContent" placeholder="댓글 내용을 입력하세요" />
-        <button onclick="postComment()">댓글 작성</button>
-      </div>
-    </div>
-
-    <!-- 이벤트 로그 -->
-    <div class="card">
-      <h2>이벤트 로그</h2>
-      <div id="log"></div>
-    </div>
-  </div>
-
-  <script>
-    // Socket.IO 클라이언트 - /blog 네임스페이스에 연결
-    const socket = io('http://localhost:3000/blog');
-
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
-
-    // --- 로그 유틸 ---
-    function addLog(event, message, type = 'info') {
-      const time = new Date().toLocaleTimeString();
-      const colorClass = type === 'error' ? 'log-error' : 'log-info';
-      logEl.innerHTML += `<div class="log-entry">` +
-        `<span class="log-time">[${time}]</span> ` +
-        `<span class="log-event">${event}</span> ` +
-        `<span class="${colorClass}">${message}</span>` +
-        `</div>`;
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    // --- 연결 이벤트 ---
-    socket.on('connect', () => {
-      statusEl.textContent = '연결됨 (ID: ' + socket.id + ')';
-      statusEl.className = 'status connected';
-      addLog('connect', `서버에 연결되었습니다. (ID: ${socket.id})`);
+  // 댓글 작성 (REST API → 서버 → WebSocket 알림 자동 발송)
+  async function postComment(postId, author, content) {
+    const res = await fetch(`/posts/${postId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, author, postId }),
     });
-
-    socket.on('disconnect', () => {
-      statusEl.textContent = '연결 안됨';
-      statusEl.className = 'status disconnected';
-      addLog('disconnect', '서버와 연결이 끊어졌습니다.', 'error');
-    });
-
-    // --- 실시간 댓글 알림 수신 ---
-    socket.on('newComment', (data) => {
-      addLog('newComment',
-        `[게시글 #${data.postId}] ${data.comment.author}: "${data.comment.content}"`
-      );
-    });
-
-    // --- Room 입장 ---
-    function joinRoom() {
-      const postId = parseInt(document.getElementById('postId').value);
-      socket.emit('joinPostRoom', postId, (response) => {
-        addLog('joinPostRoom', response.data.message);
-      });
-    }
-
-    // --- Room 퇴장 ---
-    function leaveRoom() {
-      const postId = parseInt(document.getElementById('postId').value);
-      socket.emit('leavePostRoom', postId, (response) => {
-        addLog('leavePostRoom', response.data.message);
-      });
-    }
-
-    // --- 댓글 작성 (REST API) ---
-    async function postComment() {
-      const postId = document.getElementById('postId').value;
-      const author = document.getElementById('author').value;
-      const content = document.getElementById('commentContent').value;
-
-      if (!content) {
-        addLog('error', '댓글 내용을 입력하세요.', 'error');
-        return;
-      }
-
-      try {
-        const response = await fetch(`/posts/${postId}/comments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content, author, postId: parseInt(postId) }),
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-        addLog('REST API', `댓글 작성 성공 (ID: ${result.id})`);
-        document.getElementById('commentContent').value = '';
-      } catch (err) {
-        addLog('REST API', `댓글 작성 실패: ${err.message}`, 'error');
-      }
-    }
-  </script>
-</body>
-</html>
+    return res.json();
+  }
+</script>
 ```
 
 ### 테스트 방법
@@ -1202,6 +1043,216 @@ npm run start:dev
 
 ---
 
+## 10. Redis Adapter (다중 서버 환경)
+
+### 왜 필요한가?
+
+NestJS WebSocket 서버를 단일 인스턴스로 운영할 때는 문제가 없다. 하지만 **서버를 여러 대(수평 확장)** 로 운영하면 문제가 생긴다.
+
+```
+서버 A (소켓 연결 유지 중)    서버 B (다른 소켓 연결 유지 중)
+  └── 사용자 1, 2                └── 사용자 3, 4
+
+서버 A에서 server.emit() → 사용자 1, 2에게만 전달됨
+                          → 사용자 3, 4는 전달 안됨!
+```
+
+서버 인스턴스가 각자 소켓 연결 상태를 메모리에 들고 있기 때문이다. **Redis Adapter**를 사용하면 모든 서버가 Redis를 중간 브로커로 공유하여 WebSocket 이벤트를 동기화할 수 있다.
+
+```
+서버 A ──┐              ┌── 사용자 1, 2
+          ├── Redis ────┤
+서버 B ──┘              └── 사용자 3, 4
+
+server.emit() → Redis → 모든 서버 → 모든 사용자에게 전달됨
+```
+
+### 패키지 설치
+
+```bash
+npm install @nestjs/platform-socket.io socket.io-redis
+npm install -D @types/socket.io-redis
+```
+
+> **Note**: `socket.io-redis`는 `socket.io` v4와 함께 사용하는 경우 `@socket.io/redis-adapter` 패키지를 대신 사용하는 것을 권장한다.
+
+```bash
+# socket.io v4 환경
+npm install @socket.io/redis-adapter redis
+```
+
+### main.ts에 Redis Adapter 적용
+
+```typescript
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { createClient } from 'redis';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // 정적 파일 서빙 (public 폴더)
+  app.useStaticAssets(join(__dirname, '..', 'public'));
+
+  // 전역 ValidationPipe
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+
+  // Redis Adapter 설정
+  const pubClient = createClient({ url: 'redis://localhost:6379' });
+  const subClient = pubClient.duplicate();
+  await Promise.all([pubClient.connect(), subClient.connect()]);
+
+  const adapter = new IoAdapter(app);
+  // Socket.IO 서버 초기화 후 Redis adapter 적용
+  app.useWebSocketAdapter(adapter);
+
+  // Socket.IO 서버에 Redis adapter 연결 (서버 초기화 이후)
+  const io = adapter['server']; // 내부 서버 인스턴스 접근
+  if (io) {
+    io.adapter(createAdapter(pubClient, subClient));
+  }
+
+  await app.listen(3000);
+  console.log('서버가 http://localhost:3000 에서 실행 중입니다.');
+}
+bootstrap();
+```
+
+> **Tip**: 개발 환경에서는 Redis Adapter가 불필요하다. 단일 서버로 충분하므로 로컬 개발 시에는 기존 `main.ts`(Redis 없는 버전)를 유지하고, **상용 배포(PM2 cluster 모드, Kubernetes 등) 시에만** Redis Adapter를 적용하는 것을 권장한다. 환경변수로 분기하면 편리하다.
+
+```typescript
+// Redis Adapter 조건부 적용 예시
+if (process.env.NODE_ENV === 'production') {
+  const pubClient = createClient({ url: process.env.REDIS_URL });
+  const subClient = pubClient.duplicate();
+  await Promise.all([pubClient.connect(), subClient.connect()]);
+  // ... adapter 적용
+}
+```
+
+---
+
+## 11. 소켓 인증 미들웨어
+
+### 왜 필요한가?
+
+REST API에서는 Guard나 미들웨어로 JWT 인증을 처리한다. WebSocket도 마찬가지로, **연결 시점에 클라이언트가 유효한 토큰을 가지고 있는지 검증**해야 한다. 미인증 클라이언트가 WebSocket에 연결되면 내부 이벤트를 수신하거나 악의적인 이벤트를 전송할 수 있다.
+
+### handleConnection에서 JWT 검증
+
+`OnGatewayConnection`의 `handleConnection()`은 클라이언트가 연결될 때 가장 먼저 호출되는 지점이다. 여기서 토큰을 검증하고, 미인증 클라이언트는 즉시 연결을 끊는다.
+
+```typescript
+// src/blog/blog.gateway.ts
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+} from '@nestjs/websockets';
+import { Logger, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Server, Socket } from 'socket.io';
+
+@WebSocketGateway({
+  namespace: 'blog',
+  cors: { origin: '*' },
+})
+export class BlogGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
+  private logger = new Logger('BlogGateway');
+
+  constructor(private readonly jwtService: JwtService) {}
+
+  async handleConnection(client: Socket) {
+    try {
+      // 1. 클라이언트 핸드셰이크에서 토큰 추출
+      //    클라이언트는 io('/blog', { auth: { token: '...' } }) 형태로 전달
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers?.authorization?.replace('Bearer ', '');
+
+      if (!token) {
+        throw new UnauthorizedException('토큰이 없습니다.');
+      }
+
+      // 2. JWT 검증
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET,
+      });
+
+      // 3. 검증된 사용자 정보를 소켓 데이터에 저장 (이후 이벤트 핸들러에서 사용)
+      client.data.user = payload;
+
+      this.logger.log(`인증된 클라이언트 연결: ${client.id} (userId: ${payload.sub})`);
+    } catch (err) {
+      this.logger.warn(`미인증 클라이언트 연결 거부: ${client.id} - ${err.message}`);
+      // 4. 미인증 클라이언트 연결 강제 종료
+      client.emit('error', { message: '인증에 실패했습니다. 연결을 종료합니다.' });
+      client.disconnect(true);
+    }
+  }
+
+  handleDisconnect(client: Socket) {
+    this.logger.log(`클라이언트 연결 해제: ${client.id}`);
+  }
+}
+```
+
+### 클라이언트에서 토큰 전달 방법
+
+```javascript
+// 클라이언트 (브라우저)
+const token = localStorage.getItem('access_token');
+
+const socket = io('http://localhost:3000/blog', {
+  auth: {
+    token: token, // handleConnection에서 client.handshake.auth.token 으로 접근
+  },
+});
+
+// 인증 실패 시 에러 수신
+socket.on('error', (err) => {
+  console.error('소켓 인증 실패:', err.message);
+});
+```
+
+### 이벤트 핸들러에서 인증된 사용자 정보 활용
+
+`handleConnection`에서 `client.data.user`에 저장한 페이로드를 이후 이벤트에서 재사용한다.
+
+```typescript
+@SubscribeMessage('joinPostRoom')
+handleJoinPostRoom(
+  @MessageBody() postId: number,
+  @ConnectedSocket() client: Socket,
+) {
+  // handleConnection에서 저장해둔 사용자 정보 접근
+  const user = client.data.user;
+  this.logger.log(`사용자 ${user.sub}(${user.email})가 post-${postId} Room에 입장`);
+
+  const roomName = `post-${postId}`;
+  client.join(roomName);
+
+  return {
+    event: 'joinedPostRoom',
+    data: { postId, message: `게시글 ${postId}번 Room에 입장했습니다.` },
+  };
+}
+```
+
+> **Tip**: `client.disconnect(true)`를 호출하면 서버 측에서 연결을 강제로 끊는다. `true` 인자를 넘기면 소켓을 즉시 파기하며, 클라이언트에게는 `disconnect` 이벤트가 발생한다. 미인증 클라이언트는 반드시 이 방식으로 즉시 연결을 종료해야 한다.
+
+---
+
 ## 마무리
 
 이 챕터에서 학습한 내용을 정리하면:
@@ -1218,11 +1269,15 @@ npm run start:dev
 | `OnGatewayDisconnect` | 클라이언트 연결 해제 시 호출 |
 | 네임스페이스 | 논리적으로 분리된 통신 채널 |
 | 룸 (Room) | 네임스페이스 안에서 클라이언트를 그룹별로 분류 |
+| Redis Adapter | 다중 서버 환경에서 WebSocket 상태를 Redis로 공유 |
+| 소켓 인증 | `handleConnection`에서 JWT 검증 후 미인증 클라이언트 연결 거부 |
 
 블로그 API에 적용한 핵심 패턴:
 
 1. **게시글별 Room**: `post-{id}` 형태의 Room으로 게시글 페이지 단위 그룹 관리
 2. **서비스에서 Gateway 호출**: CommentsService에서 BlogGateway를 주입받아 `notifyNewComment()` 호출
 3. **REST + WebSocket 혼합**: REST API로 데이터 저장, WebSocket으로 실시간 알림 전송
+4. **Redis Adapter**: 다중 서버 배포 시 Redis를 통해 WebSocket 이벤트 동기화 (상용 배포 시 적용)
+5. **소켓 인증**: `handleConnection`에서 JWT 검증, `client.data.user`로 사용자 정보 전달, 미인증 시 `client.disconnect(true)` 호출
 
 이 챕터를 마치면 **실시간 댓글 알림 기능이 완성**된다. 다음 챕터에서는 CQRS 패턴에 대해 알아본다.

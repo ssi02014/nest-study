@@ -24,6 +24,8 @@
 15. [게시글/댓글에 토큰 기반 사용자 연결](#15-게시글댓글에-토큰-기반-사용자-연결)
 16. [수정/삭제 시 작성자 본인 확인](#16-수정삭제-시-작성자-본인-확인)
 17. [curl로 전체 플로우 테스트](#17-curl로-전체-플로우-테스트)
+18. [Refresh Token DB 저장 및 블랙리스트 구현 심화](#18-refresh-token-db-저장-및-블랙리스트-구현-심화)
+19. [보안 강화 - HTTPS와 httpOnly 쿠키](#19-보안-강화---https와-httponly-쿠키)
 
 ---
 
@@ -466,6 +468,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
 ### Refresh Token용 JWT Strategy
 
+Refresh Token은 서명 검증만으로는 부족하다. 로그아웃된 토큰이 재사용될 수 있기 때문이다. 따라서 `validate()` 내에서 **DB에 저장된 해시값과 직접 비교**하는 단계가 반드시 필요하다.
+
 ```typescript
 // src/auth/strategies/jwt-refresh.strategy.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
@@ -473,10 +477,15 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService, // DB 조회용
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -487,7 +496,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
 
   /**
    * passReqToCallback: true 설정 덕분에 첫 번째 인자가 Request 객체다.
-   * 원본 Refresh Token을 꺼내서 DB의 해시값과 비교하기 위해 필요하다.
+   * 서명 검증 통과 후, DB의 해시값과 비교하여 블랙리스트 처리를 수행한다.
    */
   async validate(req: Request, payload: { sub: number; email: string }) {
     const authHeader = req.get('authorization');
@@ -495,6 +504,18 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
 
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh Token이 존재하지 않습니다.');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+
+    // hashedRefreshToken이 null → 로그아웃된 상태 (블랙리스트 효과)
+    if (!user || !user.hashedRefreshToken) {
+      throw new UnauthorizedException('이미 로그아웃된 사용자입니다.');
+    }
+
+    const isValid = await bcrypt.compare(refreshToken, user.hashedRefreshToken);
+    if (!isValid) {
+      throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
     }
 
     return {
@@ -803,8 +824,8 @@ export class User {
   @Column({ nullable: true })
   name: string;
 
-  @Column({ nullable: true })
-  hashedRefreshToken: string; // Refresh Token의 해시값 저장
+  @Column({ nullable: true, type: 'text' })
+  hashedRefreshToken: string | null; // Refresh Token의 해시값 저장 (로그아웃 시 null)
 
   @CreateDateColumn()
   createdAt: Date;
@@ -976,6 +997,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
 ### Refresh Token 검증
 
+JwtRefreshStrategy는 서명 검증 이후에 **DB에 저장된 해시와 원본 토큰을 직접 비교**하여 이중으로 유효성을 확인한다. 로그아웃 후 탈취된 Refresh Token이 재사용되는 것을 막는 핵심 방어선이다.
+
 ```typescript
 // src/auth/strategies/jwt-refresh.strategy.ts
 import { Injectable, UnauthorizedException } from '@nestjs/common';
@@ -983,10 +1006,15 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService, // DB 조회를 위해 주입
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -995,6 +1023,10 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     });
   }
 
+  /**
+   * passReqToCallback: true 덕분에 첫 번째 인자가 Request 객체다.
+   * 서명 검증이 통과된 후 호출되며, 여기서 DB 해시 비교까지 수행한다.
+   */
   async validate(req: Request, payload: { sub: number; email: string }) {
     const authHeader = req.get('authorization');
     const refreshToken = authHeader?.replace('Bearer', '').trim();
@@ -1003,14 +1035,34 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
       throw new UnauthorizedException('Refresh Token이 존재하지 않습니다.');
     }
 
+    // DB에서 사용자 조회
+    const user = await this.usersService.findById(payload.sub);
+
+    // hashedRefreshToken이 null이면 로그아웃된 상태 (블랙리스트 효과)
+    if (!user || !user.hashedRefreshToken) {
+      throw new UnauthorizedException('이미 로그아웃된 사용자입니다.');
+    }
+
+    // DB의 해시값과 요청으로 들어온 Refresh Token 비교
+    const isRefreshTokenValid = await bcrypt.compare(
+      refreshToken,
+      user.hashedRefreshToken,
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+    }
+
     return {
       id: payload.sub,
       email: payload.email,
-      refreshToken, // DB의 해시와 비교하기 위해 원본 토큰 전달
+      refreshToken, // AuthService.refreshTokens()에서 추가 검증용으로 활용 가능
     };
   }
 }
 ```
+
+> **왜 Strategy에서 DB 조회를 하는가?** JWT 서명 자체는 유효하더라도, 로그아웃 이후에는 해당 토큰을 더 이상 허용하면 안 된다. Passport가 서명 검증 후 `validate()`를 호출하는 시점에 DB 해시 비교를 끼워 넣으면, Guard 레벨에서 깔끔하게 블랙리스트 처리를 할 수 있다.
 
 ---
 
@@ -1869,15 +1921,17 @@ curl -X POST http://localhost:3000/posts \
 | 순서 | 작업 | 설명 |
 | --- | --- | --- |
 | 1 | AuthModule 생성 | Passport.js + JWT + bcrypt 통합 |
-| 2 | User Entity 수정 | hashedRefreshToken 컬럼 추가 |
+| 2 | User Entity 수정 | `hashedRefreshToken: string \| null` 컬럼 추가 |
 | 3 | 비밀번호 해싱 | bcrypt로 회원가입 시 비밀번호 해싱 |
 | 4 | LocalStrategy | 이메일+비밀번호 검증 후 request.user 할당 |
 | 5 | JwtStrategy | Access Token 검증 후 request.user 할당 |
-| 6 | JwtRefreshStrategy | Refresh Token 검증 + 원본 토큰 전달 |
+| 6 | JwtRefreshStrategy | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
 | 7 | 인증 API | signup, login, refresh, logout 엔드포인트 |
 | 8 | SimpleAuthGuard 교체 | 전역 JwtAuthGuard + @Public() 패턴 |
 | 9 | 토큰 기반 사용자 연결 | @CurrentUser() 데코레이터로 userId 추출 |
 | 10 | 소유권 검증 | 수정/삭제 시 작성자 본인 확인 (ForbiddenException) |
+| 11 | Refresh Token DB 블랙리스트 | 로그아웃 시 null 설정, 갱신 시 해시 비교 이중 검증 |
+| 12 | HTTPS + httpOnly 쿠키 | 프로덕션 보안 적용, XSS 방어를 위한 쿠키 기반 저장 |
 
 ### 핵심 용어 정리
 
@@ -1885,15 +1939,276 @@ curl -X POST http://localhost:3000/posts \
 | --- | --- |
 | `LocalStrategy` | 이메일 + 비밀번호를 검증하여 사용자 객체 반환 |
 | `JwtStrategy` | Access Token을 검증하여 사용자 정보 추출 |
-| `JwtRefreshStrategy` | Refresh Token을 검증하고 원본 토큰도 함께 반환 |
+| `JwtRefreshStrategy` | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
 | `AuthGuard('local')` | LocalStrategy를 실행하는 Guard |
 | `AuthGuard('jwt')` | JwtStrategy를 실행하는 Guard |
 | `@Public()` | 전역 Guard 적용 시 특정 라우트를 인증에서 제외 |
 | `@CurrentUser()` | JWT 토큰에서 추출한 사용자 정보를 파라미터로 주입 |
 | `bcrypt.hash()` | 비밀번호와 Refresh Token을 안전하게 해싱 |
 | `bcrypt.compare()` | 해시된 값과 원본을 비교하여 일치 여부 확인 |
-| Refresh Token Rotation | 매 갱신 시 새 Refresh Token을 발급하여 보안 강화 |
+| Refresh Token Rotation | 매 갱신 시 새 Refresh Token을 발급하여 이전 토큰 무효화 |
+| `hashedRefreshToken: string \| null` | null이면 로그아웃 상태 (블랙리스트 효과) |
+| httpOnly 쿠키 | JavaScript 접근 불가 쿠키로 XSS 공격으로부터 토큰 보호 |
+| `sameSite: 'strict'` | 쿠키의 CSRF 방어 옵션 |
+| `secure: true` | HTTPS에서만 쿠키 전송 (프로덕션 필수 설정) |
 
 ### 이 챕터를 마치면
 
 **실제 JWT 인증 시스템이 완성**된다. 회원가입, 로그인, 토큰 갱신, 로그아웃까지 실무에서 사용하는 인증 플로우가 모두 갖춰진다. 다음 챕터(13 - Testing)에서는 이 인증 로직을 포함한 테스트 작성을 학습한다.
+
+---
+
+## 18. Refresh Token DB 저장 및 블랙리스트 구현 심화
+
+이 섹션에서는 이 챕터에서 구현한 Refresh Token 관리 방식의 설계 의도와 전체 흐름을 한 곳에서 정리한다.
+
+### 전체 구조 한눈에 보기
+
+```
+[로그인]
+  1. 이메일 + 비밀번호 검증 (LocalStrategy)
+  2. Access Token + Refresh Token 발급
+  3. bcrypt.hash(refreshToken) → DB 저장
+     (user.hashedRefreshToken = 해시값)
+
+[토큰 갱신]
+  1. JwtRefreshStrategy: JWT 서명 검증 (secret, 만료 시간)
+  2. JwtRefreshStrategy: DB 조회 → hashedRefreshToken null 여부 확인
+  3. JwtRefreshStrategy: bcrypt.compare(요청 토큰, DB 해시) 비교
+  4. 검증 통과 시 새 토큰 쌍 발급 (Refresh Token Rotation)
+  5. 새 해시를 DB에 저장
+
+[로그아웃]
+  1. DB의 hashedRefreshToken을 null로 업데이트
+  2. 이후 해당 Refresh Token으로 갱신 요청 시 → null 감지 → 401 거부
+```
+
+### User Entity의 `hashedRefreshToken` 설계
+
+```typescript
+// src/users/entities/user.entity.ts (핵심 컬럼)
+@Column({ nullable: true, type: 'text' })
+hashedRefreshToken: string | null;
+```
+
+| 상태 | `hashedRefreshToken` 값 | 의미 |
+| --- | --- | --- |
+| 로그인됨 | bcrypt 해시 문자열 | 정상 발급된 Refresh Token이 있음 |
+| 로그아웃됨 | `null` | Refresh Token이 무효화됨 (블랙리스트 효과) |
+| 가입 직후 | `null` (초기값) | 아직 로그인하지 않은 상태 |
+
+> **왜 별도 블랙리스트 테이블을 만들지 않는가?** Refresh Token은 사용자당 하나만 유효하도록 설계(Refresh Token Rotation)하면, 가장 최근 해시를 User 테이블에 직접 보관하는 것으로 충분하다. 별도 테이블은 여러 기기 동시 로그인처럼 복수 토큰을 관리해야 할 때 필요하다.
+
+### UsersService의 `updateRefreshToken` 역할
+
+```typescript
+// src/users/users.service.ts
+async updateRefreshToken(
+  userId: number,
+  hashedRefreshToken: string | null, // null 전달 시 블랙리스트 처리
+): Promise<void> {
+  await this.usersRepository.update(userId, { hashedRefreshToken });
+}
+```
+
+이 메서드는 세 가지 시점에 호출된다.
+
+| 호출 시점 | 전달값 | 효과 |
+| --- | --- | --- |
+| 로그인(`login`) | `bcrypt.hash(refreshToken, 10)` | 새 해시를 DB에 저장 |
+| 토큰 갱신(`refreshTokens`) | `bcrypt.hash(newRefreshToken, 10)` | 이전 해시를 교체 (Rotation) |
+| 로그아웃(`logout`) | `null` | DB를 null로 초기화 (블랙리스트) |
+
+### JwtRefreshStrategy의 이중 검증 흐름
+
+```
+요청: POST /auth/refresh
+  Authorization: Bearer <refresh_token>
+          │
+          ▼
+  passport-jwt: JWT 서명 검증 (secret, 만료 시간)
+          │
+          ├── 실패 → 401 (서명 불일치 또는 만료)
+          │
+          ▼ 성공
+  JwtRefreshStrategy.validate() 호출
+          │
+          ▼
+  DB 조회: usersService.findById(payload.sub)
+          │
+          ├── user 없음 → 401
+          ├── hashedRefreshToken이 null → 401 (로그아웃 상태)
+          │
+          ▼
+  bcrypt.compare(요청 토큰, user.hashedRefreshToken)
+          │
+          ├── 불일치 → 401 (탈취된 이전 토큰 등)
+          │
+          ▼ 일치
+  { id, email, refreshToken } → request.user 할당
+          │
+          ▼
+  AuthController.refresh() 실행 → 새 토큰 쌍 반환
+```
+
+> **Tip**: `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
+
+---
+
+## 19. 보안 강화 - HTTPS와 httpOnly 쿠키
+
+### HTTPS 환경에서만 완전히 안전하다
+
+JWT 토큰을 `Authorization: Bearer` 헤더로 전송할 때, **HTTPS가 없으면 네트워크 구간에서 토큰이 평문으로 노출**된다. 개발 환경(localhost)에서는 HTTP도 괜찮지만, 프로덕션에서는 반드시 HTTPS를 적용해야 한다.
+
+```
+HTTP  (비안전): 클라이언트 → [Authorization: Bearer eyJhbGci...] → 서버
+                                ↑ 중간자가 스니핑 가능
+
+HTTPS (안전):   클라이언트 → [암호화된 패킷] → 서버
+                                ↑ 중간자가 내용을 볼 수 없음
+```
+
+> **프로덕션 체크리스트**
+> - TLS 인증서(Let's Encrypt 등) 적용
+> - HTTP → HTTPS 리다이렉트 설정
+> - HSTS(HTTP Strict Transport Security) 헤더 추가
+> - JWT secret 키는 충분히 길고 무작위한 값으로 교체 (최소 32자 이상)
+
+### httpOnly 쿠키로 Refresh Token 저장하기
+
+현재 구현에서는 클라이언트가 Refresh Token을 직접 `Authorization` 헤더에 담아서 보낸다. 이 방식은 클라이언트 측 JavaScript에서 토큰에 접근할 수 있어 XSS(Cross-Site Scripting) 공격에 취약할 수 있다.
+
+**httpOnly 쿠키**에 Refresh Token을 저장하면, JavaScript에서 토큰에 접근할 수 없어 XSS 공격 벡터를 차단할 수 있다.
+
+#### 쿠키로 Refresh Token 발급 (AuthController 수정)
+
+```typescript
+// src/auth/auth.controller.ts
+import { Response } from 'express';
+
+@Public()
+@UseGuards(LocalAuthGuard)
+@Post('login')
+@HttpCode(HttpStatus.OK)
+async login(@Request() req: any, @Res({ passthrough: true }) res: Response) {
+  const { accessToken, refreshToken } = await this.authService.login(req.user);
+
+  // Refresh Token을 httpOnly 쿠키로 설정
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,   // JavaScript에서 접근 불가 (XSS 방어)
+    secure: true,     // HTTPS에서만 전송 (프로덕션 필수)
+    sameSite: 'strict', // CSRF 방어
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7일 (밀리초)
+    path: '/auth/refresh', // 이 경로에서만 쿠키 전송
+  });
+
+  // Access Token만 응답 body에 포함
+  return { accessToken };
+}
+```
+
+#### 쿠키에서 Refresh Token 읽기 (JwtRefreshStrategy 수정)
+
+```typescript
+// src/auth/strategies/jwt-refresh.strategy.ts (쿠키 방식)
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
+import * as bcrypt from 'bcrypt';
+import { UsersService } from '../../users/users.service';
+
+@Injectable()
+export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
+  ) {
+    super({
+      // 쿠키에서 Refresh Token을 추출하는 커스텀 추출기
+      jwtFromRequest: (req: Request) => {
+        return req?.cookies?.refreshToken ?? null;
+      },
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('JWT_REFRESH_SECRET'),
+      passReqToCallback: true,
+    });
+  }
+
+  async validate(req: Request, payload: { sub: number; email: string }) {
+    const refreshToken = req?.cookies?.refreshToken;
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh Token 쿠키가 존재하지 않습니다.');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+
+    if (!user || !user.hashedRefreshToken) {
+      throw new UnauthorizedException('이미 로그아웃된 사용자입니다.');
+    }
+
+    const isValid = await bcrypt.compare(refreshToken, user.hashedRefreshToken);
+    if (!isValid) {
+      throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+    }
+
+    return { id: payload.sub, email: payload.email, refreshToken };
+  }
+}
+```
+
+쿠키를 읽으려면 `cookie-parser` 미들웨어를 설치하고 등록해야 한다.
+
+```bash
+npm install cookie-parser
+npm install -D @types/cookie-parser
+```
+
+```typescript
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import * as cookieParser from 'cookie-parser';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.use(cookieParser()); // 쿠키 파싱 미들웨어 등록
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+#### 로그아웃 시 쿠키 삭제
+
+```typescript
+// src/auth/auth.controller.ts
+@UseGuards(JwtAuthGuard)
+@Post('logout')
+@HttpCode(HttpStatus.OK)
+async logout(
+  @Request() req: any,
+  @Res({ passthrough: true }) res: Response,
+) {
+  await this.authService.logout(req.user.id);
+
+  // httpOnly 쿠키를 빈 값으로 덮어쓰고 즉시 만료
+  res.clearCookie('refreshToken', { path: '/auth/refresh' });
+
+  return { message: '로그아웃되었습니다.' };
+}
+```
+
+### Bearer 헤더 방식 vs httpOnly 쿠키 방식 비교
+
+| 구분 | Bearer 헤더 방식 | httpOnly 쿠키 방식 |
+| --- | --- | --- |
+| XSS 공격 | 취약 (JS에서 토큰 접근 가능) | 방어됨 (JS 접근 불가) |
+| CSRF 공격 | 방어됨 (헤더는 자동 전송 안 됨) | 취약 (쿠키는 자동 전송됨, `sameSite` 설정으로 완화) |
+| 모바일 앱 | 적합 (쿠키 관리 불편) | 불편 (쿠키 핸들링 추가 필요) |
+| 구현 복잡도 | 낮음 | 중간 (`cookie-parser`, `sameSite` 등 설정 필요) |
+| 권장 환경 | 모바일 앱, 서버 간 통신 | 웹 브라우저 클라이언트 |
+
+> **결론**: 웹 프론트엔드(React, Vue 등)와 함께 사용할 경우 **httpOnly 쿠키 방식이 더 안전**하다. 모바일 앱이나 서버 간 통신에서는 Bearer 헤더 방식이 더 적합하다. 이 챕터의 블로그 API는 두 방식 모두 적용 가능하도록 설계되어 있다.
