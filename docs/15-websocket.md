@@ -58,7 +58,7 @@ WebSocket 연결 흐름:
 
 ## 3. NestJS Gateway 핵심 개념
 
-NestJS에서 WebSocket 서버를 구현할 때는 **Gateway**라는 개념을 사용한다. Gateway는 `@WebSocketGateway()` 데코레이터가 붙은 클래스로, WebSocket 이벤트를 처리하는 역할을 한다. Gateway는 NestJS의 Provider로 취급되므로, DI(의존성 주입)를 통해 서비스를 주입받을 수 있다.
+NestJS에서 WebSocket 서버를 구현할 때는 **Gateway**라는 개념을 사용한다. Gateway는 [`@WebSocketGateway()`](references/decorators.md#websocketgatewayport-options) 데코레이터가 붙은 클래스로, WebSocket 이벤트를 처리하는 역할을 한다. Gateway는 NestJS의 Provider로 취급되므로, DI(의존성 주입)를 통해 서비스를 주입받을 수 있다.
 
 ### @WebSocketGateway
 
@@ -99,7 +99,7 @@ export class EchoGateway {}
 
 ### @SubscribeMessage
 
-특정 이벤트를 구독하여, 해당 이벤트가 발생했을 때 메서드를 실행한다. REST API의 [`@Get()`](../references/decorators.md#http-메서드-데코레이터), [`@Post()`](../references/decorators.md#http-메서드-데코레이터) 같은 역할이라고 생각하면 이해하기 쉽다.
+특정 이벤트를 구독하여, 해당 이벤트가 발생했을 때 메서드를 실행한다. REST API의 [`@Get()`](references/decorators.md#http-메서드-데코레이터), [`@Post()`](references/decorators.md#http-메서드-데코레이터) 같은 역할이라고 생각하면 이해하기 쉽다.
 
 ```typescript
 // echo.gateway.ts
@@ -128,8 +128,8 @@ export class EchoGateway {
 
 | 데코레이터 | 설명 |
 |-------------|------|
-| `@MessageBody()` | 클라이언트가 보낸 메시지 데이터를 추출한다 |
-| `@ConnectedSocket()` | 현재 연결된 소켓 인스턴스를 주입한다 |
+| [`@MessageBody()`](references/decorators.md#messagebodykey) | 클라이언트가 보낸 메시지 데이터를 추출한다 |
+| [`@ConnectedSocket()`](references/decorators.md#connectedsocket) | 현재 연결된 소켓 인스턴스를 주입한다 |
 
 ### @WebSocketServer
 
@@ -805,7 +805,7 @@ export class BlogGateway
 }
 ```
 
-> **참고:**: `notifyNewComment()` 메서드는 `@SubscribeMessage`가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
+> **참고:**: `notifyNewComment()` 메서드는 [`@SubscribeMessage`](references/decorators.md#subscribemessageevent)가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
 
 ### 9-5. CommentsService (Gateway 연동)
 
@@ -1262,11 +1262,11 @@ handleJoinPostRoom(
 
 | 개념 | 설명 |
 |------|------|
-| `@WebSocketGateway()` | WebSocket 서버(Gateway)를 선언하는 데코레이터 |
-| `@SubscribeMessage()` | 클라이언트 이벤트를 구독하는 데코레이터 |
-| `@WebSocketServer()` | Socket.IO Server 인스턴스에 접근하는 데코레이터 |
-| `@MessageBody()` | 메시지 데이터를 추출하는 매개변수 데코레이터 |
-| `@ConnectedSocket()` | 소켓 인스턴스를 주입하는 매개변수 데코레이터 |
+| [`@WebSocketGateway()`](references/decorators.md#websocketgatewayport-options) | WebSocket 서버(Gateway)를 선언하는 데코레이터 |
+| [`@SubscribeMessage()`](references/decorators.md#subscribemessageevent) | 클라이언트 이벤트를 구독하는 데코레이터 |
+| [`@WebSocketServer()`](references/decorators.md#websocketserver) | Socket.IO Server 인스턴스에 접근하는 데코레이터 |
+| [`@MessageBody()`](references/decorators.md#messagebodykey) | 메시지 데이터를 추출하는 매개변수 데코레이터 |
+| [`@ConnectedSocket()`](references/decorators.md#connectedsocket) | 소켓 인스턴스를 주입하는 매개변수 데코레이터 |
 | `OnGatewayInit` | Gateway 초기화 시 호출 |
 | `OnGatewayConnection` | 클라이언트 연결 시 호출 |
 | `OnGatewayDisconnect` | 클라이언트 연결 해제 시 호출 |

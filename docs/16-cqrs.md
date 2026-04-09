@@ -161,10 +161,10 @@ npm install @nestjs/cqrs
 | `CommandBus` | Command를 해당 Handler에 전달하는 버스 | 컨트롤러에서 주입받아 사용 |
 | `QueryBus` | Query를 해당 Handler에 전달하는 버스 | 컨트롤러에서 주입받아 사용 |
 | `EventBus` | Event를 발행하고 Handler에 전달하는 버스 | Handler에서 주입받아 사용 |
-| `@CommandHandler()` | Command를 처리하는 핸들러 표시 | `ICommandHandler` 인터페이스 구현 |
-| `@QueryHandler()` | Query를 처리하는 핸들러 표시 | `IQueryHandler` 인터페이스 구현 |
-| `@EventsHandler()` | Event를 처리하는 핸들러 표시 | `IEventHandler` 인터페이스 구현 |
-| `@Saga()` | 이벤트 스트림을 구독하여 새 Command를 실행 | RxJS Observable 반환 |
+| [`@CommandHandler()`](references/decorators.md#commandhandlercommand) | Command를 처리하는 핸들러 표시 | `ICommandHandler` 인터페이스 구현 |
+| [`@QueryHandler()`](references/decorators.md#queryhandlerquery) | Query를 처리하는 핸들러 표시 | `IQueryHandler` 인터페이스 구현 |
+| [`@EventsHandler()`](references/decorators.md#eventshandlerevent) | Event를 처리하는 핸들러 표시 | `IEventHandler` 인터페이스 구현 |
+| [`@Saga()`](references/decorators.md#saga) | 이벤트 스트림을 구독하여 새 Command를 실행 | RxJS Observable 반환 |
 
 ### 모듈 설정 기본 구조
 
@@ -203,7 +203,7 @@ export class SayHelloCommand {
 
 ### 2. CommandHandler 구현
 
-`@CommandHandler()` 데코레이터로 어떤 Command를 처리할지 지정하고, `ICommandHandler` 인터페이스를 구현한다. 반드시 `execute()` 메서드를 정의해야 한다.
+[`@CommandHandler()`](references/decorators.md#commandhandlercommand) 데코레이터로 어떤 Command를 처리할지 지정하고, `ICommandHandler` 인터페이스를 구현한다. 반드시 `execute()` 메서드를 정의해야 한다.
 
 ```typescript
 // commands/handlers/say-hello.handler.ts
@@ -261,7 +261,7 @@ export class GetGreetingQuery {
 
 ### 2. QueryHandler 구현
 
-`@QueryHandler()` 데코레이터를 사용하고, `IQueryHandler` 인터페이스를 구현한다. Command와 동일하게 `execute()` 메서드를 정의하되, **데이터를 반환**하는 것이 핵심이다.
+[`@QueryHandler()`](references/decorators.md#queryhandlerquery) 데코레이터를 사용하고, `IQueryHandler` 인터페이스를 구현한다. Command와 동일하게 `execute()` 메서드를 정의하되, **데이터를 반환**하는 것이 핵심이다.
 
 ```typescript
 // queries/handlers/get-greeting.handler.ts
@@ -326,7 +326,7 @@ export class UserGreetedEvent {
 
 ### 2. EventHandler 구현
 
-`@EventsHandler()` 데코레이터를 사용하고, `IEventHandler` 인터페이스를 구현한다. **주의**: Command/Query와 달리 메서드 이름이 `handle()`이다 (`execute()`가 아님).
+[`@EventsHandler()`](references/decorators.md#eventshandlerevent) 데코레이터를 사용하고, `IEventHandler` 인터페이스를 구현한다. **주의**: Command/Query와 달리 메서드 이름이 `handle()`이다 (`execute()`가 아님).
 
 ```typescript
 // events/handlers/log-greeting.handler.ts
@@ -421,7 +421,7 @@ export class ExampleSaga {
 
 Saga의 핵심 포인트:
 
-- `@Saga()` 데코레이터로 표시한다
+- [`@Saga()`](references/decorators.md#saga) 데코레이터로 표시한다
 - RxJS `Observable`을 반환하며, 각 값은 **새로운 Command**여야 한다
 - `ofType()` 연산자로 특정 이벤트만 필터링한다
 - 반환된 Command는 자동으로 `CommandBus`를 통해 실행된다
@@ -433,7 +433,7 @@ Saga의 핵심 포인트:
 
 둘 다 이벤트에 반응한다는 점은 같지만, **결과물의 성격**이 다르다.
 
-| 기준 | EventHandler (`@EventsHandler`) | Saga (`@Saga`) |
+| 기준 | EventHandler ([`@EventsHandler`](references/decorators.md#eventshandlerevent)) | Saga ([`@Saga`](references/decorators.md#saga)) |
 |------|----------------------------------|----------------|
 | 반환값 | 없음 (void) | 새로운 **Command** |
 | 주된 용도 | 이벤트 발생을 기록·통지하는 **부수 작업** | 이벤트를 트리거로 **다음 비즈니스 흐름**을 이어가는 것 |
@@ -454,7 +454,7 @@ Saga의 핵심 포인트:
 
 이전 챕터에서 만들어 온 블로그 게시글 도메인을 CQRS 패턴으로 리팩토링한다. 기존의 `PostsService` 한 곳에 모여 있던 로직을 Command, Query, Event로 분리하는 것이 목표다.
 
-> **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티([`@Entity()`](../references/decorators.md#entitytablename) 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
+> **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티([`@Entity()`](references/decorators.md#entitytablename) 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
 
 ### 디렉토리 구조
 
@@ -533,7 +533,7 @@ export class Post {
 }
 ```
 
-> **팁:**: [`@CreateDateColumn()`](../references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)과 [`@UpdateDateColumn()`](../references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
+> **팁:**: [`@CreateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)과 [`@UpdateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
 
 ### 2. DTO 정의
 
@@ -860,7 +860,7 @@ export class PostDeletedHandler implements IEventHandler<PostDeletedEvent> {
 }
 ```
 
-> **팁:**: `@EventsHandler()` 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
+> **팁:**: [`@EventsHandler()`](references/decorators.md#eventshandlerevent) 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
 
 ### 9. Saga 정의 (이벤트 기반 워크플로우)
 
@@ -1060,7 +1060,7 @@ const EventHandlers = [PostCreatedHandler, PostUpdatedHandler, PostDeletedHandle
 export class PostsModule {}
 ```
 
-> **팁:**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 [`@InjectRepository(Post)`](../references/decorators.md#injecttoken)로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
+> **팁:**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 [`@InjectRepository(Post)`](references/decorators.md#injectrepositoryentity)로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
 
 ### 전체 실행 흐름
 

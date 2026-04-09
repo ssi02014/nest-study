@@ -16,8 +16,11 @@
 7. [TypeORM Entity 데코레이터](#7-typeorm-entity-데코레이터)
 8. [Swagger 데코레이터](#8-swagger-데코레이터)
 9. [커스텀 데코레이터 생성 함수](#9-커스텀-데코레이터-생성-함수)
-10. [데코레이터 적용 범위 정리 표](#10-데코레이터-적용-범위-정리-표)
-11. [자주 묻는 질문 FAQ](#11-자주-묻는-질문-faq)
+10. [WebSocket 데코레이터](#10-websocket-데코레이터)
+11. [CQRS 데코레이터](#11-cqrs-데코레이터)
+12. [Microservices 데코레이터](#12-microservices-데코레이터)
+13. [데코레이터 적용 범위 정리 표](#13-데코레이터-적용-범위-정리-표)
+14. [자주 묻는 질문 FAQ](#14-자주-묻는-질문-faq)
 
 ---
 
@@ -1759,7 +1762,344 @@ export class PostsController {
 
 ---
 
-## 10. 데코레이터 적용 범위 정리 표
+## 10. WebSocket 데코레이터
+
+> `@nestjs/websockets` 및 `@nestjs/platform-socket.io` 패키지를 설치해야 사용할 수 있습니다.
+
+---
+
+### `@WebSocketGateway(port?, options?)`
+
+**무엇인가:** 클래스를 **WebSocket 게이트웨이**로 선언하는 데코레이터입니다. NestJS에서 WebSocket 서버 역할을 하는 클래스에 붙입니다.
+
+**왜 쓰는가:** REST API의 `@Controller()`와 같은 역할을 WebSocket 쪽에서 합니다. 실시간 이벤트(채팅, 알림 등)를 처리하는 진입점이 됩니다.
+
+**사용법:**
+
+| 옵션 | 설명 |
+|------|------|
+| `port` | WebSocket 서버가 리슨할 포트 (생략 시 HTTP 서버와 같은 포트) |
+| `namespace` | Socket.IO 네임스페이스 (예: `'/chat'`) |
+| `cors` | CORS 설정 |
+
+**예제 코드:**
+
+```typescript
+import { WebSocketGateway } from '@nestjs/websockets';
+
+// HTTP 서버와 같은 포트, 기본 네임스페이스
+@WebSocketGateway()
+export class EventsGateway {}
+
+// 특정 포트 + 네임스페이스 + CORS 설정
+@WebSocketGateway(3001, { namespace: '/chat', cors: { origin: '*' } })
+export class ChatGateway {}
+```
+
+> **팁:** `@WebSocketGateway()`가 붙은 클래스는 반드시 모듈의 `providers`에 등록해야 합니다. NestJS Provider이므로 DI를 통해 서비스를 주입받을 수 있습니다.
+
+---
+
+### `@SubscribeMessage(event)`
+
+**무엇인가:** 클라이언트가 보낸 **특정 이벤트를 구독**하는 메서드 데코레이터입니다. REST API의 `@Get()`, `@Post()` 같은 역할을 합니다.
+
+**왜 쓰는가:** 여러 종류의 WebSocket 이벤트(`'message'`, `'join-room'`, `'send-notification'` 등)를 각각 다른 핸들러 메서드로 분리해서 처리할 수 있습니다.
+
+**예제 코드:**
+
+```typescript
+import { SubscribeMessage, MessageBody } from '@nestjs/websockets';
+
+@WebSocketGateway()
+export class EventsGateway {
+  @SubscribeMessage('message')          // 'message' 이벤트 구독
+  handleMessage(@MessageBody() data: string): string {
+    return `수신: ${data}`;             // return 값이 클라이언트에게 전송됨
+  }
+
+  @SubscribeMessage('join-room')        // 'join-room' 이벤트 구독
+  handleJoinRoom(@MessageBody() roomId: string): void {
+    // void 반환 시 응답 없음
+  }
+}
+```
+
+---
+
+### `@WebSocketServer()`
+
+**무엇인가:** Socket.IO **Server 인스턴스를 프로퍼티에 주입**하는 데코레이터입니다.
+
+**왜 쓰는가:** 특정 클라이언트에게만 응답하는 것이 아니라, **모든 연결된 클라이언트에게 브로드캐스트**하거나 특정 룸에 이벤트를 방출할 때 Server 인스턴스가 필요합니다.
+
+**예제 코드:**
+
+```typescript
+import { WebSocketGateway, WebSocketServer, SubscribeMessage } from '@nestjs/websockets';
+import { Server } from 'socket.io';
+
+@WebSocketGateway()
+export class EventsGateway {
+  @WebSocketServer()
+  server: Server;                       // Socket.IO Server 인스턴스 자동 주입
+
+  @SubscribeMessage('broadcast')
+  handleBroadcast(@MessageBody() data: string): void {
+    this.server.emit('broadcast', data); // 모든 클라이언트에게 방출
+  }
+}
+```
+
+---
+
+### `@MessageBody(key?)`
+
+**무엇인가:** WebSocket 메시지에서 **데이터(페이로드)를 추출**하는 파라미터 데코레이터입니다. REST API의 `@Body()`와 같은 역할입니다.
+
+**예제 코드:**
+
+```typescript
+import { SubscribeMessage, MessageBody } from '@nestjs/websockets';
+
+@WebSocketGateway()
+export class ChatGateway {
+  @SubscribeMessage('send-message')
+  handleMessage(
+    @MessageBody() body: { content: string; roomId: string },
+  ) {
+    console.log(body.content, body.roomId);
+  }
+
+  @SubscribeMessage('set-nickname')
+  handleNickname(@MessageBody('name') name: string) { // 특정 키만 추출
+    console.log(name);
+  }
+}
+```
+
+---
+
+### `@ConnectedSocket()`
+
+**무엇인가:** 이벤트를 보낸 **클라이언트의 소켓 인스턴스를 주입**하는 파라미터 데코레이터입니다.
+
+**왜 쓰는가:** 특정 클라이언트에게만 응답을 보내거나, 해당 클라이언트를 특정 룸에 참여시키는 등 **개별 소켓 제어**가 필요할 때 사용합니다.
+
+**예제 코드:**
+
+```typescript
+import { SubscribeMessage, MessageBody, ConnectedSocket } from '@nestjs/websockets';
+import { Socket } from 'socket.io';
+
+@WebSocketGateway()
+export class RoomGateway {
+  @SubscribeMessage('join-room')
+  handleJoinRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() roomId: string,
+  ): void {
+    client.join(roomId);                             // 클라이언트를 룸에 참여
+    client.emit('joined', { roomId });               // 해당 클라이언트에게만 응답
+    client.to(roomId).emit('user-joined', client.id); // 같은 룸 다른 멤버에게 알림
+  }
+}
+```
+
+---
+
+## 11. CQRS 데코레이터
+
+> `@nestjs/cqrs` 패키지를 설치해야 사용할 수 있습니다.
+
+---
+
+### `@CommandHandler(command)`
+
+**무엇인가:** 클래스를 특정 **Command의 핸들러**로 선언하는 데코레이터입니다.
+
+**왜 쓰는가:** CQRS 패턴에서 Command(상태 변경 요청)를 처리하는 클래스를 NestJS가 인식할 수 있도록 등록합니다. `CommandBus.execute()`로 Command를 실행하면 해당 핸들러가 호출됩니다.
+
+**예제 코드:**
+
+```typescript
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { CreatePostCommand } from './create-post.command';
+
+@CommandHandler(CreatePostCommand)              // 이 클래스가 CreatePostCommand를 처리
+export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
+  async execute(command: CreatePostCommand) {
+    const { title, content } = command;
+    // DB 저장 로직
+  }
+}
+```
+
+> **팁:** `@CommandHandler()`가 붙은 클래스는 모듈의 `providers`에 등록해야 합니다.
+
+---
+
+### `@QueryHandler(query)`
+
+**무엇인가:** 클래스를 특정 **Query의 핸들러**로 선언하는 데코레이터입니다.
+
+**왜 쓰는가:** CQRS 패턴에서 Query(데이터 조회 요청)를 처리하는 클래스를 등록합니다. `QueryBus.execute()`로 Query를 실행하면 해당 핸들러가 호출됩니다.
+
+**예제 코드:**
+
+```typescript
+import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+import { GetPostsQuery } from './get-posts.query';
+
+@QueryHandler(GetPostsQuery)                    // 이 클래스가 GetPostsQuery를 처리
+export class GetPostsHandler implements IQueryHandler<GetPostsQuery> {
+  async execute(query: GetPostsQuery) {
+    // DB 조회 로직 — 상태 변경 없이 데이터만 반환
+    return [];
+  }
+}
+```
+
+---
+
+### `@EventsHandler(event)`
+
+**무엇인가:** 클래스를 특정 **도메인 이벤트의 핸들러**로 선언하는 데코레이터입니다.
+
+**왜 쓰는가:** Command 처리 후 발생하는 도메인 이벤트(예: `PostCreatedEvent`)를 여러 핸들러가 독립적으로 구독할 수 있습니다. 이메일 발송, 캐시 갱신, 통계 업데이트 등 부수 작업을 핸들러로 분리합니다.
+
+**예제 코드:**
+
+```typescript
+import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
+import { PostCreatedEvent } from './post-created.event';
+
+@EventsHandler(PostCreatedEvent)
+export class PostCreatedHandler implements IEventHandler<PostCreatedEvent> {
+  handle(event: PostCreatedEvent) {
+    console.log(`새 게시글 생성됨: ${event.postId}`);
+    // 알림 발송, 캐시 갱신 등
+  }
+}
+```
+
+---
+
+### `@Saga()`
+
+**무엇인가:** 메서드를 **Saga**로 선언하는 데코레이터입니다. Saga는 도메인 이벤트 스트림을 관찰하고, 조건에 따라 새 Command를 실행하는 비동기 이벤트 흐름 처리 패턴입니다.
+
+**왜 쓰는가:** 여러 이벤트에 걸친 복잡한 비즈니스 흐름(예: "게시글 작성 → 알림 발송 → 통계 갱신")을 하나의 Saga로 조율할 수 있습니다.
+
+**예제 코드:**
+
+```typescript
+import { Saga, ICommand } from '@nestjs/cqrs';
+import { Observable } from 'rxjs';
+import { ofType } from '@nestjs/cqrs';
+import { map } from 'rxjs/operators';
+
+@Injectable()
+export class PostsSaga {
+  @Saga()
+  postCreated = (events$: Observable<any>): Observable<ICommand> => {
+    return events$.pipe(
+      ofType(PostCreatedEvent),                 // PostCreatedEvent만 필터링
+      map(event => new SendNotificationCommand(event.postId)), // 새 Command 실행
+    );
+  };
+}
+```
+
+---
+
+## 12. Microservices 데코레이터
+
+> `@nestjs/microservices` 패키지를 설치해야 사용할 수 있습니다.
+
+---
+
+### `@MessagePattern(pattern)`
+
+**무엇인가:** 마이크로서비스에서 **특정 메시지 패턴에 응답**하는 핸들러를 선언하는 데코레이터입니다. **요청-응답(Request-Response)** 방식으로 동작합니다.
+
+**왜 쓰는가:** TCP, Redis, NATS 등의 메시지 브로커를 통해 다른 마이크로서비스에서 보내는 메시지를 처리합니다. REST API의 `@Get()`, `@Post()` 역할을 마이크로서비스에서 담당합니다.
+
+**예제 코드:**
+
+```typescript
+import { MessagePattern, Payload } from '@nestjs/microservices';
+
+@Controller()
+export class PostsController {
+  // 'find_all_posts' 패턴의 메시지가 오면 실행
+  @MessagePattern('find_all_posts')
+  findAll(): Post[] {
+    return [];
+  }
+
+  // 패턴을 객체로 지정할 수도 있음
+  @MessagePattern({ cmd: 'create_post' })
+  create(@Payload() dto: CreatePostDto): Post {
+    return this.postsService.create(dto);
+  }
+}
+```
+
+---
+
+### `@EventPattern(pattern)`
+
+**무엇인가:** 마이크로서비스에서 **이벤트를 구독**하는 핸들러를 선언하는 데코레이터입니다. **발행-구독(Pub-Sub)** 방식으로 동작하며, 응답을 반환하지 않습니다.
+
+**왜 쓰는가:** `@MessagePattern()`과 달리 단방향(fire-and-forget)입니다. "사용자가 가입했다", "주문이 완료됐다" 같은 이벤트를 여러 서비스가 독립적으로 구독할 때 사용합니다.
+
+**예제 코드:**
+
+```typescript
+import { EventPattern, Payload } from '@nestjs/microservices';
+
+@Controller()
+export class NotificationController {
+  // 'user_created' 이벤트 구독 — 응답 없음
+  @EventPattern('user_created')
+  handleUserCreated(@Payload() data: { userId: string; email: string }): void {
+    // 환영 이메일 발송, 통계 업데이트 등 부수 작업
+    console.log(`신규 사용자: ${data.email}`);
+  }
+}
+```
+
+> **팁:** `@MessagePattern()`은 응답이 필요한 쿼리/커맨드에, `@EventPattern()`은 알림·이벤트 처리에 사용합니다.
+
+---
+
+### `@Payload(key?)`
+
+**무엇인가:** 마이크로서비스 메시지에서 **페이로드(데이터)를 추출**하는 파라미터 데코레이터입니다. REST API의 `@Body()`에 해당합니다.
+
+**예제 코드:**
+
+```typescript
+import { MessagePattern, Payload } from '@nestjs/microservices';
+
+@Controller()
+export class PostsController {
+  @MessagePattern('create_post')
+  create(@Payload() dto: CreatePostDto): Post {
+    return this.postsService.create(dto);
+  }
+
+  @MessagePattern('get_post')
+  findOne(@Payload('id') id: number): Post {  // 특정 키만 추출
+    return this.postsService.findOne(id);
+  }
+}
+```
+
+---
+
+## 13. 데코레이터 적용 범위 정리 표
 
 | 데코레이터 | 클래스 | 메서드 | 파라미터 | 프로퍼티 |
 |------------|:------:|:------:|:--------:|:--------:|
@@ -1794,10 +2134,22 @@ export class PostsController {
 | `@ApiBearerAuth()` | ✓ | ✓ | | |
 | `@ApiProperty()`, `@ApiPropertyOptional()` | | | | ✓ |
 | `@ApiParam()`, `@ApiQuery()`, `@ApiBody()` | | ✓ | | |
+| `@WebSocketGateway()` | ✓ | | | |
+| `@SubscribeMessage()` | | ✓ | | |
+| `@WebSocketServer()` | | | | ✓ |
+| `@MessageBody()` | | | ✓ | |
+| `@ConnectedSocket()` | | | ✓ | |
+| `@CommandHandler()` | ✓ | | | |
+| `@QueryHandler()` | ✓ | | | |
+| `@EventsHandler()` | ✓ | | | |
+| `@Saga()` | | ✓ | | |
+| `@MessagePattern()` | | ✓ | | |
+| `@EventPattern()` | | ✓ | | |
+| `@Payload()` | | | ✓ | |
 
 ---
 
-## 11. 자주 묻는 질문 FAQ
+## 14. 자주 묻는 질문 FAQ
 
 **Q1. `@Res()`를 사용했더니 응답이 안 오고 요청이 무한 대기 상태가 됩니다.**
 
