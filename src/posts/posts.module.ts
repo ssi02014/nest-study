@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { CommonModule } from '@/common/common.module';
-import { UsersModule } from '@/users/users.module';
+import { CommonModule } from '@src/common/common.module';
+import { UsersModule } from '@src/users/users.module';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
 
