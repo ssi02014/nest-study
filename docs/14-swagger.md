@@ -641,6 +641,38 @@ bootstrap();
 
 ---
 
+## 프로젝트 구조
+
+Swagger는 새 파일을 추가하지 않고, 기존 파일에 데코레이터를 추가하는 방식으로 동작한다.
+
+```
+src/
+├── app.module.ts
+├── main.ts                        ← Swagger DocumentBuilder 설정 추가
+├── common/ (챕터 9까지 누적)
+├── config/
+├── auth/
+│   ├── auth.controller.ts         ← @ApiTags, @ApiOperation 추가
+│   └── dto/
+│       ├── login.dto.ts           ← @ApiProperty 추가
+│       └── signup.dto.ts          ← @ApiProperty 추가
+├── users/
+│   ├── users.controller.ts        ← @ApiTags, @ApiOperation 추가
+│   └── dto/
+│       └── create-user.dto.ts     ← @ApiProperty 추가
+├── posts/
+│   ├── posts.controller.ts        ← @ApiTags, @ApiOperation, @ApiParam 추가
+│   └── dto/
+│       ├── create-post.dto.ts     ← @ApiProperty 추가
+│       └── update-post.dto.ts     ← @ApiProperty 추가
+└── comments/
+    ├── comments.controller.ts     ← @ApiTags, @ApiOperation 추가
+    └── dto/
+        └── create-comment.dto.ts  ← @ApiProperty 추가
+```
+
+---
+
 ## 블로그 API 적용: 패키지 설치 및 Swagger 설정
 
 여기서부터는 이전 챕터까지 구축해온 **블로그 API**에 Swagger를 적용한다. 챕터 12에서 JWT 인증을 구현했고, 챕터 13에서 테스트를 작성했으므로, 이제 API 문서를 자동 생성하는 단계다.

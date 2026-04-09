@@ -451,6 +451,27 @@ export class ExampleController {
 
 ---
 
+## 프로젝트 구조
+
+```
+src/
+├── common/
+│   ├── decorators/
+│   │   ├── current-user.decorator.ts ← [이번 챕터 추가]
+│   │   ├── public.decorator.ts
+│   │   └── roles.decorator.ts
+│   └── guards/
+│       └── simple-auth.guard.ts      ← @CurrentUser 연동으로 수정
+├── users/
+│   └── users.controller.ts           ← @CurrentUser() 적용
+├── posts/
+│   └── posts.controller.ts           ← @CurrentUser(), @Public() 적용
+└── comments/
+    └── comments.controller.ts        ← @CurrentUser(), @Public() 적용
+```
+
+---
+
 ### @CurrentUser() 데코레이터 만들기
 
 `request.user`에 저장된 유저 정보를 편리하게 추출하는 파라미터 데코레이터다.
@@ -815,46 +836,6 @@ export class PostsController {
 | 코드 중복 | 매 메서드마다 `req.user.id` 추출 | 데코레이터 한 줄로 해결 |
 | Express 의존성 | [`@Req() req: Request`](references/decorators.md#req-res) - Express에 종속 | Express 타입 불필요 |
 | 가독성 | 메서드 본문에 데이터 추출 로직 섞임 | 파라미터 선언에서 명확히 표현 |
-
----
-
-### 최종 프로젝트 구조
-
-챕터 9까지 완료한 블로그 API의 `common/decorators/` 폴더 구조:
-
-```
-src/
-├── common/
-│   ├── decorators/
-│   │   ├── current-user.decorator.ts   ← @CurrentUser() - 유저 정보 추출
-│   │   ├── public.decorator.ts         ← @Public() - 인증 스킵
-│   │   └── roles.decorator.ts          ← @Roles() - 역할 메타데이터
-│   ├── guards/
-│   │   ├── auth.guard.ts               ← SimpleAuthGuard (@Public, @CurrentUser 연동)
-│   │   └── roles.guard.ts              ← RolesGuard (@Roles 연동)
-│   ├── filters/
-│   │   └── http-exception.filter.ts    ← 챕터 8에서 만든 예외 필터
-│   ├── interceptors/
-│   │   ├── transform.interceptor.ts    ← 챕터 7에서 만든 응답 래핑
-│   │   └── logging.interceptor.ts      ← 챕터 7에서 만든 로깅
-│   └── middleware/
-│       └── logger.middleware.ts        ← 챕터 4에서 만든 로깅 미들웨어
-├── users/
-│   ├── users.module.ts
-│   ├── users.controller.ts             ← @CurrentUser() 적용
-│   └── users.service.ts
-├── posts/
-│   ├── posts.module.ts
-│   ├── posts.controller.ts             ← @CurrentUser(), @Public() 적용
-│   ├── posts.service.ts
-│   └── dto/
-├── comments/
-│   ├── comments.module.ts
-│   ├── comments.controller.ts          ← @CurrentUser(), @Public() 적용
-│   ├── comments.service.ts
-│   └── dto/
-└── app.module.ts
-```
 
 ---
 

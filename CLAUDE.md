@@ -185,19 +185,45 @@ nest-study/
 
 CLAUDE.md가 실제 상태와 달라지면 에이전트가 잘못된 기준으로 작업할 수 있다.
 
+### 프로젝트 구조 섹션 표준
+
+3단계 맨 위에 `## 프로젝트 구조`를 배치한다. 표시 규칙:
+
+- **신규 파일**: 전체 경로 표시 + `← [이번 챕터 추가]` 주석
+- **수정된 파일**: 파일명 표시 + `← 변경 내용` 주석
+- **기존 폴더**: 폴더명만 표시, 내부 파일 생략
+
+```
+src/
+├── app.module.ts       ← 변경 시에만 표시
+├── common/             
+│   └── 새_폴더/
+│       └── 새_파일.ts  ← [이번 챕터 추가]
+├── users/              ← 기존 폴더, 내부 생략
+├── posts/
+└── comments/
+```
+
+### CommonModule 통합 규칙
+
+- 챕터 3에서 `CommonModule` + `CommonService` 도입 (`formatDate`, `generateSlug` 제공)
+- 챕터 3부터 모든 Feature 모듈(`UsersModule`, `PostsModule`, `CommentsModule`)은 `CommonModule`을 `imports`에 포함
+- 챕터별 `common/` 누적 항목은 `.claude/chapter-rules.md` §10 참조
+
 ### 블로그 API 예제 코드 품질
 
 3단계(블로그 API 적용)의 예제 코드는 이미 만들어진 서비스와 유틸리티를 재사용해야 한다:
 
-- **하드코딩 금지**: 날짜 포맷, 슬러그 생성 등 공통 로직은 인라인으로 중복 작성하지 않는다
-- **`CommonService` 우선 사용**: `formatDate()`, `generateSlug()` 등 이미 정의된 메서드를 활용한다
+- **하드코딩 금지**: 날짜 포맷 문자열 생성 등 공통 로직은 인라인으로 중복 작성하지 않는다
+- **`CommonService` 우선 사용**: `formatDate()` 등 이미 정의된 메서드를 활용한다
 - **이 규칙은 3단계에만 적용**: 2단계(기본 예제)는 개념 설명이 목적이므로 간결한 인라인 코드를 허용한다
+- **TypeORM 도입(챕터 10) 이전**: 날짜 필드는 `string` 타입 + `formatDate()` 사용. TypeORM 도입 후에는 `Date` 타입 사용
 
 ```typescript
-// ❌ 3단계에서 금지
+// ❌ 3단계에서 금지 (챕터 3~9)
 createdAt: new Date().toISOString().split('T')[0],
 
-// ✅ 3단계에서 권장
+// ✅ 3단계에서 권장 (챕터 3~9)
 createdAt: this.commonService.formatDate(new Date()),
 ```
 

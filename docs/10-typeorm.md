@@ -1125,38 +1125,24 @@ async createWithOwner(createCatDto: CreateCatDto, ownerId: number): Promise<Cat>
 npm install @nestjs/typeorm typeorm better-sqlite3
 ```
 
-### 전체 구조
+### 프로젝트 구조
 
 ```
 src/
-├── app.module.ts                  ← TypeORM 설정 추가
+├── app.module.ts                  ← TypeOrmModule 설정 추가
+├── common/
 ├── users/
-│   ├── users.module.ts
-│   ├── users.controller.ts
-│   ├── users.service.ts           ← 메모리 배열 → Repository로 리팩토링
-│   ├── dto/
-│   │   ├── create-user.dto.ts
-│   │   └── update-user.dto.ts
-│   └── entities/
-│       └── user.entity.ts         ← 새로 작성
+│   ├── entities/
+│   │   └── user.entity.ts         ← [이번 챕터 추가]
+│   └── users.service.ts           ← Repository로 리팩토링
 ├── posts/
-│   ├── posts.module.ts
-│   ├── posts.controller.ts
-│   ├── posts.service.ts           ← 메모리 배열 → Repository로 리팩토링
-│   ├── dto/
-│   │   ├── create-post.dto.ts
-│   │   └── update-post.dto.ts
-│   └── entities/
-│       └── post.entity.ts         ← 새로 작성
+│   ├── entities/
+│   │   └── post.entity.ts         ← [이번 챕터 추가]
+│   └── posts.service.ts           ← Repository로 리팩토링
 └── comments/
-    ├── comments.module.ts
-    ├── comments.controller.ts
-    ├── comments.service.ts        ← 메모리 배열 → Repository로 리팩토링
-    ├── dto/
-    │   ├── create-comment.dto.ts
-    │   └── update-comment.dto.ts
-    └── entities/
-        └── comment.entity.ts      ← 새로 작성
+    ├── entities/
+    │   └── comment.entity.ts      ← [이번 챕터 추가]
+    └── comments.service.ts        ← Repository로 리팩토링
 ```
 
 ### Entity 관계도

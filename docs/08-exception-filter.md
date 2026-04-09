@@ -677,6 +677,30 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 이제 실제 블로그 API에 Exception Filter를 적용한다. 챕터 7에서 만든 `TransformInterceptor`가 **성공 응답**을 래핑했다면, 이번에 만드는 `HttpExceptionFilter`는 **에러 응답**을 래핑한다. 둘이 짝을 이루어 **일관된 API 응답 포맷**을 완성한다.
 
+### 프로젝트 구조
+
+```
+src/
+├── app.module.ts                    ← APP_FILTER + APP_INTERCEPTOR 등록
+├── common/
+│   ├── common.module.ts
+│   ├── common.service.ts
+│   ├── middleware/
+│   ├── dto/
+│   ├── data/
+│   ├── enums/
+│   ├── decorators/
+│   ├── guards/
+│   ├── interceptors/
+│   └── filters/
+│       └── http-exception.filter.ts ← [이번 챕터 추가]
+├── users/
+├── posts/
+└── comments/
+```
+
+---
+
 ### 3-1. HttpExceptionFilter 작성
 
 블로그 API의 에러 응답을 `{ success: false, error: { statusCode, message, path, timestamp } }` 형태로 통일하는 필터다.
@@ -772,12 +796,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { CommonModule } from './common/common.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { PostsModule } from './posts/posts.module';
 
 @Module({
-  imports: [PostsModule],
+  imports: [CommonModule, PostsModule],
   providers: [
     // 전역 예외 필터 등록
     {

@@ -597,16 +597,22 @@ export class CacheInterceptor implements NestInterceptor {
 
 ```
 src/
+├── app.module.ts                    ← APP_INTERCEPTOR 등록
 ├── common/
+│   ├── common.module.ts
+│   ├── common.service.ts
+│   ├── middleware/
+│   ├── dto/
+│   ├── data/
+│   ├── enums/
+│   ├── decorators/
+│   ├── guards/
 │   └── interceptors/
-│       ├── transform.interceptor.ts    ← 응답 래핑
-│       └── logging.interceptor.ts      ← 요청 로깅
+│       ├── transform.interceptor.ts ← [이번 챕터 추가]
+│       └── logging.interceptor.ts   ← [이번 챕터 추가]
+├── users/
 ├── posts/
-│   ├── posts.controller.ts
-│   ├── posts.service.ts
-│   └── posts.module.ts
-├── app.module.ts                       ← 글로벌 인터셉터 등록
-└── main.ts
+└── comments/
 ```
 
 ### 6-2. TransformInterceptor 만들기
@@ -714,6 +720,7 @@ export class LoggingInterceptor implements NestInterceptor {
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { CommonModule } from './common/common.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { PostsModule } from './posts/posts.module';
@@ -721,7 +728,7 @@ import { UsersModule } from './users/users.module';
 import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [PostsModule, UsersModule, CommentsModule],
+  imports: [CommonModule, PostsModule, UsersModule, CommentsModule],
   providers: [
     // 순서: LoggingInterceptor → TransformInterceptor
     // Logging이 먼저 등록되므로, 요청 시점에는 Logging이 먼저,

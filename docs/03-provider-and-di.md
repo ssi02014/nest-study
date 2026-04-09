@@ -752,12 +752,17 @@ export class CatsService {
 
 이제 진짜 블로그 API를 만들자! User, Post, Comment 세 도메인의 인터페이스를 정의하고, 각각 Service와 Controller를 만든다.
 
+--- 
+
 ## 프로젝트 구조
 
 ```
 src/
 ├── app.module.ts
 ├── main.ts
+├── common/
+│   ├── common.module.ts            ← 공통 모듈 (챕터 1에서 정의)
+│   └── common.service.ts           ← 공통 유틸리티 서비스
 ├── users/
 │   ├── interfaces/
 │   │   └── user.interface.ts       ← User 타입 정의
@@ -798,7 +803,7 @@ export interface User {
   id: number;
   email: string;
   name: string;
-  createdAt: Date;
+  createdAt: string;
 }
 ```
 
@@ -811,8 +816,8 @@ export interface Post {
   title: string;
   content: string;
   authorId: number;       // User.id 참조
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
@@ -825,7 +830,7 @@ export interface Comment {
   content: string;
   authorId: number;       // User.id 참조
   postId: number;         // Post.id 참조
-  createdAt: Date;
+  createdAt: string;
 }
 ```
 
@@ -885,6 +890,7 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { CommonService } from '../common/common.service';
 import { User } from './interfaces/user.interface';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -893,6 +899,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersService {
   private users: User[] = [];
   private nextId = 1;
+
+  constructor(private readonly commonService: CommonService) {}
 
   /** 회원가입 */
   create(dto: CreateUserDto): User {
@@ -906,7 +914,7 @@ export class UsersService {
       id: this.nextId++,
       email: dto.email,
       name: dto.name,
-      createdAt: new Date(),
+      createdAt: this.commonService.formatDate(new Date()),
     };
     this.users.push(user);
     return user;
@@ -1016,10 +1024,12 @@ export class UsersController {
 ```typescript
 // users/users.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
+  imports: [CommonModule],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],  // PostsModule, CommentsModule에서 사용자 존재 확인에 필요
@@ -1034,6 +1044,7 @@ export class UsersModule {}
 ```typescript
 // posts/posts.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { CommonService } from '../common/common.service';
 import { UsersService } from '../users/users.service';
 import { Post } from './interfaces/post.interface';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -1044,15 +1055,18 @@ export class PostsService {
   private posts: Post[] = [];
   private nextId = 1;
 
-  // UsersService를 주입받아 작성자 존재 여부를 확인한다
-  constructor(private readonly usersService: UsersService) {}
+  // UsersService와 CommonService를 모두 주입받는다
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly commonService: CommonService,
+  ) {}
 
   /** 게시글 작성 */
   create(dto: CreatePostDto): Post {
     // 작성자가 존재하는지 확인 (없으면 NotFoundException 발생)
     this.usersService.findOne(dto.authorId);
 
-    const now = new Date();
+    const now = this.commonService.formatDate(new Date());
     const post: Post = {
       id: this.nextId++,
       title: dto.title,
@@ -1085,7 +1099,7 @@ export class PostsService {
     const updated: Post = {
       ...post,
       ...dto,
-      updatedAt: new Date(),
+      updatedAt: this.commonService.formatDate(new Date()),
     };
     this.posts = this.posts.map((p) => (p.id === id ? updated : p));
     return updated;
@@ -1099,7 +1113,7 @@ export class PostsService {
 }
 ```
 
-> **포인트**: `PostsService`의 생성자에서 `UsersService`를 주입받는다. 이것이 **Service 간 의존성 주입**이다. 게시글을 작성할 때 작성자(User)가 실제로 존재하는지 확인하기 위해서다.
+> **포인트**: `PostsService`의 생성자에서 `UsersService`와 `CommonService`를 주입받는다. 이것이 **Service 간 의존성 주입**이다. `UsersService`는 게시글 작성 시 작성자 존재 여부를 확인하기 위해, `CommonService`는 날짜 포맷을 위해 사용한다.
 
 ## PostsController
 
@@ -1168,10 +1182,11 @@ export class PostsController {
 import { Module } from '@nestjs/common';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
+import { CommonModule } from '../common/common.module';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [UsersModule],  // UsersService를 사용하기 위해 UsersModule을 import
+  imports: [CommonModule, UsersModule],  // CommonService(날짜 포맷) + UsersService(작성자 검증)
   controllers: [PostsController],
   providers: [PostsService],
   exports: [PostsService],  // CommentsModule에서 게시글 존재 확인에 필요
@@ -1179,9 +1194,10 @@ import { UsersModule } from '../users/users.module';
 export class PostsModule {}
 ```
 
-> **주의:** `PostsService`가 `UsersService`를 주입받으려면:
+> **주의:** `PostsService`가 `UsersService`와 `CommonService`를 주입받으려면:
 > 1. `UsersModule`에서 `UsersService`를 `exports`에 등록해야 하고
-> 2. `PostsModule`에서 `UsersModule`을 `imports`에 넣어야 한다
+> 2. `CommonModule`에서 `CommonService`를 `exports`에 등록해야 하며
+> 3. `PostsModule`에서 두 모듈 모두 `imports`에 넣어야 한다
 >
 > 이것이 챕터 1에서 배운 **모듈 간 의존성** 개념이다.
 
@@ -1192,6 +1208,7 @@ export class PostsModule {}
 ```typescript
 // comments/comments.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { CommonService } from '../common/common.service';
 import { UsersService } from '../users/users.service';
 import { PostsService } from '../posts/posts.service';
 import { Comment } from './interfaces/comment.interface';
@@ -1202,8 +1219,9 @@ export class CommentsService {
   private comments: Comment[] = [];
   private nextId = 1;
 
-  // UsersService와 PostsService를 모두 주입받는다
+  // CommonService, UsersService, PostsService를 모두 주입받는다
   constructor(
+    private readonly commonService: CommonService,
     private readonly usersService: UsersService,
     private readonly postsService: PostsService,
   ) {}
@@ -1220,7 +1238,7 @@ export class CommentsService {
       content: dto.content,
       authorId: dto.authorId,
       postId,
-      createdAt: new Date(),
+      createdAt: this.commonService.formatDate(new Date()),
     };
     this.comments.push(comment);
     return comment;
@@ -1297,13 +1315,14 @@ export class CommentsController {
 ```typescript
 // comments/comments.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
 import { CommentsController } from './comments.controller';
 import { CommentsService } from './comments.service';
 import { UsersModule } from '../users/users.module';
 import { PostsModule } from '../posts/posts.module';
 
 @Module({
-  imports: [UsersModule, PostsModule],  // 두 모듈 모두 import
+  imports: [CommonModule, UsersModule, PostsModule],  // 세 모듈 모두 import
   controllers: [CommentsController],
   providers: [CommentsService],
 })
@@ -1319,12 +1338,13 @@ export class CommentsModule {}
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [UsersModule, PostsModule, CommentsModule],
+  imports: [CommonModule, UsersModule, PostsModule, CommentsModule],
 })
 export class AppModule {}
 ```
@@ -1332,37 +1352,40 @@ export class AppModule {}
 ## 의존성 관계도
 
 ```
-┌─────────────────────────────────────────────┐
-│                  AppModule                  │
-│                                             │
-│  imports: [UsersModule,                     │
-│            PostsModule,                     │
-│            CommentsModule]                  │
-└──────┬──────────────┬──────────────┬────────┘
-       │              │              │
-       ▼              ▼              ▼
-┌────────────┐ ┌─────────────┐ ┌──────────────┐
-│UsersModule │ │ PostsModule │ │CommentsModule│
-│            │ │             │ │              │
-│ exports:   │ │ imports:    │ │ imports:     │
-│ [Users     │◀│ [UsersModule│ │ [UsersModule,│
-│  Service]  │ │  ]          │ │  PostsModule]│
-│            │ │             │ │              │
-│ Controller │ │ exports:    │ │ Controller   │
-│  ↓ 주입    │ │ [Posts      │◀│  ↓ 주입      │
-│ Service    │ │  Service]   │ │ Service      │
-└────────────┘ │             │ │  (Users +    │
-               │ Controller  │ │   Posts 주입)│
-               │  ↓ 주입     │ └──────────────┘
-               │ Service     │
-               │  (Users주입)│
-               └─────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                        AppModule                          │
+│                                                           │
+│  imports: [CommonModule, UsersModule,                     │
+│            PostsModule, CommentsModule]                   │
+└──┬───────────────┬──────────────┬──────────────┬──────────┘
+   │               │              │              │
+   ▼               ▼              ▼              ▼
+┌──────────────┐ ┌────────────┐ ┌─────────────┐ ┌──────────────┐
+│ CommonModule │ │UsersModule │ │ PostsModule │ │CommentsModule│
+│              │ │            │ │             │ │              │
+│ exports:     │ │ exports:   │ │ imports:    │ │ imports:     │
+│ [Common      │◀│ [Users     │◀│ [Common     │ │ [UsersModule,│
+│  Service]    │ │  Service]  │ │  Module,    │ │  PostsModule]│
+│              │ │            │ │  UsersModule│ │              │
+│ (formatDate) │ │ Controller │ │  ]          │ │ Controller   │
+│              │ │  ↓ 주입     │ │             │ │  ↓ 주입       │
+└──────────────┘ │ Service    │ │ exports:    │ │ Service      │
+                 └────────────┘ │ [Posts      │◀│  (Users +    │
+                                │  Service]   │ │   Posts 주입) │
+                                │             │ └──────────────┘
+                                │ Controller  │
+                                │  ↓ 주입      │
+                                │ Service     │
+                                │  (Users +   │
+                                │   Common주입 │
+                                └─────────────┘
 ```
 
 **의존성 흐름 요약**:
-- `UsersModule` -> 독립적, `UsersService`를 export
-- `PostsModule` -> `UsersModule`을 import하여 `UsersService` 사용
-- `CommentsModule` -> `UsersModule` + `PostsModule`을 import하여 두 서비스 모두 사용
+- `CommonModule` -> 독립적, `CommonService`를 export (슬러그 생성, 날짜 포맷)
+- `UsersModule` -> `CommonModule` import, `UsersService`를 export
+- `PostsModule` -> `CommonModule` + `UsersModule` import (날짜 포맷 + 작성자 검증)
+- `CommentsModule` -> `CommonModule` + `UsersModule` + `PostsModule` import
 
 ---
 

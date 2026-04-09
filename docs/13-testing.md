@@ -1076,6 +1076,45 @@ describe('PostsService (통합 테스트)', () => {
 
 ---
 
+## 프로젝트 구조
+
+테스트 파일은 테스트 대상 파일과 같은 폴더에 `.spec.ts` 확장자로 배치한다.
+
+```
+src/
+├── app.module.ts
+├── main.ts
+├── common/ (챕터 9까지 누적된 파일들)
+├── config/
+│   ├── database.config.ts
+│   ├── jwt.config.ts
+│   └── env.validation.ts
+├── auth/
+│   ├── auth.service.ts
+│   ├── auth.service.spec.ts       ← [이번 챕터 추가]
+│   └── ...
+├── users/
+│   ├── entities/
+│   │   └── user.entity.ts
+│   ├── users.service.ts
+│   ├── users.service.spec.ts      ← [이번 챕터 추가]
+│   └── ...
+├── posts/
+│   ├── entities/
+│   │   └── post.entity.ts
+│   ├── posts.service.ts
+│   ├── posts.service.spec.ts      ← [이번 챕터 추가]
+│   └── ...
+└── comments/
+    └── ...
+
+test/
+├── app.e2e-spec.ts                ← [이번 챕터 추가]
+└── jest-e2e.json
+```
+
+---
+
 ## 11. 블로그 API: PostsService 단위 테스트
 
 이제 챕터 10(TypeORM)과 챕터 12(Authentication)에서 구축한 블로그 API의 핵심 로직을 테스트한다.

@@ -677,6 +677,38 @@ signup(@Body() dto: SignupDto) {
 
 > 이전 챕터들에서 만들어온 블로그 API에 실제 JWT 인증을 적용한다. 챕터 6에서 사용한 `SimpleAuthGuard`(헤더의 `x-user-id`를 확인하는 간이 가드)를 **진짜 JWT 인증**으로 교체하는 것이 목표다.
 
+---
+
+## 프로젝트 구조
+
+```
+src/
+├── common/
+├── config/
+├── auth/
+│   ├── dto/
+│   │   ├── login.dto.ts              ← [이번 챕터 추가]
+│   │   └── signup.dto.ts             ← [이번 챕터 추가]
+│   ├── guards/
+│   │   ├── jwt-auth.guard.ts         ← [이번 챕터 추가]
+│   │   ├── jwt-refresh-auth.guard.ts ← [이번 챕터 추가]
+│   │   └── local-auth.guard.ts       ← [이번 챕터 추가]
+│   ├── strategies/
+│   │   ├── jwt.strategy.ts           ← [이번 챕터 추가]
+│   │   ├── jwt-refresh.strategy.ts   ← [이번 챕터 추가]
+│   │   └── local.strategy.ts         ← [이번 챕터 추가]
+│   ├── auth.controller.ts            ← [이번 챕터 추가]
+│   ├── auth.module.ts                ← [이번 챕터 추가]
+│   └── auth.service.ts               ← [이번 챕터 추가]
+├── users/
+│   └── entities/
+│       └── user.entity.ts            ← hashedRefreshToken 컬럼 추가
+├── posts/
+└── comments/
+```
+
+---
+
 ## 9. AuthModule 생성
 
 ### 환경 변수 준비
@@ -762,41 +794,6 @@ export class AppModule {}
 ```
 
 > **팁:** `APP_GUARD`로 전역 등록하면 모든 라우트에 JwtAuthGuard가 자동 적용된다. 인증이 필요 없는 라우트에는 `@Public()` 데코레이터를 붙이면 된다. 이 방식이 "기본적으로 보호하고, 예외적으로 공개"하는 안전한 패턴이다.
-
-### 파일 구조
-
-```
-src/
-├── auth/
-│   ├── decorators/
-│   │   └── public.decorator.ts      ← @Public() 데코레이터
-│   ├── dto/
-│   │   ├── login.dto.ts             ← 로그인 요청 DTO
-│   │   └── signup.dto.ts            ← 회원가입 요청 DTO
-│   ├── guards/
-│   │   ├── jwt-auth.guard.ts        ← JWT 인증 Guard
-│   │   ├── jwt-refresh-auth.guard.ts ← Refresh Token Guard
-│   │   └── local-auth.guard.ts      ← 로컬 로그인 Guard
-│   ├── strategies/
-│   │   ├── jwt.strategy.ts          ← Access Token 검증
-│   │   ├── jwt-refresh.strategy.ts  ← Refresh Token 검증
-│   │   └── local.strategy.ts        ← 이메일/비밀번호 검증
-│   ├── auth.controller.ts           ← 인증 API 컨트롤러
-│   ├── auth.module.ts               ← 인증 모듈
-│   └── auth.service.ts              ← 인증 비즈니스 로직
-├── users/
-│   ├── entities/
-│   │   └── user.entity.ts
-│   ├── users.module.ts
-│   └── users.service.ts
-├── posts/
-│   └── ...
-├── comments/
-│   └── ...
-└── app.module.ts
-```
-
----
 
 ## 10. 회원가입에 bcrypt 적용
 

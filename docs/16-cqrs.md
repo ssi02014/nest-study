@@ -477,43 +477,51 @@ Saga의 핵심 포인트:
 
 > **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티([`@Entity()`](references/decorators.md#entitytablename) 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
 
-### 디렉토리 구조
+### 프로젝트 구조
 
 ```
-src/posts/
-├── commands/
-│   ├── impl/
-│   │   ├── create-post.command.ts
-│   │   ├── update-post.command.ts
-│   │   └── delete-post.command.ts
-│   └── handlers/
-│       ├── create-post.handler.ts
-│       ├── update-post.handler.ts
-│       └── delete-post.handler.ts
-├── queries/
-│   ├── impl/
-│   │   ├── get-post.query.ts
-│   │   └── get-post-list.query.ts
-│   └── handlers/
-│       ├── get-post.handler.ts
-│       └── get-post-list.handler.ts
-├── events/
-│   ├── impl/
-│   │   ├── post-created.event.ts
-│   │   ├── post-updated.event.ts
-│   │   └── post-deleted.event.ts
-│   └── handlers/
-│       └── post-events.handler.ts
-├── sagas/
-│   └── post.saga.ts
-├── dto/
-│   ├── create-post.dto.ts
-│   └── update-post.dto.ts
-├── entities/
-│   └── post.entity.ts
-├── posts.controller.ts
-├── posts.module.ts
-└── posts.repository.ts
+src/
+├── app.module.ts
+├── main.ts
+├── common/ (챕터 9까지 누적)
+├── config/
+├── auth/
+├── users/
+├── gateway/
+├── comments/
+└── posts/                         ← CQRS 패턴으로 리팩토링
+    ├── commands/
+    │   ├── impl/
+    │   │   ├── create-post.command.ts   ← [이번 챕터 추가]
+    │   │   ├── update-post.command.ts   ← [이번 챕터 추가]
+    │   │   └── delete-post.command.ts   ← [이번 챕터 추가]
+    │   └── handlers/
+    │       ├── create-post.handler.ts   ← [이번 챕터 추가]
+    │       ├── update-post.handler.ts   ← [이번 챕터 추가]
+    │       └── delete-post.handler.ts   ← [이번 챕터 추가]
+    ├── queries/
+    │   ├── impl/
+    │   │   ├── get-post.query.ts        ← [이번 챕터 추가]
+    │   │   └── get-post-list.query.ts   ← [이번 챕터 추가]
+    │   └── handlers/
+    │       ├── get-post.handler.ts      ← [이번 챕터 추가]
+    │       └── get-post-list.handler.ts ← [이번 챕터 추가]
+    ├── events/
+    │   ├── impl/
+    │   │   ├── post-created.event.ts    ← [이번 챕터 추가]
+    │   │   ├── post-updated.event.ts    ← [이번 챕터 추가]
+    │   │   └── post-deleted.event.ts    ← [이번 챕터 추가]
+    │   └── handlers/
+    │       └── post-events.handler.ts   ← [이번 챕터 추가]
+    ├── sagas/
+    │   └── post.saga.ts                 ← [이번 챕터 추가]
+    ├── dto/
+    │   ├── create-post.dto.ts
+    │   └── update-post.dto.ts
+    ├── entities/
+    │   └── post.entity.ts
+    ├── posts.controller.ts
+    └── posts.module.ts                  ← CqrsModule import 추가
 ```
 
 > **팁:** `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.

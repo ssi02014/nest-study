@@ -644,6 +644,23 @@ export class AppModule implements NestModule {
 
 ---
 
+## 프로젝트 구조
+
+```
+src/
+├── app.module.ts              ← NestModule 구현, LoggerMiddleware 적용
+├── common/
+│   ├── common.module.ts
+│   ├── common.service.ts
+│   └── middleware/
+│       └── logger.middleware.ts   ← [이번 챕터 추가]
+├── users/
+├── posts/
+└── comments/
+```
+
+---
+
 ## 11. 블로그 API에 적용하기
 
 이제 챕터 3에서 만든 블로그 API에 **LoggerMiddleware**를 추가한다. 모든 요청의 HTTP 메서드, URL, 응답 시간을 로깅하는 미들웨어를 만들어보자.
@@ -748,33 +765,6 @@ curl http://localhost:3000/posts/1
 ```
 
 `[HTTP]` 컨텍스트와 함께 HTTP 메서드, URL, 상태 코드, 응답 시간이 깔끔하게 기록된다.
-
-### 11-4. 현재까지의 블로그 프로젝트 구조
-
-```
-src/
-├── app.module.ts                  ← NestModule 구현, LoggerMiddleware 적용
-├── main.ts
-│
-├── common/
-│   └── middleware/
-│       └── logger.middleware.ts   ← [이번 챕터에서 추가]
-│
-├── users/
-│   ├── users.module.ts
-│   ├── users.controller.ts
-│   └── users.service.ts
-│
-├── posts/
-│   ├── posts.module.ts
-│   ├── posts.controller.ts
-│   └── posts.service.ts
-│
-└── comments/
-    ├── comments.module.ts
-    ├── comments.controller.ts
-    └── comments.service.ts
-```
 
 ---
 

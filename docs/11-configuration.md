@@ -28,7 +28,7 @@
 16. [Joi로 환경 변수 유효성 검사](#joi로-환경-변수-유효성-검사)
 17. [main.ts에서 ConfigService 활용](#maints에서-configservice-활용)
 18. [최종 AppModule 통합](#최종-appmodule-통합)
-19. [완성된 디렉토리 구조](#완성된-디렉토리-구조)
+19. [프로젝트 구조](#프로젝트-구조)
 20. [환경별 설정 파일 분리 전략](#환경별-설정-파일-분리-전략)
 21. [민감 정보 관리 팁](#민감-정보-관리-팁)
 
@@ -455,6 +455,27 @@ export class AppController {
 
 ---
 
+## 프로젝트 구조
+
+```
+프로젝트 루트/
+├── .env                         ← [이번 챕터 추가]
+├── .env.example                 ← [이번 챕터 추가]
+└── src/
+    ├── app.module.ts            ← ConfigModule 통합
+    ├── main.ts                  ← ConfigService로 포트 설정
+    ├── common/
+    ├── config/
+    │   ├── database.config.ts   ← [이번 챕터 추가]
+    │   ├── jwt.config.ts        ← [이번 챕터 추가]
+    │   └── env.validation.ts    ← [이번 챕터 추가]
+    ├── users/
+    ├── posts/
+    └── comments/
+```
+
+---
+
 ## @nestjs/config 설치
 
 ```bash
@@ -745,29 +766,6 @@ export class AppModule {}
 | JWT 비밀 키 | (아직 없음) | `.env`의 `JWT_SECRET`에서 읽음 |
 | 포트 번호 | `3000` 하드코딩 | `.env`의 `PORT`에서 읽음 |
 | 유효성 검사 | 없음 | Joi로 시작 시 검증 |
-
----
-
-## 완성된 디렉토리 구조
-
-이 챕터를 마치면 프로젝트에 다음 파일들이 추가된다.
-
-```
-프로젝트 루트/
-├── .env                              # 실제 환경 변수 (Git에 커밋하지 않음)
-├── .env.example                      # 환경 변수 템플릿 (Git에 커밋함)
-├── .gitignore                        # .env 추가됨
-├── src/
-│   ├── config/
-│   │   ├── database.config.ts        # DB 네임스페이스 설정
-│   │   ├── jwt.config.ts             # JWT 네임스페이스 설정
-│   │   └── env.validation.ts         # Joi 유효성 검사 스키마
-│   ├── posts/                        # 챕터 10에서 만든 모듈
-│   ├── users/                        # 챕터 10에서 만든 모듈
-│   ├── app.module.ts                 # ConfigModule + TypeORM 통합
-│   └── main.ts                       # ConfigService로 포트 설정
-└── ...
-```
 
 ---
 

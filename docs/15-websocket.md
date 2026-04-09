@@ -606,25 +606,21 @@ npm install -D @types/socket.io
 
 ```
 src/
-├── blog/
-│   ├── blog.module.ts
-│   ├── blog.gateway.ts           ← WebSocket Gateway (NEW)
-│   ├── posts/
-│   │   ├── posts.controller.ts
-│   │   ├── posts.service.ts
-│   │   └── entities/
-│   │       └── post.entity.ts
-│   └── comments/
-│       ├── comments.controller.ts
-│       ├── comments.service.ts   ← Gateway 주입하여 알림 전송 (수정)
-│       ├── dto/
-│       │   └── create-comment.dto.ts
-│       └── entities/
-│           └── comment.entity.ts
-├── public/
-│   └── blog-test.html            ← 테스트용 HTML (NEW)
 ├── app.module.ts
-└── main.ts
+├── main.ts
+├── common/ (챕터 9까지 누적)
+├── config/
+├── auth/
+├── users/
+├── posts/
+├── comments/
+│   └── comments.service.ts       ← BlogGateway 주입, 알림 전송 추가
+├── gateway/
+│   ├── gateway.module.ts         ← [이번 챕터 추가]
+│   └── blog.gateway.ts           ← [이번 챕터 추가] WebSocket Gateway
+
+public/
+└── blog-test.html                ← [이번 챕터 추가] 테스트용 HTML
 ```
 
 ### 9-1. Post Entity

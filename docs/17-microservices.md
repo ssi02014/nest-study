@@ -581,24 +581,22 @@ export class AuthController {
 
 ```
 src/
-├── app.module.ts                    ← 수정: ClientsModule 추가
-├── main.ts                          ← 수정: 하이브리드 앱으로 변경
-│
+├── app.module.ts                    ← ClientsModule 추가
+├── main.ts                          ← 하이브리드 앱으로 변경 (HTTP + TCP)
+├── common/ (챕터 9까지 누적)
+├── config/
+├── auth/
+├── users/
+├── posts/ (챕터 16 CQRS 구조 유지)
+├── gateway/
 ├── comments/
 │   ├── comments.controller.ts
-│   ├── comments.service.ts          ← 수정: 댓글 작성 시 이벤트 발행
-│   └── comments.module.ts           ← 수정: ClientsModule import
-│
-├── notifications/                   ← 새로 추가!
-│   ├── notifications.module.ts
-│   ├── notifications.controller.ts  ← @EventPattern, @MessagePattern 핸들러
-│   └── notifications.service.ts     ← 알림 비즈니스 로직
-│
-└── ... (기존 파일들)
-
-notification-service/                ← 별도 마이크로서비스 앱 (선택적)
-├── main.ts
-└── ... (독립 실행 시 사용)
+│   ├── comments.service.ts          ← 댓글 작성 시 이벤트 발행 추가
+│   └── comments.module.ts           ← ClientsModule import 추가
+└── notifications/                   ← [이번 챕터 추가]
+    ├── notifications.module.ts
+    ├── notifications.controller.ts  ← @EventPattern, @MessagePattern
+    └── notifications.service.ts     ← 알림 비즈니스 로직
 ```
 
 ### Step 1: 알림 서비스 모듈 만들기

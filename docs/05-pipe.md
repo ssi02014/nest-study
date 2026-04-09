@@ -886,6 +886,25 @@ create(@Body() createPostDto: CreatePostDto) {
 
 ---
 
+## 프로젝트 구조
+
+```
+src/
+├── app.module.ts
+├── main.ts                              ← ValidationPipe 글로벌 설정
+├── common/
+│   ├── common.module.ts
+│   ├── common.service.ts
+│   ├── middleware/
+│   └── dto/
+│       └── pagination-query.dto.ts      ← [이번 챕터 추가]
+├── users/
+├── posts/
+└── comments/
+```
+
+---
+
 ## 11. 블로그 API에 Pipe 적용하기
 
 이전 챕터에서 만든 블로그 API(Users, Posts, Comments)에 DTO 유효성 검사를 추가한다. 이 단계를 마치면 **잘못된 데이터가 들어오면 자동으로 에러가 반환**된다.

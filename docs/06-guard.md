@@ -601,6 +601,33 @@ export class CatsController {
 
 ---
 
+## 프로젝트 구조
+
+```
+src/
+├── app.module.ts                    ← APP_GUARD 등록
+├── common/
+│   ├── common.module.ts
+│   ├── common.service.ts
+│   ├── middleware/
+│   ├── dto/
+│   ├── data/
+│   │   └── users.data.ts            ← [이번 챕터 추가]
+│   ├── enums/
+│   │   └── role.enum.ts             ← [이번 챕터 추가]
+│   ├── decorators/
+│   │   ├── public.decorator.ts      ← [이번 챕터 추가]
+│   │   └── roles.decorator.ts       ← [이번 챕터 추가]
+│   └── guards/
+│       ├── simple-auth.guard.ts     ← [이번 챕터 추가]
+│       └── roles.guard.ts           ← [이번 챕터 추가]
+├── users/
+├── posts/
+└── comments/
+```
+
+---
+
 ## 7. 블로그 API 적용: 인증과 권한 시스템 구축
 
 이전 챕터까지 구축한 블로그 API에 Guard를 적용하여 인증과 권한 시스템을 추가한다.
@@ -795,13 +822,14 @@ export class RolesGuard implements CanActivate {
 // src/app.module.ts
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { CommonModule } from './common/common.module';
 import { SimpleAuthGuard } from './common/guards/simple-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [PostsModule, CommentsModule],
+  imports: [CommonModule, PostsModule, CommentsModule],
   providers: [
     // 글로벌 가드 등록 (순서대로 실행됨)
     // 1단계: 인증 - "누구인가?"
@@ -1074,30 +1102,6 @@ curl -X DELETE http://localhost:3000/posts/1/force \
 
 5. Controller Handler 실행
 ```
-
-### 7-12. 파일 구조
-
-```
-src/
-├── app.module.ts                          # APP_GUARD로 글로벌 가드 등록
-├── common/
-│   ├── data/
-│   │   └── users.data.ts                  # 간이 사용자 데이터
-│   ├── decorators/
-│   │   ├── public.decorator.ts            # @Public() 데코레이터
-│   │   └── roles.decorator.ts             # @Roles() 데코레이터
-│   ├── enums/
-│   │   └── role.enum.ts                   # Role enum
-│   └── guards/
-│       ├── simple-auth.guard.ts           # 간이 인증 가드
-│       └── roles.guard.ts                 # 역할 기반 인가 가드
-├── posts/
-│   └── posts.controller.ts                # @Public(), @Roles() 적용
-└── comments/
-    └── comments.controller.ts             # @Public(), @Roles() 적용
-```
-
----
 
 ## 8. 여러 Guard 동시 적용 시 실행 순서
 

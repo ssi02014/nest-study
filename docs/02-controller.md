@@ -777,6 +777,33 @@ curl -X DELETE http://localhost:3000/cats/1 -v
 
 ---
 
+## 프로젝트 구조
+
+```
+src/
+├── app.module.ts
+├── main.ts
+├── common/
+├── users/
+│   ├── dto/
+│   │   └── create-user.dto.ts     ← [이번 챕터 추가]
+│   ├── users.controller.ts        ← [이번 챕터 추가]
+│   └── users.module.ts
+├── posts/
+│   ├── dto/
+│   │   ├── create-post.dto.ts     ← [이번 챕터 추가]
+│   │   └── update-post.dto.ts     ← [이번 챕터 추가]
+│   ├── posts.controller.ts        ← [이번 챕터 추가]
+│   └── posts.module.ts
+└── comments/
+    ├── dto/
+    │   └── create-comment.dto.ts  ← [이번 챕터 추가]
+    ├── comments.controller.ts     ← [이번 챕터 추가]
+    └── comments.module.ts
+```
+
+---
+
 ## UsersController
 
 사용자 관련 엔드포인트를 정의한다.
