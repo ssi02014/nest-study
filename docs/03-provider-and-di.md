@@ -36,7 +36,7 @@ NestJS에서 **Provider**는 NestJS의 IoC(Inversion of Control) 컨테이너가
 | **Factory** | 객체 생성 로직 | `DatabaseConnectionFactory` |
 | **Helper** | 공통 유틸리티 | `HashHelper`, `DateHelper` |
 
-> **핵심**: Controller는 "요청을 받고 응답을 보내는 것"에만 집중하고, 실제 로직은 Provider(주로 Service)에 맡긴다. 이것이 **관심사의 분리(Separation of Concerns)** 원칙이다.
+> **참고:**: Controller는 "요청을 받고 응답을 보내는 것"에만 집중하고, 실제 로직은 Provider(주로 Service)에 맡긴다. 이것이 **관심사의 분리(Separation of Concerns)** 원칙이다.
 
 ---
 
@@ -139,7 +139,7 @@ import { CatsService } from './cats.service';
 export class CatsModule {}
 ```
 
-> **팁**: `providers: [CatsService]`는 사실 아래의 축약형이다.
+> **팁:**: `providers: [CatsService]`는 사실 아래의 축약형이다.
 > ```typescript
 > providers: [
 >   {
@@ -225,7 +225,7 @@ export class AppController {
 export class AppModule {}
 ```
 
-> **팁**: `useValue`는 **테스트에서 Mock 객체를 주입**할 때 특히 유용하다. 실제 서비스 대신 가짜 객체를 넣어 테스트를 격리할 수 있다.
+> **팁:**: `useValue`는 **테스트에서 Mock 객체를 주입**할 때 특히 유용하다. 실제 서비스 대신 가짜 객체를 넣어 테스트를 격리할 수 있다.
 > ```typescript
 > // 테스트에서 Mock으로 대체하는 예
 > {
@@ -318,7 +318,7 @@ export class DatabaseModule {}
 }
 ```
 
-> **팁**: `useFactory`의 `inject` 배열 순서와 팩토리 함수의 매개변수 순서가 **일치해야** 한다.
+> **팁:**: `useFactory`의 `inject` 배열 순서와 팩토리 함수의 매개변수 순서가 **일치해야** 한다.
 
 ### useExisting - 별칭(Alias) 만들기
 
@@ -393,7 +393,7 @@ export class RequestScopedService {
 }
 ```
 
-> **주의**: REQUEST 스코프 Provider를 주입받는 Provider도 **자동으로 REQUEST 스코프가 된다**. 이는 성능에 영향을 주므로 꼭 필요할 때만 사용하자. 대부분의 경우 DEFAULT(싱글톤)로 충분하다.
+> **주의:**: REQUEST 스코프 Provider를 주입받는 Provider도 **자동으로 REQUEST 스코프가 된다**. 이는 성능에 영향을 주므로 꼭 필요할 때만 사용하자. 대부분의 경우 DEFAULT(싱글톤)로 충분하다.
 
 ### TRANSIENT 스코프
 
@@ -413,7 +413,7 @@ export class TransientService {
 // 서로 다른 인스턴스를 가진다 (id 값이 다르다)
 ```
 
-> **팁**: 초보 단계에서는 **DEFAULT(싱글톤) 스코프만 사용**하면 된다. REQUEST와 TRANSIENT는 특수한 상황에서만 필요하다.
+> **팁:**: 초보 단계에서는 **DEFAULT(싱글톤) 스코프만 사용**하면 된다. REQUEST와 TRANSIENT는 특수한 상황에서만 필요하다.
 
 ---
 
@@ -445,7 +445,7 @@ export class NotificationService {
 }
 ```
 
-> **팁**: `@Optional()`은 플러그인 시스템이나 환경에 따라 있을 수도 없을 수도 있는 서비스에 유용하다.
+> **팁:**: `@Optional()`은 플러그인 시스템이나 환경에 따라 있을 수도 없을 수도 있는 서비스에 유용하다.
 
 ### forwardRef() - 순환 의존성 해결
 
@@ -1124,7 +1124,7 @@ export class PostsController {
 }
 ```
 
-> **팁**: `Post`라는 이름이 NestJS의 `@Post()` 데코레이터와 겹치므로, 인터페이스를 `import { Post as BlogPost }`로 별칭을 주었다. 실제 프로젝트에서는 인터페이스명을 `BlogPost`나 `PostEntity`로 짓는 것도 좋은 방법이다.
+> **팁:**: `Post`라는 이름이 NestJS의 `@Post()` 데코레이터와 겹치므로, 인터페이스를 `import { Post as BlogPost }`로 별칭을 주었다. 실제 프로젝트에서는 인터페이스명을 `BlogPost`나 `PostEntity`로 짓는 것도 좋은 방법이다.
 
 ## PostsModule
 
@@ -1144,7 +1144,7 @@ import { UsersModule } from '../users/users.module';
 export class PostsModule {}
 ```
 
-> **중요**: `PostsService`가 `UsersService`를 주입받으려면:
+> **주의:**: `PostsService`가 `UsersService`를 주입받으려면:
 > 1. `UsersModule`에서 `UsersService`를 `exports`에 등록해야 하고
 > 2. `PostsModule`에서 `UsersModule`을 `imports`에 넣어야 한다
 >
@@ -1255,7 +1255,7 @@ export class CommentsController {
 }
 ```
 
-> **팁**: `CommentsController`는 `@Controller()` 데코레이터에 접두사를 비워두었다. 댓글 API는 `/posts/:postId/comments` (댓글 작성/조회)와 `/comments/:id` (댓글 삭제) 두 가지 경로를 사용하기 때문이다.
+> **팁:**: `CommentsController`는 `@Controller()` 데코레이터에 접두사를 비워두었다. 댓글 API는 `/posts/:postId/comments` (댓글 작성/조회)와 `/comments/:id` (댓글 삭제) 두 가지 경로를 사용하기 때문이다.
 
 ## CommentsModule
 
@@ -1418,7 +1418,7 @@ curl http://localhost:3000/posts/1/comments
 curl -X DELETE http://localhost:3000/comments/1
 ```
 
-> **팁**: 위 curl 명령어를 순서대로 실행하면 블로그 API의 전체 흐름을 체험할 수 있다. 먼저 사용자를 만들고, 그 사용자로 게시글을 쓰고, 다른 사용자가 댓글을 다는 시나리오다.
+> **팁:**: 위 curl 명령어를 순서대로 실행하면 블로그 API의 전체 흐름을 체험할 수 있다. 먼저 사용자를 만들고, 그 사용자로 게시글을 쓰고, 다른 사용자가 댓글을 다는 시나리오다.
 
 ---
 

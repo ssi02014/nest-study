@@ -1,4 +1,4 @@
-# Chapter 1 - Module
+# 챕터 1 - Module
 
 ## 목차
 
@@ -58,7 +58,7 @@ import { Module } from '@nestjs/common';
 export class AppModule {}
 ```
 
-> **여기서 잠깐!** `@Module()`은 데코레이터(Decorator)라고 불린다. 데코레이터는 클래스나 메서드 위에 `@`를 붙여서 추가 정보를 제공하는 문법이다. "이 클래스는 모듈이야"라고 NestJS에게 알려주는 표시라고 생각하면 된다.
+> **팁:** `@Module()`은 데코레이터(Decorator)라고 불린다. 데코레이터는 클래스나 메서드 위에 `@`를 붙여서 추가 정보를 제공하는 문법이다. "이 클래스는 모듈이야"라고 NestJS에게 알려주는 표시라고 생각하면 된다.
 
 ---
 
@@ -94,7 +94,7 @@ export class AppModule {}
 
 - **`exports`**: 이 모듈의 provider 중 다른 모듈에서도 사용할 수 있게 공개할 것들을 등록한다. **exports에 등록하지 않은 provider는 이 모듈 내부에서만 사용 가능**하다.
 
-> **여기서 잠깐!** `providers`에 등록했다고 자동으로 외부에 공개되는 것이 아니다. 외부에서 쓸 수 있게 하려면 반드시 `exports`에도 추가해야 한다. 이것이 바로 NestJS의 **캡슐화** 원칙이다.
+> **팁:** `providers`에 등록했다고 자동으로 외부에 공개되는 것이 아니다. 외부에서 쓸 수 있게 하려면 반드시 `exports`에도 추가해야 한다. 이것이 바로 NestJS의 **캡슐화** 원칙이다.
 
 ---
 
@@ -129,7 +129,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-> **여기서 잠깐!** 모든 Feature 모듈(기능별 모듈)은 직접적이든 간접적이든 결국 루트 모듈과 연결되어야 한다. 연결되지 않은 모듈은 NestJS가 인식하지 못한다.
+> **팁:** 모든 Feature 모듈(기능별 모듈)은 직접적이든 간접적이든 결국 루트 모듈과 연결되어야 한다. 연결되지 않은 모듈은 NestJS가 인식하지 못한다.
 
 ---
 
@@ -151,7 +151,7 @@ import { DatabaseService } from './database.service';
 export class DatabaseModule {}
 ```
 
-> **여기서 잠깐!** `@Global()`을 붙여도 `exports`는 반드시 작성해야 한다. `@Global()`은 "import 없이 접근 가능하게 해줘"라는 의미이지, "모든 것을 공개해줘"라는 의미가 아니다. 또한, 전역 모듈을 남용하면 모듈 간 의존 관계가 불명확해지므로 꼭 필요한 경우에만 사용하자.
+> **팁:** `@Global()`을 붙여도 `exports`는 반드시 작성해야 한다. `@Global()`은 "import 없이 접근 가능하게 해줘"라는 의미이지, "모든 것을 공개해줘"라는 의미가 아니다. 또한, 전역 모듈을 남용하면 모듈 간 의존 관계가 불명확해지므로 꼭 필요한 경우에만 사용하자.
 
 ---
 
@@ -183,7 +183,7 @@ export class AppModule {}
 | `forFeature()` | Feature 모듈에서 부분적으로 설정 |
 | `register()` | 사용할 때마다 새로운 설정으로 등록 |
 
-> **여기서 잠깐!** 동적 모듈은 NestJS의 강력한 기능이지만, 이 챕터에서는 "이런 것이 있다"는 것만 알고 넘어가자. 실전에서 ConfigModule, TypeOrmModule 등을 사용할 때 자연스럽게 익히게 된다.
+> **팁:** 동적 모듈은 NestJS의 강력한 기능이지만, 이 챕터에서는 "이런 것이 있다"는 것만 알고 넘어가자. 실전에서 ConfigModule, TypeOrmModule 등을 사용할 때 자연스럽게 익히게 된다.
 
 ---
 
@@ -538,7 +538,7 @@ export class PostsService {
 
 > `UsersModule`과 `PostsModule`이 각각 `CommonModule`을 import했다. 두 모듈에서 주입받는 `CommonService`는 **동일한 인스턴스**다. NestJS의 provider는 기본적으로 싱글턴으로 동작하기 때문이다.
 
-> **여기서 잠깐!** "모듈 재내보내기(Module Re-exporting)"도 가능하다. 모듈 A가 모듈 B를 import한 뒤, 자신의 `exports`에 모듈 B를 추가하면, 모듈 A를 import하는 측에서 모듈 B의 provider도 함께 사용할 수 있다.
+> **팁:** "모듈 재내보내기(Module Re-exporting)"도 가능하다. 모듈 A가 모듈 B를 import한 뒤, 자신의 `exports`에 모듈 B를 추가하면, 모듈 A를 import하는 측에서 모듈 B의 provider도 함께 사용할 수 있다.
 > ```typescript
 > @Module({
 >   imports: [CommonModule],
@@ -599,7 +599,7 @@ nest g module comments
 nest g module common
 ```
 
-> **여기서 잠깐!** `nest g module`은 `nest generate module`의 줄임말이다. 이 명령어는 모듈 파일을 생성할 뿐만 아니라, `AppModule`의 `imports`에 자동으로 추가해준다. 직접 파일을 만들어도 되지만 CLI를 사용하면 실수를 줄일 수 있다.
+> **팁:** `nest g module`은 `nest generate module`의 줄임말이다. 이 명령어는 모듈 파일을 생성할 뿐만 아니라, `AppModule`의 `imports`에 자동으로 추가해준다. 직접 파일을 만들어도 되지만 CLI를 사용하면 실수를 줄일 수 있다.
 
 CLI 실행 후 생성되는 파일 구조:
 
@@ -828,3 +828,9 @@ src/
 | 전역 모듈 | `@Global()`로 선언하면 import 없이 어디서든 사용 가능 (남용 주의) |
 | 동적 모듈 | `forRoot()` 등으로 설정값을 전달하며 모듈 등록 (이후 챕터에서 상세 학습) |
 | 캡슐화 원칙 | provider는 exports에 명시하지 않으면 모듈 외부에서 접근 불가 |
+---
+
+## 다음 챕터 예고
+
+챕터 2에서는 **Controller**를 학습한다. 각 모듈에 HTTP 라우트를 추가하고, 요청/응답 처리 방법을 익힌다. 블로그 API의 Users, Posts, Comments 컨트롤러를 만들어 CRUD 엔드포인트를 정의한다.
+

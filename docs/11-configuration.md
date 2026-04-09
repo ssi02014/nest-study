@@ -1,5 +1,8 @@
 # 챕터 11 - Configuration
 
+> **이전 챕터 요약**: 챕터 10에서 TypeORM으로 SQLite DB를 연동하고, User/Post/Comment Entity를 정의하여 메모리 배열 대신 실제 DB에 데이터를 저장하게 했다. 이번 챕터에서는 DB 연결 정보 등 **하드코딩된 설정값을 환경 변수로 분리**한다.
+
+
 ## 목차
 
 - [1단계: 개념 학습](#1단계-개념-학습)
@@ -78,7 +81,7 @@ const dbPath = process.env.DATABASE_PATH; // './blog.sqlite'
 
 하지만 `process.env`를 직접 사용하면 타입 안전성이 없고, 유효성 검사도 어렵다. NestJS는 `@nestjs/config` 패키지로 이 문제를 깔끔하게 해결한다.
 
-> **Tip**: 업계에서 널리 알려진 [12-Factor App](https://12factor.net/config) 방법론에서도 "설정은 환경 변수에 저장하라"고 권장한다. 이는 대부분의 현대 웹 프레임워크가 따르는 모범 사례다.
+> **팁:**: 업계에서 널리 알려진 [12-Factor App](https://12factor.net/config) 방법론에서도 "설정은 환경 변수에 저장하라"고 권장한다. 이는 대부분의 현대 웹 프레임워크가 따르는 모범 사례다.
 
 ---
 
@@ -121,7 +124,7 @@ JWT_SECRET=your-secret-key-here
 JWT_ACCESS_EXPIRATION=1h
 ```
 
-> **Tip**: 새로운 팀원이 프로젝트에 합류하면 `.env.example`을 복사하여 `.env`를 만들고, 자신의 환경에 맞게 값을 채우면 된다. `cp .env.example .env`
+> **팁:**: 새로운 팀원이 프로젝트에 합류하면 `.env.example`을 복사하여 `.env`를 만들고, 자신의 환경에 맞게 값을 채우면 된다. `cp .env.example .env`
 
 ---
 
@@ -158,7 +161,7 @@ export class AppModule {}
 | `load` | `Function[]` | `[]` | `registerAs()`로 만든 커스텀 설정 팩토리 함수 배열 |
 | `validationSchema` | `object` | - | Joi 스키마로 환경 변수를 시작 시점에 검증한다 |
 
-> **Tip**: `isGlobal: true`는 거의 항상 사용한다. 이 옵션이 없으면 `ConfigService`가 필요한 모든 모듈에서 `ConfigModule`을 일일이 import해야 한다.
+> **팁:**: `isGlobal: true`는 거의 항상 사용한다. 이 옵션이 없으면 `ConfigService`가 필요한 모든 모듈에서 `ConfigModule`을 일일이 import해야 한다.
 
 ---
 
@@ -280,7 +283,7 @@ export class AppModule {}
 Error: Config validation error: "DATABASE_PATH" is required
 ```
 
-> **Tip**: `required()`는 "반드시 있어야 한다", `default(값)`은 "없으면 이 값을 쓴다"라는 뜻이다. 민감한 정보(비밀 키 등)에는 `required()`를, 포트 번호처럼 합리적인 기본값이 있는 항목에는 `default()`를 사용하자.
+> **팁:**: `required()`는 "반드시 있어야 한다", `default(값)`은 "없으면 이 값을 쓴다"라는 뜻이다. 민감한 정보(비밀 키 등)에는 `required()`를, 포트 번호처럼 합리적인 기본값이 있는 항목에는 `default()`를 사용하자.
 
 ---
 
@@ -355,7 +358,7 @@ export class AppController {
 }
 ```
 
-> **주의**: `.env`에서 읽은 값은 항상 **문자열**이다. `PORT=3000`을 읽으면 숫자 `3000`이 아니라 문자열 `"3000"`이다. `get<number>('PORT')`의 제네릭은 TypeScript 타입 힌트일 뿐, 실제 변환은 하지 않는다. 숫자가 필요하면 `parseInt()`를 사용하거나, `registerAs()` 안에서 변환해야 한다.
+> **주의:**: `.env`에서 읽은 값은 항상 **문자열**이다. `PORT=3000`을 읽으면 숫자 `3000`이 아니라 문자열 `"3000"`이다. `get<number>('PORT')`의 제네릭은 TypeScript 타입 힌트일 뿐, 실제 변환은 하지 않는다. 숫자가 필요하면 `parseInt()`를 사용하거나, `registerAs()` 안에서 변환해야 한다.
 
 ---
 
@@ -475,7 +478,7 @@ JWT_SECRET=blog-api-super-secret-key-2024
 JWT_ACCESS_EXPIRATION=1h
 ```
 
-> **Tip**: `JWT_SECRET`은 충분히 길고 예측 불가능한 문자열을 사용해야 한다. 위 값은 예시일 뿐이고, 실제 프로젝트에서는 `openssl rand -hex 32` 같은 명령어로 랜덤 문자열을 생성하는 것이 좋다.
+> **팁:**: `JWT_SECRET`은 충분히 길고 예측 불가능한 문자열을 사용해야 한다. 위 값은 예시일 뿐이고, 실제 프로젝트에서는 `openssl rand -hex 32` 같은 명령어로 랜덤 문자열을 생성하는 것이 좋다.
 
 ---
 
@@ -547,7 +550,7 @@ export default registerAs('jwt', () => ({
 }));
 ```
 
-> **Tip**: `registerAs('database', ...)`에서 첫 번째 인자 `'database'`가 네임스페이스 이름이 된다. 나중에 `configService.get('database.path')`처럼 접근한다. 네임스페이스 이름은 파일 이름과 맞추는 것이 관례다.
+> **팁:**: `registerAs('database', ...)`에서 첫 번째 인자 `'database'`가 네임스페이스 이름이 된다. 나중에 `configService.get('database.path')`처럼 접근한다. 네임스페이스 이름은 파일 이름과 맞추는 것이 관례다.
 
 ---
 
@@ -649,7 +652,7 @@ export const envValidationSchema = Joi.object({
 | `.min(n)` | 문자열은 최소 n자, 숫자는 최소값 n |
 | `.valid('a', 'b')` | 지정한 값 중 하나여야 한다 |
 
-> **Tip**: `abortEarly` 옵션을 `false`로 설정하면 모든 유효성 검사 에러를 한 번에 볼 수 있다. 기본값은 `true`(첫 번째 에러에서 중단)이다. `ConfigModule.forRoot()`의 `validationOptions`에서 설정한다.
+> **팁:**: `abortEarly` 옵션을 `false`로 설정하면 모든 유효성 검사 에러를 한 번에 볼 수 있다. 기본값은 `true`(첫 번째 에러에서 중단)이다. `ConfigModule.forRoot()`의 `validationOptions`에서 설정한다.
 
 ---
 
@@ -789,7 +792,7 @@ ConfigModule.forRoot({
 }),
 ```
 
-> **Tip**: `envFilePath`에 배열을 전달하면 앞에 오는 파일이 우선순위가 높다. 환경별 파일을 앞에, 공통 `.env`를 뒤에 두면 환경별 값이 공통 값을 덮어쓴다.
+> **팁:**: `envFilePath`에 배열을 전달하면 앞에 오는 파일이 우선순위가 높다. 환경별 파일을 앞에, 공통 `.env`를 뒤에 두면 환경별 값이 공통 값을 덮어쓴다.
 >
 > ```typescript
 > envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],
@@ -900,3 +903,9 @@ JWT_ACCESS_EXPIRATION=1h
 | `forRootAsync()` | TypeORM 등 외부 모듈 설정에 ConfigService를 주입하기 위해 사용한다 |
 
 > **다음 챕터 예고**: 챕터 12에서는 이 챕터에서 설정한 `JWT_SECRET`과 `JWT_ACCESS_EXPIRATION`을 활용하여 JWT 기반 인증(Authentication)을 구현한다.
+---
+
+## 다음 챕터 예고
+
+챕터 12에서는 **Authentication(인증)**을 학습한다. 챕터 6의 SimpleAuthGuard를 JWT 기반 인증으로 교체한다. 회원가입/로그인/토큰 갱신/로그아웃 엔드포인트를 만들고, Refresh Token을 DB에 안전하게 저장하는 방법도 배운다.
+

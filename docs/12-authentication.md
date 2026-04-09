@@ -1,5 +1,8 @@
 # 챕터 12 - Authentication (인증)
 
+> **이전 챕터 요약**: 챕터 11에서 `.env` 파일과 ConfigModule로 DB 연결 정보와 JWT 시크릿을 환경 변수로 분리했다. 이번 챕터에서는 **Authentication(인증)**을 구현한다. Passport.js + JWT로 로그인 시스템을 만들고 SimpleAuthGuard를 JwtAuthGuard로 교체한다.
+
+
 ## 목차
 
 ### 1단계: 개념 학습
@@ -130,7 +133,7 @@ Header Payload Signature
 | `iat` | Issued At - 토큰 발급 시간 |
 | `exp` | Expiration - 토큰 만료 시간 |
 
-> **주의**: Payload는 Base64로 인코딩된 것일 뿐 암호화된 것이 아니다. 누구나 디코딩해서 내용을 볼 수 있으므로 **비밀번호 같은 민감한 정보는 절대 넣지 않는다**.
+> **주의:**: Payload는 Base64로 인코딩된 것일 뿐 암호화된 것이 아니다. 누구나 디코딩해서 내용을 볼 수 있으므로 **비밀번호 같은 민감한 정보는 절대 넣지 않는다**.
 
 #### 3. Signature (서명)
 
@@ -295,7 +298,7 @@ const isWrong = await bcrypt.compare('wrongPassword', hashedPassword);
 // 결과: false
 ```
 
-> **Tip**: `saltRounds` 값은 보통 10~12를 사용한다. 값이 1 증가할 때마다 해싱 시간이 약 2배 늘어난다. 10이면 약 0.1초, 12이면 약 0.3초 정도 소요된다.
+> **팁:**: `saltRounds` 값은 보통 10~12를 사용한다. 값이 1 증가할 때마다 해싱 시간이 약 2배 늘어난다. 10이면 약 0.1초, 12이면 약 0.3초 정도 소요된다.
 
 ---
 
@@ -421,7 +424,7 @@ export class AuthService {
 }
 ```
 
-> **Tip**: Access Token과 Refresh Token은 **반드시 서로 다른 secret 키**를 사용해야 한다. 같은 키를 쓰면 Access Token용 Guard가 Refresh Token도 통과시켜버릴 수 있다.
+> **팁:**: Access Token과 Refresh Token은 **반드시 서로 다른 secret 키**를 사용해야 한다. 같은 키를 쓰면 Access Token용 Guard가 Refresh Token도 통과시켜버릴 수 있다.
 
 ### JWT Strategy로 토큰 검증
 
@@ -683,7 +686,7 @@ JWT_ACCESS_SECRET=your-access-secret-key-change-in-production
 JWT_REFRESH_SECRET=your-refresh-secret-key-change-in-production
 ```
 
-> **주의**: 위 값은 개발용 예시다. 프로덕션에서는 반드시 충분히 길고 무작위한 문자열을 사용해야 한다.
+> **주의:**: 위 값은 개발용 예시다. 프로덕션에서는 반드시 충분히 길고 무작위한 문자열을 사용해야 한다.
 
 ### AuthModule 구성
 
@@ -754,7 +757,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 export class AppModule {}
 ```
 
-> **Tip**: `APP_GUARD`로 전역 등록하면 모든 라우트에 JwtAuthGuard가 자동 적용된다. 인증이 필요 없는 라우트에는 `@Public()` 데코레이터를 붙이면 된다. 이 방식이 "기본적으로 보호하고, 예외적으로 공개"하는 안전한 패턴이다.
+> **팁:**: `APP_GUARD`로 전역 등록하면 모든 라우트에 JwtAuthGuard가 자동 적용된다. 인증이 필요 없는 라우트에는 `@Public()` 데코레이터를 붙이면 된다. 이 방식이 "기본적으로 보호하고, 예외적으로 공개"하는 안전한 패턴이다.
 
 ### 파일 구조
 
@@ -1705,7 +1708,7 @@ export class CommentsService {
 }
 ```
 
-> **Tip**: 소유권 검증 로직이 여러 서비스에 반복된다면, 공통 헬퍼 함수나 가드로 추출하는 것도 좋은 방법이다. 하지만 서비스마다 검증 조건이 미묘하게 다를 수 있으므로, 처음에는 각 서비스에 직접 작성하는 것을 권장한다.
+> **팁:**: 소유권 검증 로직이 여러 서비스에 반복된다면, 공통 헬퍼 함수나 가드로 추출하는 것도 좋은 방법이다. 하지만 서비스마다 검증 조건이 미묘하게 다를 수 있으므로, 처음에는 각 서비스에 직접 작성하는 것을 권장한다.
 
 ---
 
@@ -1746,7 +1749,7 @@ curl -X POST http://localhost:3000/auth/login \
 # }
 ```
 
-> **Tip**: 이후 테스트를 편하게 하려면 토큰을 변수에 저장하자.
+> **팁:**: 이후 테스트를 편하게 하려면 토큰을 변수에 저장하자.
 > ```bash
 > ACCESS_TOKEN="eyJhbGciOiJIUzI1NiIs..."
 > REFRESH_TOKEN="eyJhbGciOiJIUzI1NiIs..."
@@ -2051,7 +2054,7 @@ async updateRefreshToken(
   AuthController.refresh() 실행 → 새 토큰 쌍 반환
 ```
 
-> **Tip**: `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
+> **팁:**: `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
 
 ---
 
@@ -2212,3 +2215,9 @@ async logout(
 | 권장 환경 | 모바일 앱, 서버 간 통신 | 웹 브라우저 클라이언트 |
 
 > **결론**: 웹 프론트엔드(React, Vue 등)와 함께 사용할 경우 **httpOnly 쿠키 방식이 더 안전**하다. 모바일 앱이나 서버 간 통신에서는 Bearer 헤더 방식이 더 적합하다. 이 챕터의 블로그 API는 두 방식 모두 적용 가능하도록 설계되어 있다.
+---
+
+## 다음 챕터 예고
+
+챕터 13에서는 **Testing(테스트)**을 학습한다. 지금까지 만든 PostsService, AuthService의 핵심 로직에 단위 테스트를 작성하고, 회원가입~게시글 작성~삭제까지 E2E 테스트로 전체 플로우를 검증한다.
+

@@ -1,4 +1,7 @@
-# Chapter 16 - CQRS
+# 챕터 16 - CQRS
+
+> **이전 챕터 요약**: 챕터 15에서 WebSocket Gateway를 추가하여 댓글 작성 시 실시간 알림이 전송되도록 만들었다. 이번 챕터에서는 **CQRS** 패턴으로 PostsModule을 리팩토링한다. Command와 Query를 분리하여 더 명확한 구조를 만든다.
+
 
 ## 목차
 
@@ -88,7 +91,7 @@ export class PostsService {
 | 파일 수 증가 | Command, Query, Handler 등 클래스 파일이 많아진다 |
 | 학습 곡선 | 새로운 개념(Command, Query, Event, Saga)을 익혀야 한다 |
 
-> **Tip**: CQRS는 비즈니스 로직이 복잡한 도메인에서 빛을 발한다. 단순한 CRUD API라면 기존 서비스 패턴으로도 충분하다. 이 챕터에서는 학습 목적으로 블로그 게시글 도메인에 적용해 본다.
+> **팁:**: CQRS는 비즈니스 로직이 복잡한 도메인에서 빛을 발한다. 단순한 CRUD API라면 기존 서비스 패턴으로도 충분하다. 이 챕터에서는 학습 목적으로 블로그 게시글 도메인에 적용해 본다.
 
 ---
 
@@ -179,7 +182,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 export class ExampleModule {}
 ```
 
-> **Tip**: `CqrsModule`을 import하면 `CommandBus`, `QueryBus`, `EventBus`가 자동으로 DI 컨테이너에 등록된다. 별도의 설정 없이 바로 주입받아 사용할 수 있다.
+> **팁:**: `CqrsModule`을 import하면 `CommandBus`, `QueryBus`, `EventBus`가 자동으로 DI 컨테이너에 등록된다. 별도의 설정 없이 바로 주입받아 사용할 수 있다.
 
 ---
 
@@ -239,7 +242,7 @@ export class ExampleController {
 }
 ```
 
-> **핵심**: `commandBus.execute()`는 Command 클래스 타입을 보고 자동으로 매핑된 Handler를 찾아 실행한다. 하나의 Command에는 반드시 하나의 Handler만 존재해야 한다.
+> **참고:**: `commandBus.execute()`는 Command 클래스 타입을 보고 자동으로 매핑된 Handler를 찾아 실행한다. 하나의 Command에는 반드시 하나의 Handler만 존재해야 한다.
 
 ---
 
@@ -381,7 +384,7 @@ export class SayHelloHandler implements ICommandHandler<SayHelloCommand> {
 }
 ```
 
-> **Tip**: `EventBus.publish()`는 단일 이벤트를, `EventBus.publishAll()`은 이벤트 배열을 한 번에 발행한다.
+> **팁:**: `EventBus.publish()`는 단일 이벤트를, `EventBus.publishAll()`은 이벤트 배열을 한 번에 발행한다.
 
 ---
 
@@ -424,7 +427,7 @@ Saga의 핵심 포인트:
 - 반환된 Command는 자동으로 `CommandBus`를 통해 실행된다
 - RxJS 연산자(`delay`, `filter`, `mergeMap` 등)로 복잡한 흐름을 구성할 수 있다
 
-> **Tip**: Saga를 사용하면 "게시글이 생성되면 → 자동으로 검색 인덱스를 업데이트한다" 같은 워크플로우를 이벤트 핸들러가 아닌 별도의 흐름으로 분리할 수 있다. 이벤트 핸들러와의 차이점은 Saga는 반드시 새로운 Command를 반환한다는 것이다.
+> **팁:**: Saga를 사용하면 "게시글이 생성되면 → 자동으로 검색 인덱스를 업데이트한다" 같은 워크플로우를 이벤트 핸들러가 아닌 별도의 흐름으로 분리할 수 있다. 이벤트 핸들러와의 차이점은 Saga는 반드시 새로운 Command를 반환한다는 것이다.
 
 ### Saga vs EventHandler: 언제 어느 것을 써야 할까?
 
@@ -492,7 +495,7 @@ src/posts/
 └── posts.repository.ts
 ```
 
-> **Tip**: `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.
+> **팁:**: `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.
 
 ### 1. Entity와 Repository
 
@@ -530,7 +533,7 @@ export class Post {
 }
 ```
 
-> **Tip**: `@CreateDateColumn()`과 `@UpdateDateColumn()`은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
+> **팁:**: `@CreateDateColumn()`과 `@UpdateDateColumn()`은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
 
 ### 2. DTO 정의
 
@@ -857,7 +860,7 @@ export class PostDeletedHandler implements IEventHandler<PostDeletedEvent> {
 }
 ```
 
-> **Tip**: `@EventsHandler()` 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
+> **팁:**: `@EventsHandler()` 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
 
 ### 9. Saga 정의 (이벤트 기반 워크플로우)
 
@@ -1057,7 +1060,7 @@ const EventHandlers = [PostCreatedHandler, PostUpdatedHandler, PostDeletedHandle
 export class PostsModule {}
 ```
 
-> **Tip**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 `@InjectRepository(Post)`로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
+> **팁:**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 `@InjectRepository(Post)`로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
 
 ### 전체 실행 흐름
 
@@ -1134,3 +1137,9 @@ CQRS를 공부하다 보면 **Event Sourcing**이라는 용어가 자주 함께 
 | **Saga** | 이벤트를 구독하여 새로운 Command를 자동 실행하는 워크플로우 |
 
 이 챕터를 마치면 블로그 게시글 도메인이 CQRS 패턴으로 구조화된다. 기존에 `PostsService` 하나에 모여 있던 비즈니스 로직이 Command, Query, Event로 명확하게 분리되었고, 이벤트를 통해 후속 작업(로그 기록, 검색 인덱스 업데이트 등)이 느슨하게 결합되었다.
+---
+
+## 다음 챕터 예고
+
+챕터 17에서는 **Microservices**를 학습한다. 댓글 작성 시 알림을 보내는 기능을 별도의 알림 마이크로서비스로 분리한다. TCP 기반 통신과 하이브리드 앱 구성을 익히며, 전체 블로그 프로젝트를 완성한다.
+

@@ -1,4 +1,7 @@
-# Chapter 2 - Controller
+# 챕터 2 - Controller
+
+> **이전 챕터 요약**: 챕터 1에서 블로그 API의 모듈 구조(UsersModule, PostsModule, CommentsModule, CommonModule)를 설계하고 뼈대를 만들었다. 이번 챕터에서는 각 모듈에 **Controller**를 추가하여 HTTP 요청을 받는 라우트를 정의한다.
+
 
 ## 목차
 
@@ -214,7 +217,7 @@ export class CatsController {
 }
 ```
 
-> **주의**: `@Param('id')`로 꺼낸 값은 항상 **문자열(string)**이다. 숫자로 쓰려면 `+id` 또는 `parseInt(id)` 등으로 변환하거나, 나중에 배울 `ParseIntPipe`를 사용한다.
+> **주의:**: `@Param('id')`로 꺼낸 값은 항상 **문자열(string)**이다. 숫자로 쓰려면 `+id` 또는 `parseInt(id)` 등으로 변환하거나, 나중에 배울 `ParseIntPipe`를 사용한다.
 
 ### @Query() - URL 쿼리 문자열
 
@@ -385,7 +388,7 @@ export class CatsController {
 }
 ```
 
-> **중요**: `@Res()`를 사용하면 NestJS의 표준 응답 처리(인터셉터 등)가 **비활성화**된다. 표준 방식과 함께 쓰고 싶다면 `@Res({ passthrough: true })`를 사용한다.
+> **주의:**: `@Res()`를 사용하면 NestJS의 표준 응답 처리(인터셉터 등)가 **비활성화**된다. 표준 방식과 함께 쓰고 싶다면 `@Res({ passthrough: true })`를 사용한다.
 
 ```typescript
 @Get()

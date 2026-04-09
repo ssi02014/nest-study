@@ -1,5 +1,8 @@
 # 챕터 15 - WebSocket
 
+> **이전 챕터 요약**: 챕터 14에서 Swagger로 블로그 API의 모든 엔드포인트를 문서화했다. 이번 챕터에서는 **WebSocket**을 학습한다. 댓글이 작성되면 같은 게시글을 보고 있는 사용자들에게 실시간으로 알림을 보내는 기능을 추가한다.
+
+
 ## 목차
 
 1. [WebSocket이란?](#1-websocket이란)
@@ -49,7 +52,7 @@ WebSocket 연결 흐름:
 | 서버 푸시 | 불가능 (폴링 방식 필요) | 가능 (서버가 자유롭게 전송) |
 | 적합한 경우 | REST API, 일반적인 웹 요청 | 실시간 통신, 채팅, 알림 |
 
-> **Tip**: 블로그 API에서 "새 댓글이 달렸습니다" 같은 알림을 구현한다고 생각해보자. HTTP만 사용하면 클라이언트가 주기적으로 서버에 "새 댓글 있어요?" 하고 물어봐야 한다(폴링). WebSocket을 사용하면 댓글이 작성되는 순간 서버가 바로 클라이언트에게 알려줄 수 있다.
+> **팁:**: 블로그 API에서 "새 댓글이 달렸습니다" 같은 알림을 구현한다고 생각해보자. HTTP만 사용하면 클라이언트가 주기적으로 서버에 "새 댓글 있어요?" 하고 물어봐야 한다(폴링). WebSocket을 사용하면 댓글이 작성되는 순간 서버가 바로 클라이언트에게 알려줄 수 있다.
 
 ---
 
@@ -233,7 +236,7 @@ export class EventsGateway
 }
 ```
 
-> **Tip**: `OnGatewayConnection`의 `handleConnection`은 REST API의 미들웨어와 비슷한 역할을 한다. 클라이언트가 처음 연결될 때 인증 토큰을 확인하거나, 연결 로그를 남기는 데 활용할 수 있다.
+> **팁:**: `OnGatewayConnection`의 `handleConnection`은 REST API의 미들웨어와 비슷한 역할을 한다. 클라이언트가 처음 연결될 때 인증 토큰을 확인하거나, 연결 로그를 남기는 데 활용할 수 있다.
 
 ---
 
@@ -480,7 +483,7 @@ export class BroadcastGateway
 }
 ```
 
-> **Tip**: `this.server.emit()`은 본인 포함 전체에게, `client.broadcast.emit()`은 본인 제외 전체에게 전송한다. 이 차이를 잘 기억해두자.
+> **팁:**: `this.server.emit()`은 본인 포함 전체에게, `client.broadcast.emit()`은 본인 제외 전체에게 전송한다. 이 차이를 잘 기억해두자.
 
 ---
 
@@ -802,7 +805,7 @@ export class BlogGateway
 }
 ```
 
-> **핵심 포인트**: `notifyNewComment()` 메서드는 `@SubscribeMessage`가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
+> **참고:**: `notifyNewComment()` 메서드는 `@SubscribeMessage`가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
 
 ### 9-5. CommentsService (Gateway 연동)
 
@@ -867,7 +870,7 @@ export class CommentsService {
 }
 ```
 
-> **Tip**: 이 패턴이 WebSocket 활용의 핵심이다. REST API로 댓글을 생성하는 기존 흐름은 그대로 유지하면서, 생성 이후에 Gateway를 통해 실시간 알림만 추가한다. 기존 코드를 크게 바꾸지 않아도 된다.
+> **팁:**: 이 패턴이 WebSocket 활용의 핵심이다. REST API로 댓글을 생성하는 기존 흐름은 그대로 유지하면서, 생성 이후에 Gateway를 통해 실시간 알림만 추가한다. 기존 코드를 크게 바꾸지 않아도 된다.
 
 ### 9-6. CommentsController
 
@@ -1039,7 +1042,7 @@ npm run start:dev
   이후 게시글 1번에 새 댓글이 달려도 사용자 B에게는 알림이 가지 않음
 ```
 
-> **Tip**: 이 구조에서 REST API와 WebSocket은 각자의 역할을 한다. REST API는 데이터를 **저장**(Create)하고, WebSocket은 변경 사항을 **실시간 전파**(Notify)한다. 이 두 가지를 혼합하는 것이 실무에서 가장 흔한 WebSocket 활용 패턴이다.
+> **팁:**: 이 구조에서 REST API와 WebSocket은 각자의 역할을 한다. REST API는 데이터를 **저장**(Create)하고, WebSocket은 변경 사항을 **실시간 전파**(Notify)한다. 이 두 가지를 혼합하는 것이 실무에서 가장 흔한 WebSocket 활용 패턴이다.
 
 ---
 
@@ -1124,7 +1127,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-> **Tip**: 개발 환경에서는 Redis Adapter가 불필요하다. 단일 서버로 충분하므로 로컬 개발 시에는 기존 `main.ts`(Redis 없는 버전)를 유지하고, **상용 배포(PM2 cluster 모드, Kubernetes 등) 시에만** Redis Adapter를 적용하는 것을 권장한다. 환경변수로 분기하면 편리하다.
+> **팁:**: 개발 환경에서는 Redis Adapter가 불필요하다. 단일 서버로 충분하므로 로컬 개발 시에는 기존 `main.ts`(Redis 없는 버전)를 유지하고, **상용 배포(PM2 cluster 모드, Kubernetes 등) 시에만** Redis Adapter를 적용하는 것을 권장한다. 환경변수로 분기하면 편리하다.
 
 ```typescript
 // Redis Adapter 조건부 적용 예시
@@ -1249,7 +1252,7 @@ handleJoinPostRoom(
 }
 ```
 
-> **Tip**: `client.disconnect(true)`를 호출하면 서버 측에서 연결을 강제로 끊는다. `true` 인자를 넘기면 소켓을 즉시 파기하며, 클라이언트에게는 `disconnect` 이벤트가 발생한다. 미인증 클라이언트는 반드시 이 방식으로 즉시 연결을 종료해야 한다.
+> **팁:**: `client.disconnect(true)`를 호출하면 서버 측에서 연결을 강제로 끊는다. `true` 인자를 넘기면 소켓을 즉시 파기하며, 클라이언트에게는 `disconnect` 이벤트가 발생한다. 미인증 클라이언트는 반드시 이 방식으로 즉시 연결을 종료해야 한다.
 
 ---
 
@@ -1281,3 +1284,9 @@ handleJoinPostRoom(
 5. **소켓 인증**: `handleConnection`에서 JWT 검증, `client.data.user`로 사용자 정보 전달, 미인증 시 `client.disconnect(true)` 호출
 
 이 챕터를 마치면 **실시간 댓글 알림 기능이 완성**된다. 다음 챕터에서는 CQRS 패턴에 대해 알아본다.
+---
+
+## 다음 챕터 예고
+
+챕터 16에서는 **CQRS** 패턴을 학습한다. PostsModule의 Service를 Command(쓰기)와 Query(읽기)로 분리하여 구조를 개선한다. 대규모 애플리케이션에서 유지보수성을 높이는 아키텍처 패턴이다.
+

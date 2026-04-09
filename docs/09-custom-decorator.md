@@ -1,5 +1,8 @@
 # 챕터 9 - Custom Decorator (커스텀 데코레이터)
 
+> **이전 챕터 요약**: 챕터 8에서 HttpExceptionFilter로 에러 응답을 `{ success: false, error: { ... } }` 형태로 통일했다. 이번 챕터에서는 **Custom Decorator**를 만들어 코드를 더 간결하게 리팩토링한다. Phase 1~3의 마지막 챕터다.
+
+
 ## 목차
 
 1. [1단계: 개념 학습](#1단계-개념-학습)
@@ -64,7 +67,7 @@ class Calculator {
 // 반환: 3
 ```
 
-> **Tip**: TypeScript에서 데코레이터를 사용하려면 `tsconfig.json`에 아래 설정이 필요하다. NestJS 프로젝트는 기본으로 이 설정이 켜져 있으므로 따로 건드릴 필요 없다.
+> **팁:**: TypeScript에서 데코레이터를 사용하려면 `tsconfig.json`에 아래 설정이 필요하다. NestJS 프로젝트는 기본으로 이 설정이 켜져 있으므로 따로 건드릴 필요 없다.
 >
 > ```json
 > {
@@ -154,7 +157,7 @@ export const MyDecorator = createParamDecorator(
 3. `ctx`로 현재 HTTP 요청 객체에 접근할 수 있으며
 4. **반환값이 해당 파라미터의 값**이 된다
 
-> **Tip**: `ExecutionContext`는 챕터 6(Guard)에서 배운 그 컨텍스트 객체와 동일하다. `switchToHttp().getRequest()`로 HTTP 요청 객체에 접근할 수 있다.
+> **팁:**: `ExecutionContext`는 챕터 6(Guard)에서 배운 그 컨텍스트 객체와 동일하다. `switchToHttp().getRequest()`로 HTTP 요청 객체에 접근할 수 있다.
 
 ---
 
@@ -180,7 +183,7 @@ export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 adminOnly() { ... }
 ```
 
-> **Tip**: `SetMetadata`를 직접 쓰는 것보다 항상 커스텀 데코레이터로 감싸서 사용하자. 문자열 키(`'roles'`)를 상수(`ROLES_KEY`)로 관리하면 오타를 방지하고, IDE 자동완성도 활용할 수 있다.
+> **팁:**: `SetMetadata`를 직접 쓰는 것보다 항상 커스텀 데코레이터로 감싸서 사용하자. 문자열 키(`'roles'`)를 상수(`ROLES_KEY`)로 관리하면 오타를 방지하고, IDE 자동완성도 활용할 수 있다.
 
 ---
 
@@ -210,7 +213,7 @@ export function Auth(...roles: string[]) {
 adminOnly() { ... }
 ```
 
-> **주의**: `applyDecorators`는 **메서드 데코레이터**만 합성할 수 있다. 클래스 데코레이터(`@Controller()`, `@Module()` 등)나 파라미터 데코레이터(`@Body()`, `@Param()` 등)는 합성 대상이 아니다.
+> **주의:**: `applyDecorators`는 **메서드 데코레이터**만 합성할 수 있다. 클래스 데코레이터(`@Controller()`, `@Module()` 등)나 파라미터 데코레이터(`@Body()`, `@Param()` 등)는 합성 대상이 아니다.
 
 ---
 
@@ -268,7 +271,7 @@ export class ExampleController {
 }
 ```
 
-> **Tip**: `@User()`의 `data` 파라미터에 아무것도 안 넣으면 `undefined`가 되어 전체 `user` 객체가 반환된다. `'email'`이나 `'id'` 같은 문자열을 넣으면 해당 필드의 값만 반환된다. 이 패턴은 NestJS 내장 `@Param()`, `@Query()`와 동일한 방식이다.
+> **팁:**: `@User()`의 `data` 파라미터에 아무것도 안 넣으면 `undefined`가 되어 전체 `user` 객체가 반환된다. `'email'`이나 `'id'` 같은 문자열을 넣으면 해당 필드의 값만 반환된다. 이 패턴은 NestJS 내장 `@Param()`, `@Query()`와 동일한 방식이다.
 
 ---
 
@@ -396,7 +399,7 @@ export class ExampleController {
 }
 ```
 
-> **Tip**: 합성 데코레이터는 나중에 Swagger(챕터 14)를 도입하면 더 강력해진다. `ApiBearerAuth()`, `ApiUnauthorizedResponse()` 같은 Swagger 데코레이터도 함께 합성하면, API 문서화까지 자동으로 처리된다.
+> **팁:**: 합성 데코레이터는 나중에 Swagger(챕터 14)를 도입하면 더 강력해진다. `ApiBearerAuth()`, `ApiUnauthorizedResponse()` 같은 Swagger 데코레이터도 함께 합성하면, API 문서화까지 자동으로 처리된다.
 
 ---
 
@@ -445,7 +448,7 @@ export const CurrentUser = createParamDecorator(
 
 인증 검사는 Guard의 책임이다. `@CurrentUser()`는 단순히 데이터를 "꺼내는" 역할만 담당한다. 인증이 필요한 라우트에서는 Guard가 이미 인증을 처리했으므로 `request.user`는 항상 존재한다. `@Public()` 라우트에서는 Guard를 건너뛰므로 `request.user`가 없을 수 있는데, 이때는 `null`을 반환한다.
 
-> **Tip**: 각 계층의 역할을 명확히 분리하자.
+> **팁:**: 각 계층의 역할을 명확히 분리하자.
 > - **Guard**: 인증 여부 판단 (없으면 401 에러)
 > - **파라미터 데코레이터**: 데이터 추출 (있으면 반환, 없으면 null)
 > - **Pipe**: 데이터 검증/변환
@@ -834,3 +837,9 @@ src/
 | Phase 3 | 7~9 | 응답 래핑, 에러 처리 통일, 커스텀 데코레이터로 코드 간결화 |
 
 > **다음 챕터 예고**: 챕터 10(TypeORM)에서는 메모리 배열을 **실제 데이터베이스(SQLite)**로 교체한다. Entity를 정의하고, Repository 패턴으로 서비스를 리팩토링하게 된다.
+---
+
+## 다음 챕터 예고
+
+챕터 10에서는 **TypeORM**으로 실제 데이터베이스를 연동한다. 지금까지 메모리 배열에 저장하던 데이터를 SQLite DB에 저장하여 서버를 재시작해도 데이터가 유지되게 만든다.
+

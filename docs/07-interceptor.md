@@ -1,5 +1,8 @@
 # 챕터 7 - Interceptor (인터셉터)
 
+> **이전 챕터 요약**: 챕터 6에서 SimpleAuthGuard로 게시글/댓글 작성·수정·삭제에 인증을 적용했다. 이번 챕터에서는 **Interceptor**를 학습하여 모든 API 응답을 일관된 형태로 변환한다.
+
+
 ## 목차
 
 1. [Interceptor란 무엇인가](#1-interceptor란-무엇인가)
@@ -125,7 +128,7 @@ export class SimpleInterceptor implements NestInterceptor {
 요청 도착 → ① "핸들러 실행 전" 출력 → ② 컨트롤러 핸들러 실행 → ③ "핸들러 실행 후" 출력 → 응답 반환
 ```
 
-> **Tip**: `next.handle()` 앞에 작성한 코드는 **요청(before)** 시점에, `pipe()` 안에 작성한 코드는 **응답(after)** 시점에 실행된다. 이것이 인터셉터가 "전/후 모두 처리할 수 있다"는 의미다.
+> **팁:**: `next.handle()` 앞에 작성한 코드는 **요청(before)** 시점에, `pipe()` 안에 작성한 코드는 **응답(after)** 시점에 실행된다. 이것이 인터셉터가 "전/후 모두 처리할 수 있다"는 의미다.
 
 ---
 
@@ -234,7 +237,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-> **주의**: 이 방식은 DI 컨테이너 외부에서 인스턴스를 직접 생성(`new`)하므로, 인터셉터 내부에서 다른 서비스를 주입받을 수 없다.
+> **주의:**: 이 방식은 DI 컨테이너 외부에서 인스턴스를 직접 생성(`new`)하므로, 인터셉터 내부에서 다른 서비스를 주입받을 수 없다.
 
 **방법 2: 모듈에서 APP_INTERCEPTOR 토큰으로 등록 (권장)**
 
@@ -255,7 +258,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 export class AppModule {}
 ```
 
-> **Tip**: `APP_INTERCEPTOR` 토큰 방식을 사용하면 DI 컨테이너가 인터셉터를 관리하므로, 생성자에서 다른 서비스를 주입받을 수 있다. 실무에서는 이 방식을 권장한다.
+> **팁:**: `APP_INTERCEPTOR` 토큰 방식을 사용하면 DI 컨테이너가 인터셉터를 관리하므로, 생성자에서 다른 서비스를 주입받을 수 있다. 실무에서는 이 방식을 권장한다.
 
 ---
 
@@ -527,7 +530,7 @@ export class LoggingInterceptor implements NestInterceptor {
 }
 ```
 
-> **Tip**: `tap`에 객체 형태(`{ next, error }`)를 전달하면 성공과 에러를 각각 처리할 수 있다. 에러 로그도 함께 남기면 디버깅할 때 매우 유용하다.
+> **팁:**: `tap`에 객체 형태(`{ next, error }`)를 전달하면 성공과 에러를 각각 처리할 수 있다. 에러 로그도 함께 남기면 디버깅할 때 매우 유용하다.
 
 ### 6-4. 글로벌 적용하기
 
@@ -562,7 +565,7 @@ import { CommentsModule } from './comments/comments.module';
 export class AppModule {}
 ```
 
-> **Tip**: 글로벌 인터셉터가 여러 개일 때 실행 순서가 중요하다. `providers` 배열에서 **먼저 등록된 인터셉터가 바깥쪽**에서 감싼다. 즉, `LoggingInterceptor`가 `TransformInterceptor`를 감싸므로, 로깅에는 래핑된 최종 응답이 아니라 전체 흐름이 기록된다.
+> **팁:**: 글로벌 인터셉터가 여러 개일 때 실행 순서가 중요하다. `providers` 배열에서 **먼저 등록된 인터셉터가 바깥쪽**에서 감싼다. 즉, `LoggingInterceptor`가 `TransformInterceptor`를 감싸므로, 로깅에는 래핑된 최종 응답이 아니라 전체 흐름이 기록된다.
 
 ### 6-5. curl로 동작 확인
 
@@ -708,3 +711,9 @@ export class PostsController {
 | 글로벌 등록 | `APP_INTERCEPTOR` 토큰으로 전체 적용 |
 
 > **다음 챕터 예고**: 지금은 성공 응답만 `{ success: true, data, timestamp }` 형태로 통일했다. 그런데 에러가 발생하면? `{ statusCode: 404, message: "Not Found" }` 같은 NestJS 기본 형태가 반환된다. 챕터 8에서는 **Exception Filter**를 사용해서 에러 응답도 `{ success: false, error: ..., timestamp: ... }` 형태로 통일할 것이다.
+---
+
+## 다음 챕터 예고
+
+챕터 8에서는 **Exception Filter**를 학습한다. 성공 응답(챕터 7)과 짝이 되는 에러 응답 포맷을 통일한다. 이 두 챕터를 합치면 블로그 API의 모든 응답이 일관된 구조를 갖게 된다.
+

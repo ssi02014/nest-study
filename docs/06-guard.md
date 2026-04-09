@@ -1,4 +1,7 @@
-# 6. Guard
+# 챕터 6 - Guard
+
+> **이전 챕터 요약**: 챕터 5에서 DTO와 ValidationPipe로 입력값 검증을 추가했다. 잘못된 데이터는 자동으로 거부된다. 이번 챕터에서는 **Guard**를 추가하여 인증 없는 사용자가 게시글을 작성/수정/삭제할 수 없도록 막는다.
+
 
 ## 목차
 
@@ -1132,3 +1135,9 @@ export class DbPermissionGuard implements CanActivate {
 | `@Roles()` | 핸들러에 필요한 역할을 지정하는 커스텀 데코레이터 |
 | Guard 반환값 | `true` → 통과, `false` → 자동 `ForbiddenException`(403) |
 | 실행 순서 | Middleware → **Guard** → Interceptor → Pipe → Handler |
+---
+
+## 다음 챕터 예고
+
+챕터 7에서는 **Interceptor**를 학습한다. 모든 API 응답을 `{ success, data, timestamp }` 형태로 통일하는 TransformInterceptor를 만들어 글로벌로 적용한다.
+
