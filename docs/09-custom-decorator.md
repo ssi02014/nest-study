@@ -5,22 +5,29 @@
 
 ## 목차
 
-1. [1단계: 개념 학습](#1단계-개념-학습)
-   - [데코레이터란?](#데코레이터란)
-   - [NestJS에서 데코레이터가 중요한 이유](#nestjs에서-데코레이터가-중요한-이유)
-   - [커스텀 파라미터 데코레이터 (createParamDecorator)](#커스텀-파라미터-데코레이터-createparamdecorator)
-   - [SetMetadata를 활용한 메타데이터 데코레이터](#setmetadata를-활용한-메타데이터-데코레이터)
-   - [applyDecorators로 데코레이터 합성](#applydecorators로-데코레이터-합성)
-2. [2단계: 기본 예제](#2단계-기본-예제)
-   - [@User() 파라미터 데코레이터](#user-파라미터-데코레이터)
-   - [@Roles() 메타데이터 데코레이터](#roles-메타데이터-데코레이터)
-   - [합성 데코레이터](#합성-데코레이터)
-3. [3단계: 블로그 API 적용](#3단계-블로그-api-적용)
-   - [@CurrentUser() 데코레이터 만들기](#currentuser-데코레이터-만들기)
-   - [@Public() 데코레이터 리팩토링](#public-데코레이터-리팩토링)
-   - [Controller에 @CurrentUser() 적용하여 코드 간결화](#controller에-currentuser-적용하여-코드-간결화)
-   - [리팩토링 전후 비교](#리팩토링-전후-비교)
-   - [최종 프로젝트 구조](#최종-프로젝트-구조)
+### 1단계: 개념 학습
+1. [데코레이터란?](#데코레이터란)
+2. [NestJS에서 데코레이터가 중요한 이유](#nestjs에서-데코레이터가-중요한-이유)
+3. [커스텀 파라미터 데코레이터 (createParamDecorator)](#커스텀-파라미터-데코레이터-createparamdecorator)
+4. [커스텀 파라미터 데코레이터에 파이프 연결하기](#커스텀-파라미터-데코레이터에-파이프-연결하기)
+5. [SetMetadata를 활용한 메타데이터 데코레이터](#setmetadata를-활용한-메타데이터-데코레이터)
+6. [applyDecorators로 데코레이터 합성](#applydecorators로-데코레이터-합성)
+
+### 2단계: 기본 예제
+7. [@User() 파라미터 데코레이터](#user-파라미터-데코레이터)
+8. [@Roles() 메타데이터 데코레이터](#roles-메타데이터-데코레이터)
+9. [합성 데코레이터](#합성-데코레이터)
+
+### 3단계: 블로그 API 적용
+10. [@CurrentUser() 데코레이터 만들기](#currentuser-데코레이터-만들기)
+11. [@Public() 데코레이터 리팩토링](#public-데코레이터-리팩토링)
+12. [Controller에 @CurrentUser() 적용하여 코드 간결화](#controller에-currentuser-적용하여-코드-간결화)
+13. [리팩토링 전후 비교](#리팩토링-전후-비교)
+14. [최종 프로젝트 구조](#최종-프로젝트-구조)
+
+### 4단계: 정리
+15. [정리](#정리)
+16. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
 
@@ -68,7 +75,7 @@ class Calculator {
 // 반환: 3
 ```
 
-> **팁:**: TypeScript에서 데코레이터를 사용하려면 `tsconfig.json`에 아래 설정이 필요하다. NestJS 프로젝트는 기본으로 이 설정이 켜져 있으므로 따로 건드릴 필요 없다.
+> **팁:** TypeScript에서 데코레이터를 사용하려면 `tsconfig.json`에 아래 설정이 필요하다. NestJS 프로젝트는 기본으로 이 설정이 켜져 있으므로 따로 건드릴 필요 없다.
 >
 > ```json
 > {
@@ -158,7 +165,39 @@ export const MyDecorator = createParamDecorator(
 3. `ctx`로 현재 HTTP 요청 객체에 접근할 수 있으며
 4. **반환값이 해당 파라미터의 값**이 된다
 
-> **팁:**: `ExecutionContext`는 챕터 6(Guard)에서 배운 그 컨텍스트 객체와 동일하다. `switchToHttp().getRequest()`로 HTTP 요청 객체에 접근할 수 있다.
+> **팁:** `ExecutionContext`는 챕터 6(Guard)에서 배운 그 컨텍스트 객체와 동일하다. `switchToHttp().getRequest()`로 HTTP 요청 객체에 접근할 수 있다.
+
+### 커스텀 파라미터 데코레이터에 파이프 연결하기
+
+`createParamDecorator`로 만든 커스텀 데코레이터에도 내장 파이프를 연결할 수 있다. [`@Param('id', ParseIntPipe)`](references/decorators.md#paramkey)처럼 두 번째 인자로 파이프를 전달하면 된다.
+
+```typescript
+// src/posts/posts.controller.ts
+import { Controller, Get } from '@nestjs/common';
+import { User } from '../common/decorators/user.decorator';
+import { ParseIntPipe } from '@nestjs/common';
+
+// 예시: 커스텀 데코레이터에서 꺼낸 값에 파이프 적용
+// @User()가 request.user.id를 문자열로 반환할 때 숫자로 변환
+@Controller('posts')
+export class PostsController {
+  @Get('my')
+  findMyPosts(@User('id', ParseIntPipe) userId: number) {
+    return this.postsService.findByUserId(userId);
+  }
+}
+```
+
+파이프를 배열로 전달해 여러 파이프를 순서대로 적용할 수도 있다.
+
+```typescript
+@Get('my')
+findMyPosts(@User('id', new ParseIntPipe(), new ValidationPipe()) userId: number) {
+  // ...
+}
+```
+
+> **참고:** 커스텀 파라미터 데코레이터에 파이프를 연결하면, 파이프는 데코레이터가 반환한 값에 적용된다. Guard나 Interceptor와 달리 파이프는 파라미터 값 하나를 처리하는 단계이므로, 커스텀 데코레이터와 파이프를 조합하면 강력한 입력 변환·검증 체계를 구성할 수 있다.
 
 ---
 
@@ -184,7 +223,7 @@ export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 adminOnly() { ... }
 ```
 
-> **팁:**: `SetMetadata`를 직접 쓰는 것보다 항상 커스텀 데코레이터로 감싸서 사용하자. 문자열 키(`'roles'`)를 상수(`ROLES_KEY`)로 관리하면 오타를 방지하고, IDE 자동완성도 활용할 수 있다.
+> **팁:** `SetMetadata`를 직접 쓰는 것보다 항상 커스텀 데코레이터로 감싸서 사용하자. 문자열 키(`'roles'`)를 상수(`ROLES_KEY`)로 관리하면 오타를 방지하고, IDE 자동완성도 활용할 수 있다.
 
 ---
 
@@ -214,7 +253,7 @@ export function Auth(...roles: string[]) {
 adminOnly() { ... }
 ```
 
-> **주의:**: [`applyDecorators`](references/decorators.md#applydecoratorsdecorators)는 **메서드 데코레이터**만 합성할 수 있다. 클래스 데코레이터([`@Controller()`](references/decorators.md#controllerprefix), [`@Module()`](references/decorators.md#moduleoptions) 등)나 파라미터 데코레이터([`@Body()`](references/decorators.md#bodykey), [`@Param()`](references/decorators.md#paramkey) 등)는 합성 대상이 아니다.
+> **주의:** [`applyDecorators`](references/decorators.md#applydecoratorsdecorators)로 **파라미터 데코레이터**([`@Body()`](references/decorators.md#bodykey), [`@Param()`](references/decorators.md#paramkey) 등)는 합성할 수 없다. 메서드 데코레이터와 클래스 데코레이터는 합성 가능하다.
 
 ---
 
@@ -272,7 +311,7 @@ export class ExampleController {
 }
 ```
 
-> **팁:**: `@User()`의 `data` 파라미터에 아무것도 안 넣으면 `undefined`가 되어 전체 `user` 객체가 반환된다. `'email'`이나 `'id'` 같은 문자열을 넣으면 해당 필드의 값만 반환된다. 이 패턴은 NestJS 내장 [`@Param()`](references/decorators.md#paramkey), [`@Query()`](references/decorators.md#querykey)와 동일한 방식이다.
+> **팁:** `@User()`의 `data` 파라미터에 아무것도 안 넣으면 `undefined`가 되어 전체 `user` 객체가 반환된다. `'email'`이나 `'id'` 같은 문자열을 넣으면 해당 필드의 값만 반환된다. 이 패턴은 NestJS 내장 [`@Param()`](references/decorators.md#paramkey), [`@Query()`](references/decorators.md#querykey)와 동일한 방식이다.
 
 ---
 
@@ -400,7 +439,7 @@ export class ExampleController {
 }
 ```
 
-> **팁:**: 합성 데코레이터는 나중에 Swagger(챕터 14)를 도입하면 더 강력해진다. `ApiBearerAuth()`, `ApiUnauthorizedResponse()` 같은 Swagger 데코레이터도 함께 합성하면, API 문서화까지 자동으로 처리된다.
+> **팁:** 합성 데코레이터는 나중에 Swagger(챕터 14)를 도입하면 더 강력해진다. `ApiBearerAuth()`, `ApiUnauthorizedResponse()` 같은 Swagger 데코레이터도 함께 합성하면, API 문서화까지 자동으로 처리된다.
 
 ---
 
@@ -449,7 +488,7 @@ export const CurrentUser = createParamDecorator(
 
 인증 검사는 Guard의 책임이다. `@CurrentUser()`는 단순히 데이터를 "꺼내는" 역할만 담당한다. 인증이 필요한 라우트에서는 Guard가 이미 인증을 처리했으므로 `request.user`는 항상 존재한다. `@Public()` 라우트에서는 Guard를 건너뛰므로 `request.user`가 없을 수 있는데, 이때는 `null`을 반환한다.
 
-> **팁:**: 각 계층의 역할을 명확히 분리하자.
+> **팁:** 각 계층의 역할을 명확히 분리하자.
 > - **Guard**: 인증 여부 판단 (없으면 401 에러)
 > - **파라미터 데코레이터**: 데이터 추출 (있으면 반환, 없으면 null)
 > - **Pipe**: 데이터 검증/변환

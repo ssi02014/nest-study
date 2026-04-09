@@ -5,30 +5,36 @@
 
 ## 목차
 
-- [1단계: 개념 학습](#1단계-개념-학습)
-  - [왜 환경 변수가 필요한가?](#왜-환경-변수가-필요한가)
-  - [@nestjs/config 패키지](#nestjsconfig-패키지)
-  - [.env 파일](#env-파일)
-  - [ConfigModule.forRoot() 옵션](#configmoduleforroot-옵션)
-  - [ConfigService 사용법](#configservice-사용법)
-  - [registerAs로 네임스페이스 설정](#registeras로-네임스페이스-설정)
-  - [환경 변수 유효성 검사](#환경-변수-유효성-검사)
-- [2단계: 기본 예제](#2단계-기본-예제)
-  - [.env + ConfigModule 기본 사용](#env--configmodule-기본-사용)
-  - [ConfigService.get() 예제](#configserviceget-예제)
-  - [registerAs 네임스페이스 예제](#registeras-네임스페이스-예제)
-- [3단계: 블로그 API 적용](#3단계-블로그-api-적용)
-  - [@nestjs/config 설치](#nestjsconfig-설치)
-  - [.env 파일 생성](#env-파일-생성)
-  - [.env.example 작성과 .gitignore 설정](#envexample-작성과-gitignore-설정)
-  - [네임스페이스 설정 파일 분리](#네임스페이스-설정-파일-분리)
-  - [TypeORM 설정을 ConfigService로 교체](#typeorm-설정을-configservice로-교체)
-  - [Joi로 환경 변수 유효성 검사](#joi로-환경-변수-유효성-검사)
-  - [main.ts에서 ConfigService 활용](#maints에서-configservice-활용)
-  - [최종 AppModule 통합](#최종-appmodule-통합)
-  - [완성된 디렉토리 구조](#완성된-디렉토리-구조)
-  - [환경별 설정 파일 분리 전략](#환경별-설정-파일-분리-전략)
-  - [민감 정보 관리 팁](#민감-정보-관리-팁)
+### 1단계: 개념 학습
+1. [왜 환경 변수가 필요한가?](#왜-환경-변수가-필요한가)
+2. [@nestjs/config 패키지](#nestjsconfig-패키지)
+3. [.env 파일](#env-파일)
+4. [ConfigModule.forRoot() 옵션](#configmoduleforroot-옵션)
+5. [ConfigService 사용법](#configservice-사용법)
+6. [registerAs로 네임스페이스 설정](#registeras로-네임스페이스-설정)
+7. [환경 변수 유효성 검사](#환경-변수-유효성-검사)
+
+### 2단계: 기본 예제
+8. [.env + ConfigModule 기본 사용](#env--configmodule-기본-사용)
+9. [ConfigService.get() 예제](#configserviceget-예제)
+10. [registerAs 네임스페이스 예제](#registeras-네임스페이스-예제)
+
+### 3단계: 블로그 API 적용
+11. [@nestjs/config 설치](#nestjsconfig-설치)
+12. [.env 파일 생성](#env-파일-생성)
+13. [.env.example 작성과 .gitignore 설정](#envexample-작성과-gitignore-설정)
+14. [네임스페이스 설정 파일 분리](#네임스페이스-설정-파일-분리)
+15. [TypeORM 설정을 ConfigService로 교체](#typeorm-설정을-configservice로-교체)
+16. [Joi로 환경 변수 유효성 검사](#joi로-환경-변수-유효성-검사)
+17. [main.ts에서 ConfigService 활용](#maints에서-configservice-활용)
+18. [최종 AppModule 통합](#최종-appmodule-통합)
+19. [완성된 디렉토리 구조](#완성된-디렉토리-구조)
+20. [환경별 설정 파일 분리 전략](#환경별-설정-파일-분리-전략)
+21. [민감 정보 관리 팁](#민감-정보-관리-팁)
+
+### 4단계: 정리
+22. [정리](#정리)
+23. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
 
@@ -81,7 +87,7 @@ const dbPath = process.env.DATABASE_PATH; // './blog.sqlite'
 
 하지만 `process.env`를 직접 사용하면 타입 안전성이 없고, 유효성 검사도 어렵다. NestJS는 `@nestjs/config` 패키지로 이 문제를 깔끔하게 해결한다.
 
-> **팁:**: 업계에서 널리 알려진 [12-Factor App](https://12factor.net/config) 방법론에서도 "설정은 환경 변수에 저장하라"고 권장한다. 이는 대부분의 현대 웹 프레임워크가 따르는 모범 사례다.
+> **팁:** 업계에서 널리 알려진 [12-Factor App](https://12factor.net/config) 방법론에서도 "설정은 환경 변수에 저장하라"고 권장한다. 이는 대부분의 현대 웹 프레임워크가 따르는 모범 사례다.
 
 ---
 
@@ -124,7 +130,7 @@ JWT_SECRET=your-secret-key-here
 JWT_ACCESS_EXPIRATION=1h
 ```
 
-> **팁:**: 새로운 팀원이 프로젝트에 합류하면 `.env.example`을 복사하여 `.env`를 만들고, 자신의 환경에 맞게 값을 채우면 된다. `cp .env.example .env`
+> **팁:** 새로운 팀원이 프로젝트에 합류하면 `.env.example`을 복사하여 `.env`를 만들고, 자신의 환경에 맞게 값을 채우면 된다. `cp .env.example .env`
 
 ---
 
@@ -161,7 +167,7 @@ export class AppModule {}
 | `load` | `Function[]` | `[]` | `registerAs()`로 만든 커스텀 설정 팩토리 함수 배열 |
 | `validationSchema` | `object` | - | Joi 스키마로 환경 변수를 시작 시점에 검증한다 |
 
-> **팁:**: `isGlobal: true`는 거의 항상 사용한다. 이 옵션이 없으면 `ConfigService`가 필요한 모든 모듈에서 `ConfigModule`을 일일이 import해야 한다.
+> **팁:** `isGlobal: true`는 거의 항상 사용한다. 이 옵션이 없으면 `ConfigService`가 필요한 모든 모듈에서 `ConfigModule`을 일일이 import해야 한다.
 
 ---
 
@@ -283,7 +289,7 @@ export class AppModule {}
 Error: Config validation error: "DATABASE_PATH" is required
 ```
 
-> **팁:**: `required()`는 "반드시 있어야 한다", `default(값)`은 "없으면 이 값을 쓴다"라는 뜻이다. 민감한 정보(비밀 키 등)에는 `required()`를, 포트 번호처럼 합리적인 기본값이 있는 항목에는 `default()`를 사용하자.
+> **팁:** `required()`는 "반드시 있어야 한다", `default(값)`은 "없으면 이 값을 쓴다"라는 뜻이다. 민감한 정보(비밀 키 등)에는 `required()`를, 포트 번호처럼 합리적인 기본값이 있는 항목에는 `default()`를 사용하자.
 
 ---
 
@@ -358,7 +364,7 @@ export class AppController {
 }
 ```
 
-> **주의:**: `.env`에서 읽은 값은 항상 **문자열**이다. `PORT=3000`을 읽으면 숫자 `3000`이 아니라 문자열 `"3000"`이다. `get<number>('PORT')`의 제네릭은 TypeScript 타입 힌트일 뿐, 실제 변환은 하지 않는다. 숫자가 필요하면 `parseInt()`를 사용하거나, `registerAs()` 안에서 변환해야 한다.
+> **주의:** `.env`에서 읽은 값은 항상 **문자열**이다. `PORT=3000`을 읽으면 숫자 `3000`이 아니라 문자열 `"3000"`이다. `get<number>('PORT')`의 제네릭은 TypeScript 타입 힌트일 뿐, 실제 변환은 하지 않는다. 숫자가 필요하면 `parseInt()`를 사용하거나, `registerAs()` 안에서 변환해야 한다.
 
 ---
 
@@ -478,7 +484,7 @@ JWT_SECRET=blog-api-super-secret-key-2024
 JWT_ACCESS_EXPIRATION=1h
 ```
 
-> **팁:**: `JWT_SECRET`은 충분히 길고 예측 불가능한 문자열을 사용해야 한다. 위 값은 예시일 뿐이고, 실제 프로젝트에서는 `openssl rand -hex 32` 같은 명령어로 랜덤 문자열을 생성하는 것이 좋다.
+> **팁:** `JWT_SECRET`은 충분히 길고 예측 불가능한 문자열을 사용해야 한다. 위 값은 예시일 뿐이고, 실제 프로젝트에서는 `openssl rand -hex 32` 같은 명령어로 랜덤 문자열을 생성하는 것이 좋다.
 
 ---
 
@@ -550,7 +556,7 @@ export default registerAs('jwt', () => ({
 }));
 ```
 
-> **팁:**: `registerAs('database', ...)`에서 첫 번째 인자 `'database'`가 네임스페이스 이름이 된다. 나중에 `configService.get('database.path')`처럼 접근한다. 네임스페이스 이름은 파일 이름과 맞추는 것이 관례다.
+> **팁:** `registerAs('database', ...)`에서 첫 번째 인자 `'database'`가 네임스페이스 이름이 된다. 나중에 `configService.get('database.path')`처럼 접근한다. 네임스페이스 이름은 파일 이름과 맞추는 것이 관례다.
 
 ---
 
@@ -652,7 +658,7 @@ export const envValidationSchema = Joi.object({
 | `.min(n)` | 문자열은 최소 n자, 숫자는 최소값 n |
 | `.valid('a', 'b')` | 지정한 값 중 하나여야 한다 |
 
-> **팁:**: `abortEarly` 옵션을 `false`로 설정하면 모든 유효성 검사 에러를 한 번에 볼 수 있다. 기본값은 `true`(첫 번째 에러에서 중단)이다. `ConfigModule.forRoot()`의 `validationOptions`에서 설정한다.
+> **팁:** `abortEarly` 옵션을 `false`로 설정하면 모든 유효성 검사 에러를 한 번에 볼 수 있다. 기본값은 `true`(첫 번째 에러에서 중단)이다. `ConfigModule.forRoot()`의 `validationOptions`에서 설정한다.
 
 ---
 
@@ -792,7 +798,7 @@ ConfigModule.forRoot({
 }),
 ```
 
-> **팁:**: `envFilePath`에 배열을 전달하면 앞에 오는 파일이 우선순위가 높다. 환경별 파일을 앞에, 공통 `.env`를 뒤에 두면 환경별 값이 공통 값을 덮어쓴다.
+> **팁:** `envFilePath`에 배열을 전달하면 앞에 오는 파일이 우선순위가 높다. 환경별 파일을 앞에, 공통 `.env`를 뒤에 두면 환경별 값이 공통 값을 덮어쓴다.
 >
 > ```typescript
 > envFilePath: [`.env.${process.env.NODE_ENV}`, '.env'],

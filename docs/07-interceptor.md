@@ -5,12 +5,30 @@
 
 ## 목차
 
+### 1단계: 개념 학습
 1. [Interceptor란 무엇인가](#1-interceptor란-무엇인가)
 2. [NestInterceptor 인터페이스와 intercept 메서드](#2-nestinterceptor-인터페이스와-intercept-메서드)
 3. [CallHandler와 RxJS Observable](#3-callhandler와-rxjs-observable)
 4. [인터셉터 바인딩 레벨](#4-인터셉터-바인딩-레벨)
+
+### 2단계: 기본 예제
 5. [주요 활용 패턴](#5-주요-활용-패턴)
+   - [5-1. LoggingInterceptor (실행 시간 측정)](#5-1-logginginterceptor-실행-시간-측정)
+   - [5-2. TransformInterceptor (응답 래핑)](#5-2-transforminterceptor-응답-래핑)
+   - [5-3. TimeoutInterceptor (타임아웃 처리)](#5-3-timeoutinterceptor-타임아웃-처리)
+   - [5-4. ExceptionMappingInterceptor (예외 매핑)](#5-4-exceptionmappinginterceptor-예외-매핑)
+   - [5-5. CacheInterceptor (Stream Overriding)](#5-5-cacheinterceptor-stream-overriding--nexthandle-미호출)
+
+### 3단계: 블로그 API 적용
 6. [블로그 API에 적용하기](#6-블로그-api에-적용하기)
+
+### 4단계: 정리
+7. [정리](#정리)
+8. [다음 챕터 예고](#다음-챕터-예고)
+
+---
+
+# 1단계: 개념 학습
 
 ---
 
@@ -96,6 +114,46 @@ export interface NestInterceptor<T = any, R = any> {
 | `context` | `ExecutionContext` | 현재 요청에 대한 정보를 담고 있다. 챕터 6의 Guard에서 사용한 것과 동일한 객체다. |
 | `next` | `CallHandler` | 라우트 핸들러를 호출하기 위한 객체. `handle()` 메서드를 통해 핸들러를 실행한다. |
 
+### NestInterceptor 제네릭 타입 파라미터
+
+`NestInterceptor<T, R>` 인터페이스는 두 개의 타입 파라미터를 받는다.
+
+| 파라미터 | 의미 |
+|----------|------|
+| `T` | 핸들러가 반환하는 원본 값의 타입 (`next.handle()`의 스트림 타입) |
+| `R` | 인터셉터가 최종적으로 반환하는 값의 타입 |
+
+응답을 변환하는 인터셉터를 만들 때 이 두 파라미터를 명시하면 TypeScript의 타입 안전성을 확보할 수 있다.
+
+```typescript
+// src/common/interceptors/transform.interceptor.ts (타입 명시 버전)
+import { NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+// NestInterceptor<T, ApiResponse<T>>:
+//   T = 핸들러 원본 반환 타입, ApiResponse<T> = 최종 응답 타입
+export class TransformInterceptor<T>
+  implements NestInterceptor<T, ApiResponse<T>>
+{
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<ApiResponse<T>> {
+    return next.handle().pipe(
+      map((data) => ({ success: true, data })),
+    );
+  }
+}
+```
+
+> **팁:** 단순 로깅처럼 응답을 변환하지 않는 인터셉터는 `NestInterceptor`(제네릭 없음)로 충분하다. 응답 타입이 바뀌는 경우에만 `<T, R>`을 명시하자.
+
 ### 가장 단순한 인터셉터
 
 ```typescript
@@ -129,7 +187,7 @@ export class SimpleInterceptor implements NestInterceptor {
 요청 도착 → ① "핸들러 실행 전" 출력 → ② 컨트롤러 핸들러 실행 → ③ "핸들러 실행 후" 출력 → 응답 반환
 ```
 
-> **팁:**: `next.handle()` 앞에 작성한 코드는 **요청(before)** 시점에, `pipe()` 안에 작성한 코드는 **응답(after)** 시점에 실행된다. 이것이 인터셉터가 "전/후 모두 처리할 수 있다"는 의미다.
+> **팁:** `next.handle()` 앞에 작성한 코드는 **요청(before)** 시점에, `pipe()` 안에 작성한 코드는 **응답(after)** 시점에 실행된다. 이것이 인터셉터가 "전/후 모두 처리할 수 있다"는 의미다.
 
 ---
 
@@ -238,7 +296,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-> **주의:**: 이 방식은 DI 컨테이너 외부에서 인스턴스를 직접 생성(`new`)하므로, 인터셉터 내부에서 다른 서비스를 주입받을 수 없다.
+> **주의:** 이 방식은 DI 컨테이너 외부에서 인스턴스를 직접 생성(`new`)하므로, 인터셉터 내부에서 다른 서비스를 주입받을 수 없다.
 
 **방법 2: 모듈에서 APP_INTERCEPTOR 토큰으로 등록 (권장)**
 
@@ -259,7 +317,11 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 export class AppModule {}
 ```
 
-> **팁:**: `APP_INTERCEPTOR` 토큰 방식을 사용하면 DI 컨테이너가 인터셉터를 관리하므로, 생성자에서 다른 서비스를 주입받을 수 있다. 실무에서는 이 방식을 권장한다.
+> **팁:** `APP_INTERCEPTOR` 토큰 방식을 사용하면 DI 컨테이너가 인터셉터를 관리하므로, 생성자에서 다른 서비스를 주입받을 수 있다. 실무에서는 이 방식을 권장한다.
+
+---
+
+# 2단계: 기본 예제
 
 ---
 
@@ -414,6 +476,117 @@ export class TimeoutInterceptor implements NestInterceptor {
 - `catchError`로 `TimeoutError`를 잡아서 NestJS의 `RequestTimeoutException`(408)으로 변환한다.
 - 타임아웃이 아닌 다른 에러는 그대로 다시 throw한다.
 
+### 5-4. ExceptionMappingInterceptor (예외 매핑)
+
+특정 예외를 다른 예외로 변환하는 패턴이다. 예를 들어, 데이터베이스 레이어에서 발생한 저수준 에러를 클라이언트에 적합한 HTTP 예외로 바꿀 때 사용한다.
+
+```typescript
+// src/common/interceptors/exception-mapping.interceptor.ts
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  BadGatewayException,
+} from '@nestjs/common';
+import { Observable, throwError } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+
+// 가상의 외부 서비스 에러 클래스
+class ExternalServiceError extends Error {}
+
+@Injectable()
+export class ExceptionMappingInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    return next.handle().pipe(
+      catchError((err) => {
+        if (err instanceof ExternalServiceError) {
+          // 외부 서비스 오류 → 502 Bad Gateway로 변환
+          return throwError(() => new BadGatewayException('외부 서비스에 일시적인 문제가 발생했습니다.'));
+        }
+        // 그 외 에러는 그대로 전달
+        return throwError(() => err);
+      }),
+    );
+  }
+}
+```
+
+**코드 해설:**
+
+- `catchError` 연산자는 스트림에서 에러가 발생했을 때 실행된다.
+- 에러 타입을 확인해서 특정 에러만 변환하고, 나머지는 `throwError`로 그대로 전달한다.
+- 이렇게 하면 컨트롤러나 서비스 코드를 수정하지 않고도 에러 포맷을 일괄 변환할 수 있다.
+
+> **참고:** 예외를 한 곳에서 통합 처리하고 싶다면 챕터 8의 **Exception Filter**가 더 적합하다. 인터셉터의 예외 매핑은 "특정 타입의 에러를 다른 타입으로 바꾸는" 용도에 주로 쓴다.
+
+### 5-5. CacheInterceptor (Stream Overriding — next.handle() 미호출)
+
+지금까지 본 모든 예제는 `next.handle()`을 호출해서 실제 핸들러를 실행했다. 하지만 `next.handle()`을 **호출하지 않고** 직접 Observable을 반환하면 핸들러 자체를 건너뛸 수 있다. 캐시 인터셉터가 대표적인 예다.
+
+```typescript
+// src/common/interceptors/cache.interceptor.ts
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+} from '@nestjs/common';
+import { Observable, of } from 'rxjs';
+import { tap } from 'rxjs/operators';
+
+@Injectable()
+export class CacheInterceptor implements NestInterceptor {
+  // 간단한 메모리 캐시 (실무에서는 Redis 등을 사용)
+  private readonly cache = new Map<string, unknown>();
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const request = context.switchToHttp().getRequest();
+    const cacheKey = request.url;
+
+    // 캐시에 데이터가 있으면 next.handle()을 호출하지 않고 즉시 반환
+    if (this.cache.has(cacheKey)) {
+      console.log(`[Cache HIT] ${cacheKey}`);
+      return of(this.cache.get(cacheKey)); // ← 핸들러를 실행하지 않는다!
+    }
+
+    // 캐시가 없으면 핸들러를 실행하고 결과를 캐시에 저장
+    console.log(`[Cache MISS] ${cacheKey}`);
+    return next.handle().pipe(
+      tap((response) => {
+        this.cache.set(cacheKey, response);
+      }),
+    );
+  }
+}
+```
+
+실행 흐름:
+
+```
+첫 번째 요청:
+  → [Cache MISS] /posts
+  → next.handle() 호출 → 컨트롤러 실행 → DB 조회
+  → tap()에서 결과를 캐시에 저장
+  → 응답 반환
+
+두 번째 요청 (동일 URL):
+  → [Cache HIT] /posts
+  → of(캐시된 데이터) 즉시 반환 ← 컨트롤러, DB 전혀 실행 안 됨!
+```
+
+**코드 해설:**
+
+- `of(값)`은 RxJS의 생성 함수로, 전달받은 값을 즉시 방출하는 Observable을 만든다.
+- `next.handle()`을 호출하지 않으면 Guard 이후의 모든 로직(Pipe, Route Handler)이 실행되지 않는다.
+- 이 특성은 캐싱 외에도 **특정 조건에서 핸들러를 아예 건너뛰어야 하는 경우**에 활용할 수 있다.
+
+> **주의:** 이 예제는 개념 이해를 위한 단순 구현이다. 실무에서는 캐시 키 설계, TTL(만료 시간), POST/PUT 등 변경 요청 제외 로직이 추가로 필요하다. NestJS는 `@nestjs/cache-manager` 패키지로 더 완성도 높은 캐시 기능을 제공한다.
+
+---
+
+# 3단계: 블로그 API 적용
+
 ---
 
 ## 6. 블로그 API에 적용하기
@@ -531,7 +704,7 @@ export class LoggingInterceptor implements NestInterceptor {
 }
 ```
 
-> **팁:**: `tap`에 객체 형태(`{ next, error }`)를 전달하면 성공과 에러를 각각 처리할 수 있다. 에러 로그도 함께 남기면 디버깅할 때 매우 유용하다.
+> **팁:** `tap`에 객체 형태(`{ next, error }`)를 전달하면 성공과 에러를 각각 처리할 수 있다. 에러 로그도 함께 남기면 디버깅할 때 매우 유용하다.
 
 ### 6-4. 글로벌 적용하기
 
@@ -566,7 +739,7 @@ import { CommentsModule } from './comments/comments.module';
 export class AppModule {}
 ```
 
-> **팁:**: 글로벌 인터셉터가 여러 개일 때 실행 순서가 중요하다. `providers` 배열에서 **먼저 등록된 인터셉터가 바깥쪽**에서 감싼다. 즉, `LoggingInterceptor`가 `TransformInterceptor`를 감싸므로, 로깅에는 래핑된 최종 응답이 아니라 전체 흐름이 기록된다.
+> **팁:** 글로벌 인터셉터가 여러 개일 때 실행 순서가 중요하다. `providers` 배열에서 **먼저 등록된 인터셉터가 바깥쪽**에서 감싼다. 즉, `LoggingInterceptor`가 `TransformInterceptor`를 감싸므로, 로깅에는 래핑된 최종 응답이 아니라 전체 흐름이 기록된다.
 
 ### 6-5. curl로 동작 확인
 
@@ -697,11 +870,13 @@ export class PostsController {
 
 | 항목 | 설명 |
 |------|------|
-| **인터페이스** | `NestInterceptor` 구현, `intercept()` 메서드 정의 |
+| **인터페이스** | `NestInterceptor<T, R>` 구현, `intercept()` 메서드 정의 |
 | **핵심 메커니즘** | `CallHandler.handle()`이 반환하는 RxJS Observable을 통해 응답 스트림 제어 |
 | **실행 시점** | 라우트 핸들러 실행 **전후** (Guard 이후, Exception Filter 이전) |
 | **바인딩** | [`@UseInterceptors()`](references/decorators.md#useinterceptorsinterceptors) (메서드/컨트롤러), `APP_INTERCEPTOR` (글로벌) |
-| **주요 연산자** | `map` (응답 변환), `tap` (로깅), `catchError` (예외), `timeout` (시간 제한) |
+| **주요 연산자** | `map` (응답 변환), `tap` (로깅), `catchError` (예외 매핑), `timeout` (시간 제한), `of` (스트림 오버라이딩) |
+| **Stream Overriding** | `next.handle()` 미호출 + `of(값)` 반환으로 핸들러를 완전히 건너뜀 (캐시 패턴) |
+| **제네릭 타입** | `NestInterceptor<T, R>`: T = 원본 타입, R = 변환 후 타입 |
 
 ### 이번 챕터에서 블로그 API에 추가된 것
 

@@ -6,23 +6,28 @@
 
 ## 목차
 
-- [1단계: 개념 학습](#1단계-개념-학습)
-  - [Controller란 무엇인가](#controller란-무엇인가)
-  - [@Controller() 데코레이터와 라우트 접두사](#controller-데코레이터와-라우트-접두사)
-  - [HTTP 메서드 데코레이터](#http-메서드-데코레이터)
-  - [요청 데이터 추출](#요청-데이터-추출)
-  - [응답 처리](#응답-처리)
-  - [@HttpCode, @Header, @Redirect](#httpcode-header-redirect)
-  - [비동기 처리](#비동기-처리)
-- [2단계: 기본 예제](#2단계-기본-예제)
-  - [CatsController CRUD 예제](#catscontroller-crud-예제)
-  - [curl로 API 테스트하기](#curl로-api-테스트하기)
-- [3단계: 블로그 API 적용](#3단계-블로그-api-적용)
-  - [UsersController](#userscontroller)
-  - [PostsController](#postscontroller)
-  - [CommentsController](#commentscontroller)
-  - [모듈에 컨트롤러 등록](#모듈에-컨트롤러-등록)
-  - [다음 챕터 예고](#다음-챕터-예고)
+### 1단계: 개념 학습
+1. [Controller란 무엇인가](#controller란-무엇인가)
+2. [@Controller() 데코레이터와 라우트 접두사](#controller-데코레이터와-라우트-접두사)
+3. [HTTP 메서드 데코레이터](#http-메서드-데코레이터)
+4. [요청 데이터 추출](#요청-데이터-추출)
+5. [응답 처리](#응답-처리)
+6. [@HttpCode, @Header, @Redirect](#httpcode-header-redirect)
+7. [비동기 처리](#비동기-처리)
+
+### 2단계: 기본 예제
+8. [CatsController CRUD 예제](#catscontroller-crud-예제)
+9. [curl로 API 테스트하기](#curl로-api-테스트하기)
+
+### 3단계: 블로그 API 적용
+10. [UsersController](#userscontroller)
+11. [PostsController](#postscontroller)
+12. [CommentsController](#commentscontroller)
+13. [모듈에 컨트롤러 등록](#모듈에-컨트롤러-등록)
+
+### 4단계: 정리
+14. [정리](#정리)
+15. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
 
@@ -178,6 +183,43 @@ findAll() {
 }
 ```
 
+> **주의:** 와일드카드(`*`)는 **Express** 기반 앱에서만 지원된다. Fastify를 HTTP 어댑터로 사용한다면 와일드카드 대신 정규식 기반 라우팅을 사용해야 한다. NestJS 기본값은 Express이므로 대부분의 경우 문제없다.
+
+### 서브도메인 라우팅
+
+[`@Controller()`](references/decorators.md#controllerprefix)의 `host` 옵션을 사용하면 특정 서브도메인에만 응답하는 컨트롤러를 만들 수 있다.
+
+```typescript
+// src/admin/admin.controller.ts
+import { Controller, Get } from '@nestjs/common';
+
+@Controller({ host: 'admin.example.com' })
+export class AdminController {
+  @Get()
+  index() {
+    return '관리자 페이지';
+  }
+}
+```
+
+동적 서브도메인 패턴에서는 [`@HostParam()`](references/decorators.md#hostparamkey) 데코레이터로 서브도메인의 동적 부분을 꺼낼 수 있다.
+
+```typescript
+// src/api/api.controller.ts
+import { Controller, Get, HostParam } from '@nestjs/common';
+
+@Controller({ host: ':version.api.example.com' })
+export class ApiController {
+  @Get()
+  index(@HostParam('version') version: string) {
+    return `API 버전: ${version}`;
+    // GET v1.api.example.com → 'API 버전: v1'
+  }
+}
+```
+
+> **참고:** 서브도메인 라우팅은 도메인이 있는 환경에서만 의미가 있다. 로컬 개발 환경(`localhost`)에서는 서브도메인 구분이 어려우므로, `/etc/hosts`를 수정하거나 실제 배포 환경에서 테스트해야 한다.
+
 ---
 
 ## 요청 데이터 추출
@@ -218,7 +260,7 @@ export class CatsController {
 }
 ```
 
-> **주의:**: [`@Param('id')`](references/decorators.md#paramkey)로 꺼낸 값은 항상 **문자열(string)**이다. 숫자로 쓰려면 `+id` 또는 `parseInt(id)` 등으로 변환하거나, 나중에 배울 `ParseIntPipe`를 사용한다.
+> **주의:** [`@Param('id')`](references/decorators.md#paramkey)로 꺼낸 값은 항상 **문자열(string)**이다. 숫자로 쓰려면 `+id` 또는 `parseInt(id)` 등으로 변환하거나, 나중에 배울 `ParseIntPipe`를 사용한다.
 
 ### [@Query()](references/decorators.md#querykey) - URL 쿼리 문자열
 
@@ -389,7 +431,7 @@ export class CatsController {
 }
 ```
 
-> **주의:**: [`@Res()`](references/decorators.md#req-res)를 사용하면 NestJS의 표준 응답 처리(인터셉터 등)가 **비활성화**된다. 표준 방식과 함께 쓰고 싶다면 [`@Res({ passthrough: true })`](references/decorators.md#req-res)를 사용한다.
+> **주의:** [`@Res()`](references/decorators.md#req-res)를 사용하면 NestJS의 표준 응답 처리(인터셉터 등)가 **비활성화**된다. 표준 방식과 함께 쓰고 싶다면 [`@Res({ passthrough: true })`](references/decorators.md#req-res)를 사용한다.
 
 ```typescript
 @Get()

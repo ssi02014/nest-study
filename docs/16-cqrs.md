@@ -5,15 +5,28 @@
 
 ## 목차
 
+### 1단계: 개념 학습
 1. [CQRS란?](#cqrs란)
 2. [왜 읽기와 쓰기를 분리할까?](#왜-읽기와-쓰기를-분리할까)
 3. [Command, Query, Event의 역할](#command-query-event의-역할)
 4. [@nestjs/cqrs 패키지 설치 및 핵심 구성요소](#nestjscqrs-패키지-설치-및-핵심-구성요소)
+
+### 2단계: 기본 예제
 5. [기본 예제: Command + Handler](#기본-예제-command--handler)
 6. [기본 예제: Query + Handler](#기본-예제-query--handler)
 7. [기본 예제: Event + Handler](#기본-예제-event--handler)
 8. [Saga (이벤트 기반 워크플로우)](#saga-이벤트-기반-워크플로우)
+
+### 3단계: 블로그 API 적용
 9. [실전: 블로그 PostsModule을 CQRS로 리팩토링](#실전-블로그-postsmodule을-cqrs로-리팩토링)
+
+### 4단계: 정리
+10. [정리](#정리)
+11. [다음 챕터 예고](#다음-챕터-예고)
+
+---
+
+# 1단계: 개념 학습
 
 ---
 
@@ -91,7 +104,7 @@ export class PostsService {
 | 파일 수 증가 | Command, Query, Handler 등 클래스 파일이 많아진다 |
 | 학습 곡선 | 새로운 개념(Command, Query, Event, Saga)을 익혀야 한다 |
 
-> **팁:**: CQRS는 비즈니스 로직이 복잡한 도메인에서 빛을 발한다. 단순한 CRUD API라면 기존 서비스 패턴으로도 충분하다. 이 챕터에서는 학습 목적으로 블로그 게시글 도메인에 적용해 본다.
+> **팁:** CQRS는 비즈니스 로직이 복잡한 도메인에서 빛을 발한다. 단순한 CRUD API라면 기존 서비스 패턴으로도 충분하다. 이 챕터에서는 학습 목적으로 블로그 게시글 도메인에 적용해 본다.
 
 ---
 
@@ -182,7 +195,11 @@ import { CqrsModule } from '@nestjs/cqrs';
 export class ExampleModule {}
 ```
 
-> **팁:**: `CqrsModule`을 import하면 `CommandBus`, `QueryBus`, `EventBus`가 자동으로 DI 컨테이너에 등록된다. 별도의 설정 없이 바로 주입받아 사용할 수 있다.
+> **팁:** `CqrsModule`을 import하면 `CommandBus`, `QueryBus`, `EventBus`가 자동으로 DI 컨테이너에 등록된다. 별도의 설정 없이 바로 주입받아 사용할 수 있다.
+
+---
+
+# 2단계: 기본 예제
 
 ---
 
@@ -242,7 +259,7 @@ export class ExampleController {
 }
 ```
 
-> **참고:**: `commandBus.execute()`는 Command 클래스 타입을 보고 자동으로 매핑된 Handler를 찾아 실행한다. 하나의 Command에는 반드시 하나의 Handler만 존재해야 한다.
+> **참고:** `commandBus.execute()`는 Command 클래스 타입을 보고 자동으로 매핑된 Handler를 찾아 실행한다. 하나의 Command에는 반드시 하나의 Handler만 존재해야 한다.
 
 ---
 
@@ -384,7 +401,7 @@ export class SayHelloHandler implements ICommandHandler<SayHelloCommand> {
 }
 ```
 
-> **팁:**: `EventBus.publish()`는 단일 이벤트를, `EventBus.publishAll()`은 이벤트 배열을 한 번에 발행한다.
+> **팁:** `EventBus.publish()`는 단일 이벤트를, `EventBus.publishAll()`은 이벤트 배열을 한 번에 발행한다.
 
 ---
 
@@ -427,7 +444,7 @@ Saga의 핵심 포인트:
 - 반환된 Command는 자동으로 `CommandBus`를 통해 실행된다
 - RxJS 연산자(`delay`, `filter`, `mergeMap` 등)로 복잡한 흐름을 구성할 수 있다
 
-> **팁:**: Saga를 사용하면 "게시글이 생성되면 → 자동으로 검색 인덱스를 업데이트한다" 같은 워크플로우를 이벤트 핸들러가 아닌 별도의 흐름으로 분리할 수 있다. 이벤트 핸들러와의 차이점은 Saga는 반드시 새로운 Command를 반환한다는 것이다.
+> **팁:** Saga를 사용하면 "게시글이 생성되면 → 자동으로 검색 인덱스를 업데이트한다" 같은 워크플로우를 이벤트 핸들러가 아닌 별도의 흐름으로 분리할 수 있다. 이벤트 핸들러와의 차이점은 Saga는 반드시 새로운 Command를 반환한다는 것이다.
 
 ### Saga vs EventHandler: 언제 어느 것을 써야 할까?
 
@@ -447,6 +464,10 @@ Saga의 핵심 포인트:
 - 이벤트에 반응해서 **로그·알림·외부 연동** 처럼 단순히 처리하고 끝난다면 → **EventHandler**
 
 예를 들어 "게시글이 생성되면 작성자에게 이메일을 보낸다"는 요구사항이라면 EventHandler가 적합하다. 반면 "게시글이 생성되면 검색 인덱스 업데이트 Command를 자동으로 실행한다"처럼 후속 Command가 필요하다면 Saga를 선택한다.
+
+---
+
+# 3단계: 블로그 API 적용
 
 ---
 
@@ -495,7 +516,7 @@ src/posts/
 └── posts.repository.ts
 ```
 
-> **팁:**: `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.
+> **팁:** `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.
 
 ### 1. Entity와 Repository
 
@@ -533,7 +554,7 @@ export class Post {
 }
 ```
 
-> **팁:**: [`@CreateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)과 [`@UpdateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
+> **팁:** [`@CreateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)과 [`@UpdateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
 
 ### 2. DTO 정의
 
@@ -860,7 +881,7 @@ export class PostDeletedHandler implements IEventHandler<PostDeletedEvent> {
 }
 ```
 
-> **팁:**: [`@EventsHandler()`](references/decorators.md#eventshandlerevent) 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
+> **팁:** [`@EventsHandler()`](references/decorators.md#eventshandlerevent) 데코레이터에 여러 이벤트 클래스를 전달할 수도 있다. 예를 들어 `@EventsHandler(PostCreatedEvent, PostUpdatedEvent)`처럼 쓰면 두 이벤트 모두를 하나의 핸들러에서 처리한다. 하지만 이벤트별 처리 로직이 다르다면 위처럼 별도 핸들러로 분리하는 것이 명확하다.
 
 ### 9. Saga 정의 (이벤트 기반 워크플로우)
 
@@ -1060,7 +1081,7 @@ const EventHandlers = [PostCreatedHandler, PostUpdatedHandler, PostDeletedHandle
 export class PostsModule {}
 ```
 
-> **팁:**: `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 [`@InjectRepository(Post)`](references/decorators.md#injectrepositoryentity)로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
+> **팁:** `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 [`@InjectRepository(Post)`](references/decorators.md#injectrepositoryentity)로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
 
 ### 전체 실행 흐름
 

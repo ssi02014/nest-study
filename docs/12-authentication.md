@@ -30,6 +30,10 @@
 18. [Refresh Token DB 저장 및 블랙리스트 구현 심화](#18-refresh-token-db-저장-및-블랙리스트-구현-심화)
 19. [보안 강화 - HTTPS와 httpOnly 쿠키](#19-보안-강화---https와-httponly-쿠키)
 
+### 4단계: 정리
+20. [정리](#정리)
+21. [다음 챕터 예고](#다음-챕터-예고)
+
 ---
 
 # 1단계: 개념 학습
@@ -133,7 +137,7 @@ Header Payload Signature
 | `iat` | Issued At - 토큰 발급 시간 |
 | `exp` | Expiration - 토큰 만료 시간 |
 
-> **주의:**: Payload는 Base64로 인코딩된 것일 뿐 암호화된 것이 아니다. 누구나 디코딩해서 내용을 볼 수 있으므로 **비밀번호 같은 민감한 정보는 절대 넣지 않는다**.
+> **주의:** Payload는 Base64로 인코딩된 것일 뿐 암호화된 것이 아니다. 누구나 디코딩해서 내용을 볼 수 있으므로 **비밀번호 같은 민감한 정보는 절대 넣지 않는다**.
 
 #### 3. Signature (서명)
 
@@ -298,7 +302,7 @@ const isWrong = await bcrypt.compare('wrongPassword', hashedPassword);
 // 결과: false
 ```
 
-> **팁:**: `saltRounds` 값은 보통 10~12를 사용한다. 값이 1 증가할 때마다 해싱 시간이 약 2배 늘어난다. 10이면 약 0.1초, 12이면 약 0.3초 정도 소요된다.
+> **팁:** `saltRounds` 값은 보통 10~12를 사용한다. 값이 1 증가할 때마다 해싱 시간이 약 2배 늘어난다. 10이면 약 0.1초, 12이면 약 0.3초 정도 소요된다.
 
 ---
 
@@ -424,7 +428,7 @@ export class AuthService {
 }
 ```
 
-> **팁:**: Access Token과 Refresh Token은 **반드시 서로 다른 secret 키**를 사용해야 한다. 같은 키를 쓰면 Access Token용 Guard가 Refresh Token도 통과시켜버릴 수 있다.
+> **팁:** Access Token과 Refresh Token은 **반드시 서로 다른 secret 키**를 사용해야 한다. 같은 키를 쓰면 Access Token용 Guard가 Refresh Token도 통과시켜버릴 수 있다.
 
 ### JWT Strategy로 토큰 검증
 
@@ -686,7 +690,7 @@ JWT_ACCESS_SECRET=your-access-secret-key-change-in-production
 JWT_REFRESH_SECRET=your-refresh-secret-key-change-in-production
 ```
 
-> **주의:**: 위 값은 개발용 예시다. 프로덕션에서는 반드시 충분히 길고 무작위한 문자열을 사용해야 한다.
+> **주의:** 위 값은 개발용 예시다. 프로덕션에서는 반드시 충분히 길고 무작위한 문자열을 사용해야 한다.
 
 ### AuthModule 구성
 
@@ -757,7 +761,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 export class AppModule {}
 ```
 
-> **팁:**: `APP_GUARD`로 전역 등록하면 모든 라우트에 JwtAuthGuard가 자동 적용된다. 인증이 필요 없는 라우트에는 `@Public()` 데코레이터를 붙이면 된다. 이 방식이 "기본적으로 보호하고, 예외적으로 공개"하는 안전한 패턴이다.
+> **팁:** `APP_GUARD`로 전역 등록하면 모든 라우트에 JwtAuthGuard가 자동 적용된다. 인증이 필요 없는 라우트에는 `@Public()` 데코레이터를 붙이면 된다. 이 방식이 "기본적으로 보호하고, 예외적으로 공개"하는 안전한 패턴이다.
 
 ### 파일 구조
 
@@ -1708,7 +1712,7 @@ export class CommentsService {
 }
 ```
 
-> **팁:**: 소유권 검증 로직이 여러 서비스에 반복된다면, 공통 헬퍼 함수나 가드로 추출하는 것도 좋은 방법이다. 하지만 서비스마다 검증 조건이 미묘하게 다를 수 있으므로, 처음에는 각 서비스에 직접 작성하는 것을 권장한다.
+> **팁:** 소유권 검증 로직이 여러 서비스에 반복된다면, 공통 헬퍼 함수나 가드로 추출하는 것도 좋은 방법이다. 하지만 서비스마다 검증 조건이 미묘하게 다를 수 있으므로, 처음에는 각 서비스에 직접 작성하는 것을 권장한다.
 
 ---
 
@@ -1749,7 +1753,7 @@ curl -X POST http://localhost:3000/auth/login \
 # }
 ```
 
-> **팁:**: 이후 테스트를 편하게 하려면 토큰을 변수에 저장하자.
+> **팁:** 이후 테스트를 편하게 하려면 토큰을 변수에 저장하자.
 > ```bash
 > ACCESS_TOKEN="eyJhbGciOiJIUzI1NiIs..."
 > REFRESH_TOKEN="eyJhbGciOiJIUzI1NiIs..."
@@ -1917,50 +1921,6 @@ curl -X POST http://localhost:3000/posts \
 
 ---
 
-## 정리
-
-### 이 챕터에서 한 것
-
-| 순서 | 작업 | 설명 |
-| --- | --- | --- |
-| 1 | AuthModule 생성 | Passport.js + JWT + bcrypt 통합 |
-| 2 | User Entity 수정 | `hashedRefreshToken: string \| null` 컬럼 추가 |
-| 3 | 비밀번호 해싱 | bcrypt로 회원가입 시 비밀번호 해싱 |
-| 4 | LocalStrategy | 이메일+비밀번호 검증 후 request.user 할당 |
-| 5 | JwtStrategy | Access Token 검증 후 request.user 할당 |
-| 6 | JwtRefreshStrategy | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
-| 7 | 인증 API | signup, login, refresh, logout 엔드포인트 |
-| 8 | SimpleAuthGuard 교체 | 전역 JwtAuthGuard + @Public() 패턴 |
-| 9 | 토큰 기반 사용자 연결 | @CurrentUser() 데코레이터로 userId 추출 |
-| 10 | 소유권 검증 | 수정/삭제 시 작성자 본인 확인 (ForbiddenException) |
-| 11 | Refresh Token DB 블랙리스트 | 로그아웃 시 null 설정, 갱신 시 해시 비교 이중 검증 |
-| 12 | HTTPS + httpOnly 쿠키 | 프로덕션 보안 적용, XSS 방어를 위한 쿠키 기반 저장 |
-
-### 핵심 용어 정리
-
-| 항목 | 설명 |
-| --- | --- |
-| `LocalStrategy` | 이메일 + 비밀번호를 검증하여 사용자 객체 반환 |
-| `JwtStrategy` | Access Token을 검증하여 사용자 정보 추출 |
-| `JwtRefreshStrategy` | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
-| `AuthGuard('local')` | LocalStrategy를 실행하는 Guard |
-| `AuthGuard('jwt')` | JwtStrategy를 실행하는 Guard |
-| `@Public()` | 전역 Guard 적용 시 특정 라우트를 인증에서 제외 |
-| `@CurrentUser()` | JWT 토큰에서 추출한 사용자 정보를 파라미터로 주입 |
-| `bcrypt.hash()` | 비밀번호와 Refresh Token을 안전하게 해싱 |
-| `bcrypt.compare()` | 해시된 값과 원본을 비교하여 일치 여부 확인 |
-| Refresh Token Rotation | 매 갱신 시 새 Refresh Token을 발급하여 이전 토큰 무효화 |
-| `hashedRefreshToken: string \| null` | null이면 로그아웃 상태 (블랙리스트 효과) |
-| httpOnly 쿠키 | JavaScript 접근 불가 쿠키로 XSS 공격으로부터 토큰 보호 |
-| `sameSite: 'strict'` | 쿠키의 CSRF 방어 옵션 |
-| `secure: true` | HTTPS에서만 쿠키 전송 (프로덕션 필수 설정) |
-
-### 이 챕터를 마치면
-
-**실제 JWT 인증 시스템이 완성**된다. 회원가입, 로그인, 토큰 갱신, 로그아웃까지 실무에서 사용하는 인증 플로우가 모두 갖춰진다. 다음 챕터(13 - Testing)에서는 이 인증 로직을 포함한 테스트 작성을 학습한다.
-
----
-
 ## 18. Refresh Token DB 저장 및 블랙리스트 구현 심화
 
 이 섹션에서는 이 챕터에서 구현한 Refresh Token 관리 방식의 설계 의도와 전체 흐름을 한 곳에서 정리한다.
@@ -2054,7 +2014,7 @@ async updateRefreshToken(
   AuthController.refresh() 실행 → 새 토큰 쌍 반환
 ```
 
-> **팁:**: `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
+> **팁:** `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
 
 ---
 
@@ -2215,6 +2175,51 @@ async logout(
 | 권장 환경 | 모바일 앱, 서버 간 통신 | 웹 브라우저 클라이언트 |
 
 > **결론**: 웹 프론트엔드(React, Vue 등)와 함께 사용할 경우 **httpOnly 쿠키 방식이 더 안전**하다. 모바일 앱이나 서버 간 통신에서는 Bearer 헤더 방식이 더 적합하다. 이 챕터의 블로그 API는 두 방식 모두 적용 가능하도록 설계되어 있다.
+
+---
+
+## 정리
+
+### 이 챕터에서 한 것
+
+| 순서 | 작업 | 설명 |
+| --- | --- | --- |
+| 1 | AuthModule 생성 | Passport.js + JWT + bcrypt 통합 |
+| 2 | User Entity 수정 | `hashedRefreshToken: string \| null` 컬럼 추가 |
+| 3 | 비밀번호 해싱 | bcrypt로 회원가입 시 비밀번호 해싱 |
+| 4 | LocalStrategy | 이메일+비밀번호 검증 후 request.user 할당 |
+| 5 | JwtStrategy | Access Token 검증 후 request.user 할당 |
+| 6 | JwtRefreshStrategy | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
+| 7 | 인증 API | signup, login, refresh, logout 엔드포인트 |
+| 8 | SimpleAuthGuard 교체 | 전역 JwtAuthGuard + @Public() 패턴 |
+| 9 | 토큰 기반 사용자 연결 | @CurrentUser() 데코레이터로 userId 추출 |
+| 10 | 소유권 검증 | 수정/삭제 시 작성자 본인 확인 (ForbiddenException) |
+| 11 | Refresh Token DB 블랙리스트 | 로그아웃 시 null 설정, 갱신 시 해시 비교 이중 검증 |
+| 12 | HTTPS + httpOnly 쿠키 | 프로덕션 보안 적용, XSS 방어를 위한 쿠키 기반 저장 |
+
+### 핵심 용어 정리
+
+| 항목 | 설명 |
+| --- | --- |
+| `LocalStrategy` | 이메일 + 비밀번호를 검증하여 사용자 객체 반환 |
+| `JwtStrategy` | Access Token을 검증하여 사용자 정보 추출 |
+| `JwtRefreshStrategy` | Refresh Token 서명 검증 + DB 해시 비교 + 블랙리스트 처리 |
+| `AuthGuard('local')` | LocalStrategy를 실행하는 Guard |
+| `AuthGuard('jwt')` | JwtStrategy를 실행하는 Guard |
+| `@Public()` | 전역 Guard 적용 시 특정 라우트를 인증에서 제외 |
+| `@CurrentUser()` | JWT 토큰에서 추출한 사용자 정보를 파라미터로 주입 |
+| `bcrypt.hash()` | 비밀번호와 Refresh Token을 안전하게 해싱 |
+| `bcrypt.compare()` | 해시된 값과 원본을 비교하여 일치 여부 확인 |
+| Refresh Token Rotation | 매 갱신 시 새 Refresh Token을 발급하여 이전 토큰 무효화 |
+| `hashedRefreshToken: string \| null` | null이면 로그아웃 상태 (블랙리스트 효과) |
+| httpOnly 쿠키 | JavaScript 접근 불가 쿠키로 XSS 공격으로부터 토큰 보호 |
+| `sameSite: 'strict'` | 쿠키의 CSRF 방어 옵션 |
+| `secure: true` | HTTPS에서만 쿠키 전송 (프로덕션 필수 설정) |
+
+### 이 챕터를 마치면
+
+**실제 JWT 인증 시스템이 완성**된다. 회원가입, 로그인, 토큰 갱신, 로그아웃까지 실무에서 사용하는 인증 플로우가 모두 갖춰진다. 다음 챕터(13 - Testing)에서는 이 인증 로직을 포함한 테스트 작성을 학습한다.
+
 ---
 
 ## 다음 챕터 예고

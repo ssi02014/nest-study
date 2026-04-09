@@ -7,18 +7,29 @@
 
 ## 목차
 
-1. [1단계: 개념 학습](#1단계-개념-학습)
-   - [Provider란 무엇인가](#provider란-무엇인가)
-   - [의존성 주입(DI)이란?](#의존성-주입di이란)
-   - [@Injectable() 데코레이터](#injectable-데코레이터)
-   - [생성자 주입 방식](#생성자-주입-방식)
-   - [커스텀 프로바이더](#커스텀-프로바이더)
-   - [프로바이더 스코프](#프로바이더-스코프)
-   - [@Optional()과 forwardRef()](#optional과-forwardref)
-2. [2단계: 기본 예제 (CatsService)](#2단계-기본-예제-catsservice)
-3. [3단계: 블로그 API 적용](#3단계-블로그-api-적용)
-4. [curl로 테스트하기](#curl로-테스트하기)
-5. [핵심 정리](#핵심-정리)
+### 1단계: 개념 학습
+1. [Provider란 무엇인가](#provider란-무엇인가)
+2. [의존성 주입(DI)이란?](#의존성-주입di이란)
+3. [@Injectable() 데코레이터](#injectable-데코레이터)
+4. [생성자 주입 방식](#생성자-주입-방식)
+5. [속성 기반 주입](#속성-기반-주입-property-based-injection)
+6. [커스텀 프로바이더](#커스텀-프로바이더)
+7. [프로바이더 스코프](#프로바이더-스코프)
+8. [@Optional()과 forwardRef()](#optional과-forwardref)
+
+### 2단계: 기본 예제
+9. [기본 예제 (CatsService)](#2단계-기본-예제-catsservice)
+
+### 3단계: 블로그 API 적용
+10. [프로젝트 구조](#프로젝트-구조)
+11. [UsersService / Controller / Module](#usersservice)
+12. [PostsService / Controller / Module](#postsservice)
+13. [CommentsService / Controller / Module](#commentsservice)
+14. [AppModule 조립](#appmodule-조립)
+
+### 4단계: 정리
+15. [정리](#정리)
+16. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
 
@@ -37,7 +48,7 @@ NestJS에서 **Provider**는 NestJS의 IoC(Inversion of Control) 컨테이너가
 | **Factory** | 객체 생성 로직 | `DatabaseConnectionFactory` |
 | **Helper** | 공통 유틸리티 | `HashHelper`, `DateHelper` |
 
-> **참고:**: Controller는 "요청을 받고 응답을 보내는 것"에만 집중하고, 실제 로직은 Provider(주로 Service)에 맡긴다. 이것이 **관심사의 분리(Separation of Concerns)** 원칙이다.
+> **참고:** Controller는 "요청을 받고 응답을 보내는 것"에만 집중하고, 실제 로직은 Provider(주로 Service)에 맡긴다. 이것이 **관심사의 분리(Separation of Concerns)** 원칙이다.
 
 ---
 
@@ -140,7 +151,7 @@ import { CatsService } from './cats.service';
 export class CatsModule {}
 ```
 
-> **팁:**: `providers: [CatsService]`는 사실 아래의 축약형이다.
+> **팁:** `providers: [CatsService]`는 사실 아래의 축약형이다.
 > ```typescript
 > providers: [
 >   {
@@ -197,6 +208,29 @@ export class AppController {
 
 ---
 
+## 속성 기반 주입 (Property-based Injection)
+
+생성자 주입 외에, 클래스 **프로퍼티(필드)** 에 직접 [`@Inject()`](references/decorators.md#injecttoken)를 붙이는 **속성 기반 주입**도 가능하다.
+
+```typescript
+// src/cats/cats.service.ts
+import { Injectable, Inject, Optional } from '@nestjs/common';
+
+@Injectable()
+export class CatsService {
+  @Inject('API_KEY')
+  private readonly apiKey: string;
+
+  findAll() {
+    console.log('API Key:', this.apiKey);
+  }
+}
+```
+
+> **주의:** 속성 기반 주입은 최상위 클래스가 다른 클래스를 `extends`할 때 생성자 체이닝이 복잡해지는 경우에만 고려하자. NestJS 공식 문서는 **생성자 주입을 권장**한다. 생성자 주입은 의존성이 명확히 드러나고, 테스트 시 Mock 주입이 더 쉽기 때문이다.
+
+---
+
 ## 커스텀 프로바이더
 
 단순히 클래스를 등록하는 것 외에, NestJS는 4가지 방식으로 Provider를 정의할 수 있다.
@@ -226,7 +260,7 @@ export class AppController {
 export class AppModule {}
 ```
 
-> **팁:**: `useValue`는 **테스트에서 Mock 객체를 주입**할 때 특히 유용하다. 실제 서비스 대신 가짜 객체를 넣어 테스트를 격리할 수 있다.
+> **팁:** `useValue`는 **테스트에서 Mock 객체를 주입**할 때 특히 유용하다. 실제 서비스 대신 가짜 객체를 넣어 테스트를 격리할 수 있다.
 > ```typescript
 > // 테스트에서 Mock으로 대체하는 예
 > {
@@ -319,7 +353,7 @@ export class DatabaseModule {}
 }
 ```
 
-> **팁:**: `useFactory`의 `inject` 배열 순서와 팩토리 함수의 매개변수 순서가 **일치해야** 한다.
+> **팁:** `useFactory`의 `inject` 배열 순서와 팩토리 함수의 매개변수 순서가 **일치해야** 한다.
 
 ### useExisting - 별칭(Alias) 만들기
 
@@ -394,7 +428,7 @@ export class RequestScopedService {
 }
 ```
 
-> **주의:**: REQUEST 스코프 Provider를 주입받는 Provider도 **자동으로 REQUEST 스코프가 된다**. 이는 성능에 영향을 주므로 꼭 필요할 때만 사용하자. 대부분의 경우 DEFAULT(싱글톤)로 충분하다.
+> **주의:** REQUEST 스코프 Provider를 주입받는 Provider도 **자동으로 REQUEST 스코프가 된다**. 이는 성능에 영향을 주므로 꼭 필요할 때만 사용하자. 대부분의 경우 DEFAULT(싱글톤)로 충분하다.
 
 ### TRANSIENT 스코프
 
@@ -414,7 +448,7 @@ export class TransientService {
 // 서로 다른 인스턴스를 가진다 (id 값이 다르다)
 ```
 
-> **팁:**: 초보 단계에서는 **DEFAULT(싱글톤) 스코프만 사용**하면 된다. REQUEST와 TRANSIENT는 특수한 상황에서만 필요하다.
+> **팁:** 초보 단계에서는 **DEFAULT(싱글톤) 스코프만 사용**하면 된다. REQUEST와 TRANSIENT는 특수한 상황에서만 필요하다.
 
 ---
 
@@ -446,7 +480,7 @@ export class NotificationService {
 }
 ```
 
-> **팁:**: [`@Optional()`](references/decorators.md#optional)은 플러그인 시스템이나 환경에 따라 있을 수도 없을 수도 있는 서비스에 유용하다.
+> **팁:** [`@Optional()`](references/decorators.md#optional)은 플러그인 시스템이나 환경에 따라 있을 수도 없을 수도 있는 서비스에 유용하다.
 
 ### forwardRef() - 순환 의존성 해결
 
@@ -1125,7 +1159,7 @@ export class PostsController {
 }
 ```
 
-> **팁:**: `Post`라는 이름이 NestJS의 [`@Post()`](references/decorators.md#http-메서드-데코레이터) 데코레이터와 겹치므로, 인터페이스를 `import { Post as BlogPost }`로 별칭을 주었다. 실제 프로젝트에서는 인터페이스명을 `BlogPost`나 `PostEntity`로 짓는 것도 좋은 방법이다.
+> **팁:** `Post`라는 이름이 NestJS의 [`@Post()`](references/decorators.md#http-메서드-데코레이터) 데코레이터와 겹치므로, 인터페이스를 `import { Post as BlogPost }`로 별칭을 주었다. 실제 프로젝트에서는 인터페이스명을 `BlogPost`나 `PostEntity`로 짓는 것도 좋은 방법이다.
 
 ## PostsModule
 
@@ -1145,7 +1179,7 @@ import { UsersModule } from '../users/users.module';
 export class PostsModule {}
 ```
 
-> **주의:**: `PostsService`가 `UsersService`를 주입받으려면:
+> **주의:** `PostsService`가 `UsersService`를 주입받으려면:
 > 1. `UsersModule`에서 `UsersService`를 `exports`에 등록해야 하고
 > 2. `PostsModule`에서 `UsersModule`을 `imports`에 넣어야 한다
 >
@@ -1256,7 +1290,7 @@ export class CommentsController {
 }
 ```
 
-> **팁:**: `CommentsController`는 [`@Controller()`](references/decorators.md#controllerprefix) 데코레이터에 접두사를 비워두었다. 댓글 API는 `/posts/:postId/comments` (댓글 작성/조회)와 `/comments/:id` (댓글 삭제) 두 가지 경로를 사용하기 때문이다.
+> **팁:** `CommentsController`는 [`@Controller()`](references/decorators.md#controllerprefix) 데코레이터에 접두사를 비워두었다. 댓글 API는 `/posts/:postId/comments` (댓글 작성/조회)와 `/comments/:id` (댓글 삭제) 두 가지 경로를 사용하기 때문이다.
 
 ## CommentsModule
 
@@ -1419,7 +1453,7 @@ curl http://localhost:3000/posts/1/comments
 curl -X DELETE http://localhost:3000/comments/1
 ```
 
-> **팁:**: 위 curl 명령어를 순서대로 실행하면 블로그 API의 전체 흐름을 체험할 수 있다. 먼저 사용자를 만들고, 그 사용자로 게시글을 쓰고, 다른 사용자가 댓글을 다는 시나리오다.
+> **팁:** 위 curl 명령어를 순서대로 실행하면 블로그 API의 전체 흐름을 체험할 수 있다. 먼저 사용자를 만들고, 그 사용자로 게시글을 쓰고, 다른 사용자가 댓글을 다는 시나리오다.
 
 ---
 
@@ -1437,6 +1471,7 @@ curl -X DELETE http://localhost:3000/comments/1
 | **스코프** | DEFAULT(싱글톤), REQUEST(요청별), TRANSIENT(주입별) |
 | **@Optional()** | 없어도 에러 안 나게 (undefined 주입) |
 | **forwardRef()** | 순환 의존성 해결 (설계 개선 권장) |
+| **속성 기반 주입** | 프로퍼티에 `@Inject()`를 붙여 직접 주입. 생성자 체이닝이 복잡할 때만 사용 |
 
 ## 이 챕터에서 만든 것
 

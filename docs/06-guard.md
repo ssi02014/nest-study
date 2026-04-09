@@ -5,15 +5,28 @@
 
 ## 목차
 
+### 1단계: 개념 학습
 1. [Guard란 무엇인가](#1-guard란-무엇인가)
 2. [CanActivate 인터페이스](#2-canactivate-인터페이스)
 3. [ExecutionContext 활용](#3-executioncontext-활용)
 4. [가드 바인딩 레벨](#4-가드-바인딩-레벨)
 5. [Reflector와 SetMetadata를 활용한 역할 기반 접근 제어(RBAC)](#5-reflector와-setmetadata를-활용한-역할-기반-접근-제어rbac)
+
+### 2단계: 기본 예제
 6. [기본 예제: AuthGuard와 RolesGuard](#6-기본-예제-authguard와-rolesguard)
+
+### 3단계: 블로그 API 적용
 7. [블로그 API 적용: 인증과 권한 시스템 구축](#7-블로그-api-적용-인증과-권한-시스템-구축)
 8. [여러 Guard 동시 적용 시 실행 순서](#8-여러-guard-동시-적용-시-실행-순서)
 9. [비동기 Guard](#9-비동기-guard)
+
+### 4단계: 정리
+10. [정리](#정리)
+11. [다음 챕터 예고](#다음-챕터-예고)
+
+---
+
+# 1단계: 개념 학습
 
 ---
 
@@ -386,6 +399,56 @@ export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 @Roles('admin')
 ```
 
+### Reflector.createDecorator&lt;T&gt;() — 타입 안전한 메타데이터 키 (NestJS v10+)
+
+`SetMetadata`에 문자열 키(`'roles'`)를 사용하면 오타 위험이 있다. NestJS v10부터는 `Reflector.createDecorator<T>()`로 타입 안전한 메타데이터 데코레이터를 만들 수 있다.
+
+```typescript
+// src/common/decorators/roles.decorator.ts
+import { Reflector } from '@nestjs/core';
+
+// 문자열 키 없이 타입 안전한 데코레이터 생성
+export const Roles = Reflector.createDecorator<string[]>();
+```
+
+Guard에서 읽을 때 문자열 키 대신 **데코레이터 참조 자체**를 키로 사용한다.
+
+```typescript
+// src/common/guards/roles.guard.ts
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Roles } from '../decorators/roles.decorator';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    // 문자열 키 대신 Roles 데코레이터 자체를 키로 사용
+    const requiredRoles = this.reflector.getAllAndOverride(Roles, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!requiredRoles) return true;
+    const { user } = context.switchToHttp().getRequest();
+    return requiredRoles.some((role) => user?.roles?.includes(role));
+  }
+}
+```
+
+두 방식의 비교:
+
+| 방식 | 데코레이터 정의 | Reflector에서 읽기 | 타입 안전성 |
+|------|----------------|-------------------|------------|
+| `SetMetadata` + 문자열 키 | `SetMetadata('roles', roles)` | `reflector.get('roles', ...)` | 낮음 (오타 위험) |
+| `Reflector.createDecorator<T>()` | `Roles = Reflector.createDecorator<string[]>()` | `reflector.get(Roles, ...)` | 높음 (컴파일 시점 검사) |
+
+> **팁:** 새 프로젝트에서는 `Reflector.createDecorator<T>()`를 사용하는 것이 권장된다. 기존 `SetMetadata` 방식도 여전히 동작하므로 레거시 코드와 혼용 가능하다.
+
+---
+
+# 2단계: 기본 예제
+
 ---
 
 ## 6. 기본 예제: AuthGuard와 RolesGuard
@@ -531,6 +594,10 @@ export class CatsController {
 ```
 
 > 두 Guard가 순서대로 실행된다. `SimpleAuthGuard`가 먼저 토큰을 검증하고 `request.user`를 세팅하면, 다음으로 `RolesGuard`가 `request.user.roles`를 확인한다. 인증이 실패하면 401, 역할이 부족하면 403이 반환된다.
+
+---
+
+# 3단계: 블로그 API 적용
 
 ---
 
@@ -1132,6 +1199,7 @@ export class DbPermissionGuard implements CanActivate {
 | `APP_GUARD` | 글로벌 가드를 DI와 함께 등록하는 토큰 (실전 권장) |
 | [`@SetMetadata()`](references/decorators.md#setmetadatakey-value) | 핸들러에 커스텀 메타데이터를 첨부하는 데코레이터 |
 | `Reflector` | Guard 내에서 메타데이터를 읽어오는 헬퍼 클래스 |
+| `Reflector.createDecorator<T>()` | 타입 안전한 메타데이터 데코레이터 생성 (NestJS v10+, `SetMetadata` 대체) |
 | `@Public()` | 글로벌 Guard 하에서 특정 라우트를 공개로 표시 |
 | `@Roles()` | 핸들러에 필요한 역할을 지정하는 커스텀 데코레이터 |
 | Guard 반환값 | `true` → 통과, `false` → 자동 `ForbiddenException`(403) |

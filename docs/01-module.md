@@ -8,7 +8,9 @@
 3. [모듈 트리 구조](#3-모듈-트리-구조)
 4. [전역 모듈 (@Global)](#4-전역-모듈-global)
 5. [동적 모듈 (Dynamic Module)](#5-동적-모듈-dynamic-module)
-6. [모듈 간 관계 시각화](#6-모듈-간-관계-시각화)
+6. [모듈 재내보내기 (Re-exporting)](#6-모듈-재내보내기-re-exporting)
+7. [순환 의존성과 forwardRef](#7-순환-의존성과-forwardref)
+8. [모듈 간 관계 시각화](#8-모듈-간-관계-시각화)
 
 ### 2단계: 기본 예제
 7. [CatsModule 예제](#7-catsmodule-예제)
@@ -19,6 +21,10 @@
 10. [블로그 프로젝트 모듈 구조 설계](#10-블로그-프로젝트-모듈-구조-설계)
 11. [모듈 생성하기](#11-모듈-생성하기)
 12. [완성된 모듈 구조 확인](#12-완성된-모듈-구조-확인)
+
+### 4단계: 정리
+13. [정리](#정리)
+14. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
 
@@ -188,7 +194,123 @@ export class AppModule {}
 
 ---
 
-## 6. 모듈 간 관계 시각화
+## 6. 모듈 재내보내기 (Re-exporting)
+
+모듈 A가 모듈 B를 import한 뒤, 자신의 `exports`에 **모듈 B 자체**를 추가하면 모듈 A를 import하는 쪽에서 모듈 B의 provider도 함께 사용할 수 있다. 이를 **모듈 재내보내기(Re-exporting)** 라고 한다.
+
+### 왜 필요한가?
+
+여러 Feature 모듈에서 공통으로 필요한 모듈이 여럿 있을 때, 매번 각각 import하면 코드가 반복된다.
+
+```typescript
+// src/users/users.module.ts — 반복이 많은 경우 (Re-exporting 미사용)
+@Module({
+  imports: [CommonModule, LoggerModule, UtilsModule],
+})
+export class UsersModule {}
+```
+
+```typescript
+// src/posts/posts.module.ts — 똑같이 반복
+@Module({
+  imports: [CommonModule, LoggerModule, UtilsModule],
+})
+export class PostsModule {}
+```
+
+이런 경우 이 모듈들을 하나로 묶어 재내보내는 **CoreModule** 패턴을 사용하면 깔끔해진다.
+
+```typescript
+// src/core/core.module.ts
+import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
+import { LoggerModule } from '../logger/logger.module';
+
+@Module({
+  imports: [CommonModule, LoggerModule],
+  exports: [CommonModule, LoggerModule], // import한 모듈을 그대로 재내보내기
+})
+export class CoreModule {}
+```
+
+```typescript
+// src/users/users.module.ts
+import { Module } from '@nestjs/common';
+import { CoreModule } from '../core/core.module'; // CoreModule 하나만 import
+
+@Module({
+  imports: [CoreModule], // CommonModule과 LoggerModule의 provider 모두 사용 가능
+})
+export class UsersModule {}
+```
+
+> **팁:** `exports`에 자신의 provider(클래스)뿐만 아니라 **import한 모듈** 자체를 넣을 수 있다. 이렇게 하면 그 모듈이 export하는 모든 provider가 함께 재내보내진다.
+
+> **주의:** Re-exporting을 남용하면 의존 관계가 불명확해진다. 정말로 여러 곳에서 공통으로 묶어야 할 때만 사용하자.
+
+---
+
+## 7. 순환 의존성과 forwardRef
+
+### 순환 의존성이란?
+
+두 모듈이 서로를 import하는 상황을 **순환 의존성(Circular Dependency)** 이라고 한다.
+
+```
+UsersModule ──imports──▶ PostsModule
+PostsModule ──imports──▶ UsersModule  ← 서로가 서로를 참조
+```
+
+이런 구조가 생기면 NestJS는 어느 쪽을 먼저 초기화해야 할지 알 수 없어 오류가 발생한다.
+
+### 설계로 먼저 해결하기
+
+순환 의존성은 대부분 **설계 문제**다. 두 모듈이 서로를 참조해야 한다면, 공통 로직을 별도의 `SharedModule`로 분리하는 것이 가장 좋은 해결책이다.
+
+```
+UsersModule ──imports──▶ SharedModule
+PostsModule ──imports──▶ SharedModule
+```
+
+### forwardRef로 해결하기
+
+설계 변경이 어려운 경우, `forwardRef()`를 사용해 순환 참조를 해결할 수 있다. `forwardRef()`는 "이 값은 나중에 결정돼"라고 NestJS에 알려주는 함수다.
+
+```typescript
+// src/users/users.module.ts
+import { Module, forwardRef } from '@nestjs/common';
+import { PostsModule } from '../posts/posts.module';
+
+@Module({
+  imports: [
+    forwardRef(() => PostsModule), // 순환 참조를 forwardRef로 감싸기
+  ],
+  exports: [UsersService],
+})
+export class UsersModule {}
+```
+
+```typescript
+// src/posts/posts.module.ts
+import { Module, forwardRef } from '@nestjs/common';
+import { UsersModule } from '../users/users.module';
+
+@Module({
+  imports: [
+    forwardRef(() => UsersModule), // 양쪽 모두 forwardRef 필요
+  ],
+  exports: [PostsService],
+})
+export class PostsModule {}
+```
+
+> **주의:** `forwardRef()`는 임시방편이다. 이 패턴이 필요하다면 모듈 설계를 다시 검토하자. 공통 의존성을 별도 모듈로 추출하는 것이 장기적으로 더 안전하다.
+
+> **참고:** 모듈뿐만 아니라 provider 간 순환 의존성(서비스 A가 서비스 B를 주입받고, 서비스 B도 서비스 A를 주입받는 경우)에도 `forwardRef()`가 사용된다. 이 경우 생성자 파라미터에 `@Inject(forwardRef(() => ServiceB))`처럼 적용한다.
+
+---
+
+## 8. 모듈 간 관계 시각화
 
 NestJS 앱에서 모듈들이 어떻게 연결되는지 전체적인 그림을 보자.
 
@@ -829,6 +951,8 @@ src/
 | 전역 모듈 | [`@Global()`](references/decorators.md#global)로 선언하면 import 없이 어디서든 사용 가능 (남용 주의) |
 | 동적 모듈 | `forRoot()` 등으로 설정값을 전달하며 모듈 등록 (이후 챕터에서 상세 학습) |
 | 캡슐화 원칙 | provider는 exports에 명시하지 않으면 모듈 외부에서 접근 불가 |
+| 모듈 재내보내기 | import한 모듈을 `exports`에 추가하면, 해당 모듈의 provider가 함께 재내보내짐 |
+| 순환 의존성 | 두 모듈이 서로를 참조하는 구조. 설계 개선이 우선이며, 불가피할 때 `forwardRef()` 사용 |
 ---
 
 ## 다음 챕터 예고

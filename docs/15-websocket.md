@@ -5,17 +5,30 @@
 
 ## 목차
 
+### 1단계: 개념 학습
 1. [WebSocket이란?](#1-websocket이란)
 2. [HTTP vs WebSocket 비교](#2-http-vs-websocket-비교)
 3. [NestJS Gateway 핵심 개념](#3-nestjs-gateway-핵심-개념)
 4. [라이프사이클 훅](#4-라이프사이클-훅)
 5. [네임스페이스와 룸(Room)](#5-네임스페이스와-룸room)
+
+### 2단계: 기본 예제
 6. [기본 예제: 에코 Gateway](#6-기본-예제-에코-gateway)
 7. [기본 예제: 메시지 브로드캐스트](#7-기본-예제-메시지-브로드캐스트)
 8. [기본 예제: Room 활용](#8-기본-예제-room-활용)
+
+### 3단계: 블로그 API 적용
 9. [블로그 API 적용: 실시간 댓글 알림](#9-블로그-api-적용-실시간-댓글-알림)
 10. [Redis Adapter (다중 서버 환경)](#10-redis-adapter-다중-서버-환경)
 11. [소켓 인증 미들웨어](#11-소켓-인증-미들웨어)
+
+### 4단계: 정리
+12. [정리](#정리)
+13. [다음 챕터 예고](#다음-챕터-예고)
+
+---
+
+# 1단계: 개념 학습
 
 ---
 
@@ -52,7 +65,7 @@ WebSocket 연결 흐름:
 | 서버 푸시 | 불가능 (폴링 방식 필요) | 가능 (서버가 자유롭게 전송) |
 | 적합한 경우 | REST API, 일반적인 웹 요청 | 실시간 통신, 채팅, 알림 |
 
-> **팁:**: 블로그 API에서 "새 댓글이 달렸습니다" 같은 알림을 구현한다고 생각해보자. HTTP만 사용하면 클라이언트가 주기적으로 서버에 "새 댓글 있어요?" 하고 물어봐야 한다(폴링). WebSocket을 사용하면 댓글이 작성되는 순간 서버가 바로 클라이언트에게 알려줄 수 있다.
+> **팁:** 블로그 API에서 "새 댓글이 달렸습니다" 같은 알림을 구현한다고 생각해보자. HTTP만 사용하면 클라이언트가 주기적으로 서버에 "새 댓글 있어요?" 하고 물어봐야 한다(폴링). WebSocket을 사용하면 댓글이 작성되는 순간 서버가 바로 클라이언트에게 알려줄 수 있다.
 
 ---
 
@@ -236,7 +249,7 @@ export class EventsGateway
 }
 ```
 
-> **팁:**: `OnGatewayConnection`의 `handleConnection`은 REST API의 미들웨어와 비슷한 역할을 한다. 클라이언트가 처음 연결될 때 인증 토큰을 확인하거나, 연결 로그를 남기는 데 활용할 수 있다.
+> **팁:** `OnGatewayConnection`의 `handleConnection`은 REST API의 미들웨어와 비슷한 역할을 한다. 클라이언트가 처음 연결될 때 인증 토큰을 확인하거나, 연결 로그를 남기는 데 활용할 수 있다.
 
 ---
 
@@ -304,6 +317,10 @@ this.server.to('room-a').to('room-b').emit('event', data);
 // 룸에 속한 소켓 목록 가져오기
 const sockets = await this.server.in('room-name').fetchSockets();
 ```
+
+---
+
+# 2단계: 기본 예제
 
 ---
 
@@ -483,7 +500,7 @@ export class BroadcastGateway
 }
 ```
 
-> **팁:**: `this.server.emit()`은 본인 포함 전체에게, `client.broadcast.emit()`은 본인 제외 전체에게 전송한다. 이 차이를 잘 기억해두자.
+> **팁:** `this.server.emit()`은 본인 포함 전체에게, `client.broadcast.emit()`은 본인 제외 전체에게 전송한다. 이 차이를 잘 기억해두자.
 
 ---
 
@@ -562,6 +579,10 @@ export class RoomGateway {
   }
 }
 ```
+
+---
+
+# 3단계: 블로그 API 적용
 
 ---
 
@@ -805,7 +826,7 @@ export class BlogGateway
 }
 ```
 
-> **참고:**: `notifyNewComment()` 메서드는 [`@SubscribeMessage`](references/decorators.md#subscribemessageevent)가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
+> **참고:** `notifyNewComment()` 메서드는 [`@SubscribeMessage`](references/decorators.md#subscribemessageevent)가 아니다. 이 메서드는 클라이언트의 WebSocket 이벤트로 호출되는 것이 아니라, **CommentsService에서 직접 호출**하는 일반 메서드다. Gateway도 Provider이므로 다른 서비스에서 주입받아 사용할 수 있다.
 
 ### 9-5. CommentsService (Gateway 연동)
 
@@ -870,7 +891,7 @@ export class CommentsService {
 }
 ```
 
-> **팁:**: 이 패턴이 WebSocket 활용의 핵심이다. REST API로 댓글을 생성하는 기존 흐름은 그대로 유지하면서, 생성 이후에 Gateway를 통해 실시간 알림만 추가한다. 기존 코드를 크게 바꾸지 않아도 된다.
+> **팁:** 이 패턴이 WebSocket 활용의 핵심이다. REST API로 댓글을 생성하는 기존 흐름은 그대로 유지하면서, 생성 이후에 Gateway를 통해 실시간 알림만 추가한다. 기존 코드를 크게 바꾸지 않아도 된다.
 
 ### 9-6. CommentsController
 
@@ -1042,7 +1063,7 @@ npm run start:dev
   이후 게시글 1번에 새 댓글이 달려도 사용자 B에게는 알림이 가지 않음
 ```
 
-> **팁:**: 이 구조에서 REST API와 WebSocket은 각자의 역할을 한다. REST API는 데이터를 **저장**(Create)하고, WebSocket은 변경 사항을 **실시간 전파**(Notify)한다. 이 두 가지를 혼합하는 것이 실무에서 가장 흔한 WebSocket 활용 패턴이다.
+> **팁:** 이 구조에서 REST API와 WebSocket은 각자의 역할을 한다. REST API는 데이터를 **저장**(Create)하고, WebSocket은 변경 사항을 **실시간 전파**(Notify)한다. 이 두 가지를 혼합하는 것이 실무에서 가장 흔한 WebSocket 활용 패턴이다.
 
 ---
 
@@ -1127,7 +1148,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-> **팁:**: 개발 환경에서는 Redis Adapter가 불필요하다. 단일 서버로 충분하므로 로컬 개발 시에는 기존 `main.ts`(Redis 없는 버전)를 유지하고, **상용 배포(PM2 cluster 모드, Kubernetes 등) 시에만** Redis Adapter를 적용하는 것을 권장한다. 환경변수로 분기하면 편리하다.
+> **팁:** 개발 환경에서는 Redis Adapter가 불필요하다. 단일 서버로 충분하므로 로컬 개발 시에는 기존 `main.ts`(Redis 없는 버전)를 유지하고, **상용 배포(PM2 cluster 모드, Kubernetes 등) 시에만** Redis Adapter를 적용하는 것을 권장한다. 환경변수로 분기하면 편리하다.
 
 ```typescript
 // Redis Adapter 조건부 적용 예시
@@ -1252,7 +1273,7 @@ handleJoinPostRoom(
 }
 ```
 
-> **팁:**: `client.disconnect(true)`를 호출하면 서버 측에서 연결을 강제로 끊는다. `true` 인자를 넘기면 소켓을 즉시 파기하며, 클라이언트에게는 `disconnect` 이벤트가 발생한다. 미인증 클라이언트는 반드시 이 방식으로 즉시 연결을 종료해야 한다.
+> **팁:** `client.disconnect(true)`를 호출하면 서버 측에서 연결을 강제로 끊는다. `true` 인자를 넘기면 소켓을 즉시 파기하며, 클라이언트에게는 `disconnect` 이벤트가 발생한다. 미인증 클라이언트는 반드시 이 방식으로 즉시 연결을 종료해야 한다.
 
 ---
 
