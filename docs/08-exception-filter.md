@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 7에서 TransformInterceptor로 성공 응답을 `{ success: true, data, timestamp }` 형태로 통일했다. 이번 챕터에서는 **Exception Filter**로 에러 응답도 `{ success: false, error: { ... } }` 형태로 통일하여 API 응답 포맷을 완전히 일관되게 만든다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [1-1. Exception Filter란?](#1-1-exception-filter란)
 2. [1-2. NestJS 내장 예외 클래스](#1-2-nestjs-내장-예외-클래스)
 3. [1-3. 기본 예외 처리 동작 방식](#1-3-기본-예외-처리-동작-방식)
@@ -16,11 +16,13 @@
 8. [1-8. BaseExceptionFilter 상속](#1-8-baseexceptionfilter-상속)
 
 ### 2단계: 기본 예제
+
 9. [2-1. 기본 HttpException 사용](#2-1-기본-httpexception-사용)
 10. [2-2. 커스텀 예외 필터 만들기](#2-2-커스텀-예외-필터-만들기)
 11. [2-3. 전역 예외 필터 (AllExceptionsFilter)](#2-3-전역-예외-필터-allexceptionsfilter)
 
 ### 3단계: 블로그 API 적용
+
 12. [3-1. HttpExceptionFilter 작성](#3-1-httpexceptionfilter-작성)
 13. [3-2. 글로벌 필터 등록](#3-2-글로벌-필터-등록)
 14. [3-3. PostsService에서 예외 활용](#3-3-postsservice에서-예외-활용)
@@ -28,11 +30,11 @@
 16. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 17. [정리](#정리)
 18. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
-
 
 ## 1단계: 개념 학습
 
@@ -86,7 +88,7 @@ throw new HttpException(
     message: '접근 권한이 없습니다',
     error: 'Forbidden',
   },
-  HttpStatus.FORBIDDEN,
+  HttpStatus.FORBIDDEN
 );
 // -> { "statusCode": 403, "message": "접근 권한이 없습니다", "error": "Forbidden" }
 ```
@@ -95,25 +97,25 @@ throw new HttpException(
 
 NestJS가 미리 만들어둔 예외 클래스들이다. `HttpException`을 직접 사용하는 것보다 가독성이 좋다.
 
-| 예외 클래스 | HTTP 상태 코드 | 설명 | 사용 예시 |
-|------------|---------------|------|----------|
-| `BadRequestException` | 400 | 잘못된 요청 | 유효하지 않은 데이터 |
-| `UnauthorizedException` | 401 | 인증 실패 | 로그인하지 않은 사용자 |
-| `ForbiddenException` | 403 | 권한 부족 | 다른 사람의 게시글 삭제 시도 |
-| `NotFoundException` | 404 | 리소스 없음 | 존재하지 않는 게시글 조회 |
-| `MethodNotAllowedException` | 405 | 허용되지 않은 메서드 | GET만 허용하는데 POST 요청 |
-| `NotAcceptableException` | 406 | 허용되지 않는 Accept 헤더 | 응답 형식 협상 실패 |
-| `RequestTimeoutException` | 408 | 요청 시간 초과 | 처리가 너무 오래 걸린 요청 |
-| `ConflictException` | 409 | 리소스 충돌 | 이미 존재하는 이메일로 회원가입 |
-| `GoneException` | 410 | 리소스 영구 삭제 | 더 이상 존재하지 않는 리소스 |
-| `PayloadTooLargeException` | 413 | 요청 본문 초과 | 파일 크기 제한 초과 |
-| `UnsupportedMediaTypeException` | 415 | 지원하지 않는 미디어 타입 | JSON 대신 XML을 보낸 경우 |
-| `UnprocessableEntityException` | 422 | 처리 불가 엔티티 | 형식은 맞지만 의미가 틀린 데이터 |
-| `InternalServerErrorException` | 500 | 서버 내부 오류 | 예상치 못한 서버 에러 |
-| `NotImplementedException` | 501 | 미구현 기능 | 개발 예정인 엔드포인트 |
-| `BadGatewayException` | 502 | 게이트웨이 오류 | 외부 API 서버 응답 오류 |
-| `ServiceUnavailableException` | 503 | 서비스 이용 불가 | 서버 점검 중 |
-| `GatewayTimeoutException` | 504 | 게이트웨이 시간 초과 | 외부 API 응답 지연 |
+| 예외 클래스                     | HTTP 상태 코드 | 설명                      | 사용 예시                        |
+| ------------------------------- | -------------- | ------------------------- | -------------------------------- |
+| `BadRequestException`           | 400            | 잘못된 요청               | 유효하지 않은 데이터             |
+| `UnauthorizedException`         | 401            | 인증 실패                 | 로그인하지 않은 사용자           |
+| `ForbiddenException`            | 403            | 권한 부족                 | 다른 사람의 게시글 삭제 시도     |
+| `NotFoundException`             | 404            | 리소스 없음               | 존재하지 않는 게시글 조회        |
+| `MethodNotAllowedException`     | 405            | 허용되지 않은 메서드      | GET만 허용하는데 POST 요청       |
+| `NotAcceptableException`        | 406            | 허용되지 않는 Accept 헤더 | 응답 형식 협상 실패              |
+| `RequestTimeoutException`       | 408            | 요청 시간 초과            | 처리가 너무 오래 걸린 요청       |
+| `ConflictException`             | 409            | 리소스 충돌               | 이미 존재하는 이메일로 회원가입  |
+| `GoneException`                 | 410            | 리소스 영구 삭제          | 더 이상 존재하지 않는 리소스     |
+| `PayloadTooLargeException`      | 413            | 요청 본문 초과            | 파일 크기 제한 초과              |
+| `UnsupportedMediaTypeException` | 415            | 지원하지 않는 미디어 타입 | JSON 대신 XML을 보낸 경우        |
+| `UnprocessableEntityException`  | 422            | 처리 불가 엔티티          | 형식은 맞지만 의미가 틀린 데이터 |
+| `InternalServerErrorException`  | 500            | 서버 내부 오류            | 예상치 못한 서버 에러            |
+| `NotImplementedException`       | 501            | 미구현 기능               | 개발 예정인 엔드포인트           |
+| `BadGatewayException`           | 502            | 게이트웨이 오류           | 외부 API 서버 응답 오류          |
+| `ServiceUnavailableException`   | 503            | 서비스 이용 불가          | 서버 점검 중                     |
+| `GatewayTimeoutException`       | 504            | 게이트웨이 시간 초과      | 외부 API 응답 지연               |
 
 > **팁:** 상태 코드를 직접 외울 필요 없다. `new NotFoundException('게시글을 찾을 수 없습니다')` 이렇게 쓰면 자동으로 404 응답이 된다.
 
@@ -200,7 +202,7 @@ export class EntityNotFoundException extends BusinessException {
     super(
       `${entity}(ID: ${id})를 찾을 수 없습니다`,
       'ENTITY_NOT_FOUND',
-      HttpStatus.NOT_FOUND,
+      HttpStatus.NOT_FOUND
     );
   }
 }
@@ -230,10 +232,10 @@ export interface ExceptionFilter<T = any> {
 }
 ```
 
-| 인자 | 타입 | 설명 |
-|------|------|------|
-| `exception` | `T` | 현재 처리 중인 예외 객체 |
-| `host` | `ArgumentsHost` | 요청/응답 객체에 접근할 수 있는 유틸리티 |
+| 인자        | 타입            | 설명                                     |
+| ----------- | --------------- | ---------------------------------------- |
+| `exception` | `T`             | 현재 처리 중인 예외 객체                 |
+| `host`      | `ArgumentsHost` | 요청/응답 객체에 접근할 수 있는 유틸리티 |
 
 #### [@Catch()](references/decorators.md#catchexceptiontype) 데코레이터
 
@@ -329,11 +331,11 @@ catch(exception: HttpException, host: ArgumentsHost) {
 // WebSocket
 const wsCtx = host.switchToWs();
 const client = wsCtx.getClient(); // 소켓 클라이언트
-const data = wsCtx.getData();     // 수신 데이터
+const data = wsCtx.getData(); // 수신 데이터
 
 // RPC (마이크로서비스)
 const rpcCtx = host.switchToRpc();
-const data = rpcCtx.getData();       // 요청 데이터
+const data = rpcCtx.getData(); // 요청 데이터
 const context = rpcCtx.getContext(); // 컨텍스트 정보
 ```
 
@@ -483,10 +485,7 @@ export class PostsController {
   // 예시 1: HttpException 직접 사용
   @Get('error-test')
   throwBasicError() {
-    throw new HttpException(
-      '이것은 테스트 에러입니다',
-      HttpStatus.BAD_REQUEST,
-    );
+    throw new HttpException('이것은 테스트 에러입니다', HttpStatus.BAD_REQUEST);
     // 응답: { "statusCode": 400, "message": "이것은 테스트 에러입니다" }
   }
 
@@ -564,10 +563,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       this.logger.error(
         `${request.method} ${request.url} ${status}`,
-        exception.stack,
+        exception.stack
       );
     } else {
-      this.logger.warn(`${request.method} ${request.url} ${status} - ${message}`);
+      this.logger.warn(
+        `${request.method} ${request.url} ${status} - ${message}`
+      );
     }
 
     response.status(status).json(errorResponse);
@@ -651,7 +652,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // 예상치 못한 에러는 스택 트레이스를 반드시 로깅
       this.logger.error(
         `Unexpected error: ${exception.message}`,
-        exception.stack,
+        exception.stack
       );
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -726,11 +727,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       this.logger.error(
         `${request.method} ${request.url} ${status} - ${message}`,
-        exception instanceof Error ? exception.stack : '',
+        exception instanceof Error ? exception.stack : ''
       );
     } else {
       this.logger.warn(
-        `${request.method} ${request.url} ${status} - ${message}`,
+        `${request.method} ${request.url} ${status} - ${message}`
       );
     }
 
@@ -826,7 +827,12 @@ interface Post {
 export class PostsService {
   private posts: Post[] = [
     { id: 1, title: '첫 번째 게시글', content: 'NestJS 시작하기', authorId: 1 },
-    { id: 2, title: '두 번째 게시글', content: 'Exception Filter 배우기', authorId: 2 },
+    {
+      id: 2,
+      title: '두 번째 게시글',
+      content: 'Exception Filter 배우기',
+      authorId: 2,
+    },
   ];
   private nextId = 3;
 
@@ -852,7 +858,7 @@ export class PostsService {
     if (exists) {
       // ConflictException -> 409 응답
       throw new ConflictException(
-        `"${createPostDto.title}" 제목의 게시글이 이미 존재합니다`,
+        `"${createPostDto.title}" 제목의 게시글이 이미 존재합니다`
       );
     }
 
@@ -937,7 +943,7 @@ export class PostsController {
   @Put(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePostDto: UpdatePostDto,
+    @Body() updatePostDto: UpdatePostDto
   ) {
     const userId = 1;
     return this.postsService.update(id, updatePostDto, userId);
@@ -993,12 +999,12 @@ export class PostsController {
 
 **패턴 비교:**
 
-| 항목 | 성공 응답 | 에러 응답 |
-|------|----------|----------|
-| `success` | `true` | `false` |
-| 데이터 위치 | `data` 필드 | `error` 필드 |
-| 상태 코드 | `statusCode` | `error.statusCode` |
-| 담당 | TransformInterceptor | HttpExceptionFilter |
+| 항목        | 성공 응답            | 에러 응답           |
+| ----------- | -------------------- | ------------------- |
+| `success`   | `true`               | `false`             |
+| 데이터 위치 | `data` 필드          | `error` 필드        |
+| 상태 코드   | `statusCode`         | `error.statusCode`  |
+| 담당        | TransformInterceptor | HttpExceptionFilter |
 
 프론트엔드에서는 `success` 필드만 확인하면 성공/실패를 바로 알 수 있다.
 
@@ -1136,17 +1142,17 @@ src/
 
 ## 정리
 
-| 개념 | 설명 |
-|------|------|
-| **Exception Filter** | 예외를 잡아 HTTP 응답으로 변환하는 계층, 라이프사이클의 마지막 단계 |
-| **HttpException** | 모든 내장 HTTP 예외의 기본 클래스 |
-| [`@Catch()`](references/decorators.md#catchexceptiontype) | 필터가 처리할 예외 타입을 지정하는 데코레이터. 인자 없으면 모든 예외 |
-| **ExceptionFilter** | 커스텀 필터가 구현해야 하는 인터페이스 (`catch()` 메서드) |
-| **ArgumentsHost** | 실행 컨텍스트의 요청/응답 객체 접근 유틸리티 |
-| [`@UseFilters()`](references/decorators.md#usefiltersfilters) | 메서드/컨트롤러 레벨에서 필터를 바인딩하는 데코레이터 |
-| **APP_FILTER** | 모듈에서 글로벌 필터를 DI와 함께 등록할 때 사용하는 토큰 |
-| **BaseExceptionFilter** | NestJS 기본 예외 처리를 상속하여 일부만 확장할 때 사용 |
-| **cause 옵션** | 예외에 원인 에러를 체이닝 — 응답에는 미포함, 로깅에 유용 |
+| 개념                                                          | 설명                                                                 |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Exception Filter**                                          | 예외를 잡아 HTTP 응답으로 변환하는 계층, 라이프사이클의 마지막 단계  |
+| **HttpException**                                             | 모든 내장 HTTP 예외의 기본 클래스                                    |
+| [`@Catch()`](references/decorators.md#catchexceptiontype)     | 필터가 처리할 예외 타입을 지정하는 데코레이터. 인자 없으면 모든 예외 |
+| **ExceptionFilter**                                           | 커스텀 필터가 구현해야 하는 인터페이스 (`catch()` 메서드)            |
+| **ArgumentsHost**                                             | 실행 컨텍스트의 요청/응답 객체 접근 유틸리티                         |
+| [`@UseFilters()`](references/decorators.md#usefiltersfilters) | 메서드/컨트롤러 레벨에서 필터를 바인딩하는 데코레이터                |
+| **APP_FILTER**                                                | 모듈에서 글로벌 필터를 DI와 함께 등록할 때 사용하는 토큰             |
+| **BaseExceptionFilter**                                       | NestJS 기본 예외 처리를 상속하여 일부만 확장할 때 사용               |
+| **cause 옵션**                                                | 예외에 원인 에러를 체이닝 — 응답에는 미포함, 로깅에 유용             |
 
 ### 이 챕터에서 완성한 것
 
@@ -1173,9 +1179,9 @@ src/
 4. **4xx 에러는 클라이언트에 구체적인 메시지**를 제공한다 (사용성)
 5. **Service에서 적절한 예외를 throw**하고, 필터에서 일괄 처리한다
 6. 인터셉터와 예외 필터를 **짝으로** 사용하여 성공/에러 응답 포맷을 맞춘다
+
 ---
 
 ## 다음 챕터 예고
 
 챕터 9에서는 **Custom Decorator**를 학습한다. `@CurrentUser()` 데코레이터를 만들어 컨트롤러에서 현재 유저 정보를 간결하게 추출하고, `@Public()`을 정식 데코레이터로 리팩토링한다. Phase 1~3의 마지막 챕터다.
-

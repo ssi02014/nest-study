@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 8에서 HttpExceptionFilter로 에러 응답을 `{ success: false, error: { ... } }` 형태로 통일했다. 이번 챕터에서는 **Custom Decorator**를 만들어 코드를 더 간결하게 리팩토링한다. Phase 1~3의 마지막 챕터다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [데코레이터란?](#데코레이터란)
 2. [NestJS에서 데코레이터가 중요한 이유](#nestjs에서-데코레이터가-중요한-이유)
 3. [커스텀 파라미터 데코레이터 (createParamDecorator)](#커스텀-파라미터-데코레이터-createparamdecorator)
@@ -14,11 +14,13 @@
 6. [applyDecorators로 데코레이터 합성](#applydecorators로-데코레이터-합성)
 
 ### 2단계: 기본 예제
+
 7. [@User() 파라미터 데코레이터](#user-파라미터-데코레이터)
 8. [@Roles() 메타데이터 데코레이터](#roles-메타데이터-데코레이터)
 9. [합성 데코레이터](#합성-데코레이터)
 
 ### 3단계: 블로그 API 적용
+
 10. [@CurrentUser() 데코레이터 만들기](#currentuser-데코레이터-만들기)
 11. [@Public() 데코레이터 리팩토링](#public-데코레이터-리팩토링)
 12. [Controller에 @CurrentUser() 적용하여 코드 간결화](#controller에-currentuser-적용하여-코드-간결화)
@@ -26,11 +28,11 @@
 14. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 15. [정리](#정리)
 16. [다음 챕터 예고](#다음-챕터-예고)
 
 ---
-
 
 ## 1단계: 개념 학습
 
@@ -88,12 +90,12 @@ class Calculator {
 
 ### 데코레이터의 4가지 종류
 
-| 종류 | 적용 대상 | NestJS 예시 |
-|------|-----------|-------------|
-| 클래스 데코레이터 | 클래스 선언 위 | [`@Controller()`](references/decorators.md#controllerprefix), [`@Injectable()`](references/decorators.md#injectableoptions), [`@Module()`](references/decorators.md#moduleoptions) |
-| 메서드 데코레이터 | 메서드 선언 위 | [`@Get()`](references/decorators.md#http-메서드-데코레이터), [`@Post()`](references/decorators.md#http-메서드-데코레이터), [`@UseGuards()`](references/decorators.md#useguardsguards) |
-| 프로퍼티 데코레이터 | 프로퍼티 선언 위 | [`@Inject()`](references/decorators.md#injecttoken) |
-| 파라미터 데코레이터 | 파라미터 선언 위 | [`@Body()`](references/decorators.md#bodykey), [`@Param()`](references/decorators.md#paramkey), [`@Query()`](references/decorators.md#querykey) |
+| 종류                | 적용 대상        | NestJS 예시                                                                                                                                                                           |
+| ------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 클래스 데코레이터   | 클래스 선언 위   | [`@Controller()`](references/decorators.md#controllerprefix), [`@Injectable()`](references/decorators.md#injectableoptions), [`@Module()`](references/decorators.md#moduleoptions)    |
+| 메서드 데코레이터   | 메서드 선언 위   | [`@Get()`](references/decorators.md#http-메서드-데코레이터), [`@Post()`](references/decorators.md#http-메서드-데코레이터), [`@UseGuards()`](references/decorators.md#useguardsguards) |
+| 프로퍼티 데코레이터 | 프로퍼티 선언 위 | [`@Inject()`](references/decorators.md#injecttoken)                                                                                                                                   |
+| 파라미터 데코레이터 | 파라미터 선언 위 | [`@Body()`](references/decorators.md#bodykey), [`@Param()`](references/decorators.md#paramkey), [`@Query()`](references/decorators.md#querykey)                                       |
 
 NestJS 코드를 보면 **거의 모든 곳에 데코레이터가 있다**. 이것이 바로 NestJS가 "데코레이터 기반 프레임워크"라고 불리는 이유다.
 
@@ -154,7 +156,7 @@ export const MyDecorator = createParamDecorator(
 
     const request = ctx.switchToHttp().getRequest();
     return request.something; // 여기서 반환한 값이 파라미터에 주입됨
-  },
+  }
 );
 ```
 
@@ -278,7 +280,7 @@ export const User = createParamDecorator(
     // @User('email')처럼 특정 필드만 요청하면 해당 값만 반환
     // @User()처럼 인자 없이 사용하면 전체 유저 객체 반환
     return data ? user?.[data] : user;
-  },
+  }
 );
 ```
 
@@ -347,7 +349,7 @@ export class RolesGuard implements CanActivate {
     // 없으면 클래스(컨트롤러)에 설정된 것을 찾는다
     const requiredRoles = this.reflector.getAllAndOverride<string[]>(
       ROLES_KEY,
-      [context.getHandler(), context.getClass()],
+      [context.getHandler(), context.getClass()]
     );
 
     // @Roles() 데코레이터가 없으면 누구나 접근 가능
@@ -408,8 +410,8 @@ import { Roles } from './roles.decorator';
 // @Auth('admin') 하나로 인증 + 인가를 한번에 처리
 export function Auth(...roles: string[]) {
   return applyDecorators(
-    Roles(...roles),                     // 역할 메타데이터 설정
-    UseGuards(AuthGuard, RolesGuard),    // Guard 적용 (AuthGuard -> RolesGuard 순서)
+    Roles(...roles), // 역할 메타데이터 설정
+    UseGuards(AuthGuard, RolesGuard) // Guard 적용 (AuthGuard -> RolesGuard 순서)
   );
 }
 ```
@@ -480,7 +482,7 @@ export const CurrentUser = createParamDecorator(
 
     // data가 있으면 특정 필드만, 없으면 전체 유저 객체 반환
     return data ? user[data] : user;
-  },
+  }
 );
 ```
 
@@ -489,6 +491,7 @@ export const CurrentUser = createParamDecorator(
 인증 검사는 Guard의 책임이다. `@CurrentUser()`는 단순히 데이터를 "꺼내는" 역할만 담당한다. 인증이 필요한 라우트에서는 Guard가 이미 인증을 처리했으므로 `request.user`는 항상 존재한다. `@Public()` 라우트에서는 Guard를 건너뛰므로 `request.user`가 없을 수 있는데, 이때는 `null`을 반환한다.
 
 > **팁:** 각 계층의 역할을 명확히 분리하자.
+>
 > - **Guard**: 인증 여부 판단 (없으면 401 에러)
 > - **파라미터 데코레이터**: 데이터 추출 (있으면 반환, 없으면 null)
 > - **Pipe**: 데이터 검증/변환
@@ -622,7 +625,7 @@ export class PostsController {
   @Post()
   create(
     @CurrentUser('id') userId: number,
-    @Body() createPostDto: CreatePostDto,
+    @Body() createPostDto: CreatePostDto
   ) {
     return this.postsService.create(userId, createPostDto);
   }
@@ -632,7 +635,7 @@ export class PostsController {
   update(
     @CurrentUser('id') userId: number,
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePostDto: UpdatePostDto,
+    @Body() updatePostDto: UpdatePostDto
   ) {
     return this.postsService.update(id, userId, updatePostDto);
   }
@@ -641,7 +644,7 @@ export class PostsController {
   @Delete(':id')
   remove(
     @CurrentUser('id') userId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number
   ) {
     return this.postsService.remove(id, userId);
   }
@@ -682,7 +685,7 @@ export class CommentsController {
   create(
     @CurrentUser('id') userId: number,
     @Param('postId', ParseIntPipe) postId: number,
-    @Body() createCommentDto: CreateCommentDto,
+    @Body() createCommentDto: CreateCommentDto
   ) {
     return this.commentsService.create(userId, postId, createCommentDto);
   }
@@ -691,7 +694,7 @@ export class CommentsController {
   @Delete('comments/:id')
   remove(
     @CurrentUser('id') userId: number,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: number
   ) {
     return this.commentsService.remove(id, userId);
   }
@@ -749,7 +752,7 @@ import { Request } from 'express';
 export class PostsController {
   @Post()
   create(@Req() req: Request, @Body() createPostDto: CreatePostDto) {
-    const userId = (req as any).user.id;  // 타입 단언 필요, 지저분함
+    const userId = (req as any).user.id; // 타입 단언 필요, 지저분함
     return this.postsService.create(userId, createPostDto);
   }
 
@@ -757,15 +760,15 @@ export class PostsController {
   update(
     @Req() req: Request,
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePostDto: UpdatePostDto,
+    @Body() updatePostDto: UpdatePostDto
   ) {
-    const userId = (req as any).user.id;  // 또 같은 패턴 반복
+    const userId = (req as any).user.id; // 또 같은 패턴 반복
     return this.postsService.update(id, userId, updatePostDto);
   }
 
   @Delete(':id')
   remove(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
-    const userId = (req as any).user.id;  // 또 반복...
+    const userId = (req as any).user.id; // 또 반복...
     return this.postsService.remove(id, userId);
   }
 }
@@ -782,25 +785,25 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class PostsController {
   @Post()
   create(
-    @CurrentUser('id') userId: number,  // 한 줄로 끝
-    @Body() createPostDto: CreatePostDto,
+    @CurrentUser('id') userId: number, // 한 줄로 끝
+    @Body() createPostDto: CreatePostDto
   ) {
     return this.postsService.create(userId, createPostDto);
   }
 
   @Patch(':id')
   update(
-    @CurrentUser('id') userId: number,  // 동일한 패턴
+    @CurrentUser('id') userId: number, // 동일한 패턴
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePostDto: UpdatePostDto,
+    @Body() updatePostDto: UpdatePostDto
   ) {
     return this.postsService.update(id, userId, updatePostDto);
   }
 
   @Delete(':id')
   remove(
-    @CurrentUser('id') userId: number,  // 일관성
-    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number, // 일관성
+    @Param('id', ParseIntPipe) id: number
   ) {
     return this.postsService.remove(id, userId);
   }
@@ -809,12 +812,12 @@ export class PostsController {
 
 개선된 점:
 
-| 항목 | Before | After |
-|------|--------|-------|
-| 타입 안전성 | `(req as any).user.id` 타입 단언 필요 | `@CurrentUser('id') userId: number` |
-| 코드 중복 | 매 메서드마다 `req.user.id` 추출 | 데코레이터 한 줄로 해결 |
-| Express 의존성 | [`@Req() req: Request`](references/decorators.md#req-res) - Express에 종속 | Express 타입 불필요 |
-| 가독성 | 메서드 본문에 데이터 추출 로직 섞임 | 파라미터 선언에서 명확히 표현 |
+| 항목           | Before                                                                     | After                               |
+| -------------- | -------------------------------------------------------------------------- | ----------------------------------- |
+| 타입 안전성    | `(req as any).user.id` 타입 단언 필요                                      | `@CurrentUser('id') userId: number` |
+| 코드 중복      | 매 메서드마다 `req.user.id` 추출                                           | 데코레이터 한 줄로 해결             |
+| Express 의존성 | [`@Req() req: Request`](references/decorators.md#req-res) - Express에 종속 | Express 타입 불필요                 |
+| 가독성         | 메서드 본문에 데이터 추출 로직 섞임                                        | 파라미터 선언에서 명확히 표현       |
 
 ---
 
@@ -841,26 +844,26 @@ src/
 
 ## 정리
 
-| 데코레이터 유형 | 핵심 함수 | 용도 | 블로그 API 적용 |
-|-----------------|-----------|------|-----------------|
-| 파라미터 데코레이터 | [`createParamDecorator`](references/decorators.md#createparamdecoratorfactory) | 요청에서 데이터 추출 | `@CurrentUser()` |
-| 메타데이터 데코레이터 | `SetMetadata` | 라우트에 메타데이터 부착 | `@Public()`, `@Roles()` |
-| 합성 데코레이터 | [`applyDecorators`](references/decorators.md#applydecoratorsdecorators) | 여러 데코레이터를 하나로 | `@Auth()` (Swagger 도입 후 확장 예정) |
+| 데코레이터 유형       | 핵심 함수                                                                      | 용도                     | 블로그 API 적용                       |
+| --------------------- | ------------------------------------------------------------------------------ | ------------------------ | ------------------------------------- |
+| 파라미터 데코레이터   | [`createParamDecorator`](references/decorators.md#createparamdecoratorfactory) | 요청에서 데이터 추출     | `@CurrentUser()`                      |
+| 메타데이터 데코레이터 | `SetMetadata`                                                                  | 라우트에 메타데이터 부착 | `@Public()`, `@Roles()`               |
+| 합성 데코레이터       | [`applyDecorators`](references/decorators.md#applydecoratorsdecorators)        | 여러 데코레이터를 하나로 | `@Auth()` (Swagger 도입 후 확장 예정) |
 
 ### Phase 1~3 완료!
 
 이 챕터를 마치면 **메모리 기반 블로그 API**가 완성된다. 지금까지 구축한 것을 정리하면:
 
-| Phase | 챕터 | 구현한 것 |
-|-------|-------|-----------|
-| Phase 1 | 1~3 | 모듈 분리, 컨트롤러 라우팅, 서비스 비즈니스 로직 (메모리 CRUD) |
-| Phase 2 | 4~6 | 요청 로깅, DTO 유효성 검사, 인증/인가 가드 |
-| Phase 3 | 7~9 | 응답 래핑, 에러 처리 통일, 커스텀 데코레이터로 코드 간결화 |
+| Phase   | 챕터 | 구현한 것                                                      |
+| ------- | ---- | -------------------------------------------------------------- |
+| Phase 1 | 1~3  | 모듈 분리, 컨트롤러 라우팅, 서비스 비즈니스 로직 (메모리 CRUD) |
+| Phase 2 | 4~6  | 요청 로깅, DTO 유효성 검사, 인증/인가 가드                     |
+| Phase 3 | 7~9  | 응답 래핑, 에러 처리 통일, 커스텀 데코레이터로 코드 간결화     |
 
 > **다음 챕터 예고**: 챕터 10(TypeORM)에서는 메모리 배열을 **실제 데이터베이스(SQLite)**로 교체한다. Entity를 정의하고, Repository 패턴으로 서비스를 리팩토링하게 된다.
+
 ---
 
 ## 다음 챕터 예고
 
 챕터 10에서는 **TypeORM**으로 실제 데이터베이스를 연동한다. 지금까지 메모리 배열에 저장하던 데이터를 SQLite DB에 저장하여 서버를 재시작해도 데이터가 유지되게 만든다.
-

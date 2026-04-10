@@ -7,14 +7,14 @@
 
 ## 프로젝트 개요
 
-| 항목 | 내용 |
-|------|------|
-| 서비스 | 블로그 REST API |
-| 주요 도메인 | 사용자(User), 게시글(Post), 댓글(Comment) |
-| 데이터베이스 | SQLite (개발용) → PostgreSQL (운영용) |
-| 인증 | JWT (Access + Refresh Token) |
-| 문서화 | Swagger |
-| 실시간 | 댓글 알림 (WebSocket) |
+| 항목         | 내용                                      |
+| ------------ | ----------------------------------------- |
+| 서비스       | 블로그 REST API                           |
+| 주요 도메인  | 사용자(User), 게시글(Post), 댓글(Comment) |
+| 데이터베이스 | SQLite (개발용) → PostgreSQL (운영용)     |
+| 인증         | JWT (Access + Refresh Token)              |
+| 문서화       | Swagger                                   |
+| 실시간       | 댓글 알림 (WebSocket)                     |
 
 ---
 
@@ -23,6 +23,7 @@
 ### Phase 1: 기초 — 프로젝트 뼈대 만들기
 
 #### 챕터 1: Module
+
 > **구현**: 도메인별 모듈 분리
 
 ```
@@ -44,6 +45,7 @@ src/
 ---
 
 #### 챕터 2: Controller
+
 > **구현**: 각 도메인의 CRUD 라우트 정의
 
 ```typescript
@@ -72,6 +74,7 @@ DELETE /comments/:id                ← 댓글 삭제
 ---
 
 #### 챕터 3: Provider & DI
+
 > **구현**: 비즈니스 로직을 Service로 분리
 
 ```
@@ -100,6 +103,7 @@ src/comments/
 ### Phase 2: 요청 파이프라인 — 안전한 API 만들기
 
 #### 챕터 4: Middleware
+
 > **구현**: 요청 로깅 미들웨어
 
 ```typescript
@@ -114,6 +118,7 @@ LoggerMiddleware       ← 모든 요청의 method, url, 응답시간 로깅
 ---
 
 #### 챕터 5: Pipe
+
 > **구현**: DTO 유효성 검사 추가
 
 ```typescript
@@ -149,6 +154,7 @@ PaginationQueryDto {
 ---
 
 #### 챕터 6: Guard
+
 > **구현**: 인증 가드 (간이 버전)
 
 ```typescript
@@ -167,6 +173,7 @@ RolesGuard           ← @Roles('admin') 데코레이터와 함께 역할 검사
 ### Phase 3: 응답 & 에러 — 일관된 API 응답 만들기
 
 #### 챕터 7: Interceptor
+
 > **구현**: 응답 포맷 통일 + 로깅
 
 ```typescript
@@ -177,6 +184,7 @@ LoggingInterceptor     ← 요청 처리 시간 측정 및 로깅
 ```
 
 적용 후 모든 API 응답 형태:
+
 ```json
 {
   "success": true,
@@ -188,6 +196,7 @@ LoggingInterceptor     ← 요청 처리 시간 측정 및 로깅
 ---
 
 #### 챕터 8: Exception Filter
+
 > **구현**: 에러 응답 포맷 통일
 
 ```typescript
@@ -197,6 +206,7 @@ HttpExceptionFilter    ← 모든 HTTP 예외를 통일된 형태로 변환
 ```
 
 에러 응답 형태:
+
 ```json
 {
   "success": false,
@@ -214,6 +224,7 @@ HttpExceptionFilter    ← 모든 HTTP 예외를 통일된 형태로 변환
 ---
 
 #### 챕터 9: Custom Decorator
+
 > **구현**: 편의 데코레이터 만들기
 
 ```typescript
@@ -229,6 +240,7 @@ HttpExceptionFilter    ← 모든 HTTP 예외를 통일된 형태로 변환
 ### Phase 4: 데이터 — 실제 DB 연동
 
 #### 챕터 10: TypeORM
+
 > **구현**: 메모리 배열 → 실제 데이터베이스 교체
 
 ```typescript
@@ -266,6 +278,7 @@ Comment {
 ### Phase 5: 설정 & 인증 — 실전 수준으로 업그레이드
 
 #### 챕터 11: Configuration
+
 > **구현**: 환경 변수 관리
 
 ```
@@ -284,6 +297,7 @@ PORT=3000
 ---
 
 #### 챕터 12: Authentication
+
 > **구현**: 챕터 6의 SimpleAuthGuard → JWT 인증으로 교체
 
 ```typescript
@@ -303,6 +317,7 @@ POST /auth/logout       ← 로그아웃
 ---
 
 #### 챕터 13: Testing
+
 > **구현**: 핵심 로직 테스트 작성
 
 ```
@@ -324,6 +339,7 @@ E2E 테스트:
 ### Phase 6: API 문서화 & 실시간 통신
 
 #### 챕터 14: Swagger
+
 > **구현**: 전체 API 문서화
 
 - 모든 엔드포인트에 `@ApiTags`, `@ApiOperation`, `@ApiResponse` 추가
@@ -334,6 +350,7 @@ E2E 테스트:
 ---
 
 #### 챕터 15: WebSocket
+
 > **구현**: 실시간 댓글 알림
 
 ```typescript
@@ -356,6 +373,7 @@ BlogGateway {
 ### Phase 7: 아키텍처 패턴 (선택)
 
 #### 챕터 16: CQRS
+
 > **구현**: 게시글 도메인을 CQRS로 리팩토링
 
 ```typescript
@@ -373,6 +391,7 @@ PostDeletedEvent → 댓글 정리
 ---
 
 #### 챕터 17: Microservices
+
 > **구현 (개념 실습)**: 알림 서비스 분리
 
 ```

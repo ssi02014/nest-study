@@ -3,6 +3,7 @@
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [Module이란 무엇인가](#1-module이란-무엇인가)
 2. [@Module() 데코레이터의 4가지 속성](#2-module-데코레이터의-4가지-속성)
 3. [모듈 트리 구조](#3-모듈-트리-구조)
@@ -13,17 +14,20 @@
 8. [모듈 간 관계 시각화](#8-모듈-간-관계-시각화)
 
 ### 2단계: 기본 예제
+
 7. [CatsModule 예제](#7-catsmodule-예제)
 8. [모듈 분리와 imports/exports](#8-모듈-분리와-importsexports)
 9. [공유 모듈 예제](#9-공유-모듈-예제)
 
 ### 3단계: 블로그 API 적용
+
 10. [블로그 프로젝트 모듈 구조 설계](#10-블로그-프로젝트-모듈-구조-설계)
 11. [모듈 생성하기](#11-모듈-생성하기)
 12. [완성된 모듈 구조 확인](#12-완성된-모듈-구조-확인)
 13. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 14. [정리](#정리)
 15. [다음 챕터 예고](#다음-챕터-예고)
 
@@ -32,7 +36,6 @@
 # 1단계: 개념 학습
 
 ---
-
 
 ## 1. Module이란 무엇인가
 
@@ -85,12 +88,12 @@ export class AppModule {}
 
 ### 속성별 상세 설명
 
-| 속성 | 한줄 설명 | 비유 |
-|------|-----------|------|
-| `imports` | 이 모듈에서 사용할 **외부 모듈** 목록 | "우리 팀에서 쓸 다른 팀의 도구를 가져온다" |
-| `controllers` | 이 모듈에서 정의하는 **컨트롤러** 목록 | "우리 팀의 접수 담당자들" |
-| `providers` | 이 모듈에서 사용하는 **서비스(provider)** 목록 | "우리 팀의 실무 담당자들" |
-| `exports` | 이 모듈에서 **외부에 공개**할 provider 목록 | "다른 팀에게 빌려줄 수 있는 우리 팀원들" |
+| 속성          | 한줄 설명                                      | 비유                                       |
+| ------------- | ---------------------------------------------- | ------------------------------------------ |
+| `imports`     | 이 모듈에서 사용할 **외부 모듈** 목록          | "우리 팀에서 쓸 다른 팀의 도구를 가져온다" |
+| `controllers` | 이 모듈에서 정의하는 **컨트롤러** 목록         | "우리 팀의 접수 담당자들"                  |
+| `providers`   | 이 모듈에서 사용하는 **서비스(provider)** 목록 | "우리 팀의 실무 담당자들"                  |
+| `exports`     | 이 모듈에서 **외부에 공개**할 provider 목록    | "다른 팀에게 빌려줄 수 있는 우리 팀원들"   |
 
 좀 더 자세히 풀어보면:
 
@@ -119,6 +122,7 @@ AppModule (루트 모듈 - 앱의 시작점)
 ```
 
 NestJS는 이 트리 구조를 분석해서:
+
 1. 각 모듈에 어떤 컨트롤러와 provider가 있는지 파악하고
 2. 모듈 간 의존 관계(`imports`/`exports`)를 확인하고
 3. 필요한 의존성을 자동으로 주입해준다
@@ -185,11 +189,11 @@ export class AppModule {}
 
 **관례적인 메서드 이름:**
 
-| 메서드 | 용도 |
-|--------|------|
-| `forRoot()` | 루트 모듈에서 한 번 설정 (앱 전체 설정) |
-| `forFeature()` | Feature 모듈에서 부분적으로 설정 |
-| `register()` | 사용할 때마다 새로운 설정으로 등록 |
+| 메서드         | 용도                                    |
+| -------------- | --------------------------------------- |
+| `forRoot()`    | 루트 모듈에서 한 번 설정 (앱 전체 설정) |
+| `forFeature()` | Feature 모듈에서 부분적으로 설정        |
+| `register()`   | 사용할 때마다 새로운 설정으로 등록      |
 
 > **팁:** 동적 모듈은 NestJS의 강력한 기능이지만, 이 챕터에서는 "이런 것이 있다"는 것만 알고 넘어가자. 실전에서 ConfigModule, TypeOrmModule 등을 사용할 때 자연스럽게 익히게 된다.
 
@@ -367,6 +371,7 @@ AppModule (루트)
 ```
 
 **핵심 규칙 정리:**
+
 - `DatabaseModule`은 [`@Global()`](references/decorators.md#global)이므로 어떤 모듈에서든 별도 import 없이 `DatabaseService`를 주입받을 수 있다.
 - `CommonModule`은 일반 공유 모듈이므로, 사용하려는 모듈에서 반드시 `imports`에 명시해야 한다.
 - 각 Feature 모듈은 자신만의 컨트롤러와 provider를 **캡슐화**한다. 외부에 공개하지 않은 것은 내부에서만 사용된다.
@@ -452,7 +457,7 @@ import { CatsService } from './cats.service';
 
 @Module({
   controllers: [CatsController], // 이 모듈의 컨트롤러
-  providers: [CatsService],      // 이 모듈의 서비스
+  providers: [CatsService], // 이 모듈의 서비스
 })
 export class CatsModule {}
 ```
@@ -653,7 +658,7 @@ export class PostsService {
   createPost(title: string) {
     return {
       title,
-      slug: this.commonService.generateSlug(title),       // 공통 기능 사용
+      slug: this.commonService.generateSlug(title), // 공통 기능 사용
       createdAt: this.commonService.formatDate(new Date()), // 공통 기능 사용
     };
   }
@@ -663,6 +668,7 @@ export class PostsService {
 > `UsersModule`과 `PostsModule`이 각각 `CommonModule`을 import했다. 두 모듈에서 주입받는 `CommonService`는 **동일한 인스턴스**다. NestJS의 provider는 기본적으로 싱글턴으로 동작하기 때문이다.
 
 > **팁:** "모듈 재내보내기(Module Re-exporting)"도 가능하다. 모듈 A가 모듈 B를 import한 뒤, 자신의 `exports`에 모듈 B를 추가하면, 모듈 A를 import하는 측에서 모듈 B의 provider도 함께 사용할 수 있다.
+>
 > ```typescript
 > @Module({
 >   imports: [CommonModule],
@@ -683,13 +689,13 @@ export class PostsService {
 
 ### 모듈별 역할
 
-| 모듈 | 역할 | 핵심 기능 |
-|------|------|-----------|
-| `AppModule` | 루트 모듈. 모든 Feature 모듈을 연결하는 시작점 | 앱 전체 구성 |
-| `UsersModule` | 사용자(회원) 관리 | 회원가입, 로그인, 프로필 조회 |
-| `PostsModule` | 게시글 관리 | 글 작성, 수정, 삭제, 목록 조회 |
-| `CommentsModule` | 댓글 관리 | 댓글 작성, 수정, 삭제 |
-| `CommonModule` | 공통 유틸리티 | 날짜 포맷, 슬러그 생성 등 공용 기능 |
+| 모듈             | 역할                                           | 핵심 기능                           |
+| ---------------- | ---------------------------------------------- | ----------------------------------- |
+| `AppModule`      | 루트 모듈. 모든 Feature 모듈을 연결하는 시작점 | 앱 전체 구성                        |
+| `UsersModule`    | 사용자(회원) 관리                              | 회원가입, 로그인, 프로필 조회       |
+| `PostsModule`    | 게시글 관리                                    | 글 작성, 수정, 삭제, 목록 조회      |
+| `CommentsModule` | 댓글 관리                                      | 댓글 작성, 수정, 삭제               |
+| `CommonModule`   | 공통 유틸리티                                  | 날짜 포맷, 슬러그 생성 등 공용 기능 |
 
 ### 모듈 간 관계 설계
 
@@ -755,10 +761,10 @@ import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
-    CommonModule,    // 공통 유틸리티
-    UsersModule,     // 사용자 관리
-    PostsModule,     // 게시글 관리
-    CommentsModule,  // 댓글 관리
+    CommonModule, // 공통 유틸리티
+    UsersModule, // 사용자 관리
+    PostsModule, // 게시글 관리
+    CommentsModule, // 댓글 관리
   ],
 })
 export class AppModule {}
@@ -811,10 +817,10 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [CommonModule],       // 공통 유틸리티 사용
+  imports: [CommonModule], // 공통 유틸리티 사용
   controllers: [UsersController],
   providers: [UsersService],
-  exports: [UsersService],       // PostsModule, CommentsModule에서 사용할 수 있도록 공개
+  exports: [UsersService], // PostsModule, CommentsModule에서 사용할 수 있도록 공개
 })
 export class UsersModule {}
 ```
@@ -834,7 +840,7 @@ import { PostsService } from './posts.service';
 @Module({
   imports: [
     CommonModule, // 공통 유틸리티 사용
-    UsersModule,  // 작성자 정보 조회를 위해 UsersService 사용
+    UsersModule, // 작성자 정보 조회를 위해 UsersService 사용
   ],
   controllers: [PostsController],
   providers: [PostsService],
@@ -859,8 +865,8 @@ import { CommentsService } from './comments.service';
 @Module({
   imports: [
     CommonModule, // 공통 유틸리티 사용
-    UsersModule,  // 댓글 작성자 정보 조회
-    PostsModule,  // 댓글이 달린 게시글 정보 조회
+    UsersModule, // 댓글 작성자 정보 조회
+    PostsModule, // 댓글이 달린 게시글 정보 조회
   ],
   controllers: [CommentsController],
   providers: [CommentsService],
@@ -923,6 +929,7 @@ export class CommentsService {}
 ```
 
 > **팁:** NestJS CLI를 사용하면 스텁 파일을 자동으로 생성할 수 있다.
+>
 > ```bash
 > nest g controller users --no-spec
 > nest g service users --no-spec
@@ -931,6 +938,7 @@ export class CommentsService {}
 > nest g controller comments --no-spec
 > nest g service comments --no-spec
 > ```
+>
 > `--no-spec` 옵션을 붙이면 테스트 파일(`.spec.ts`)은 생성하지 않는다. CLI로 생성하면 모듈 파일에도 자동으로 등록되지만, 이미 위에서 직접 등록했으므로 중복 등록 여부를 확인한다.
 
 ---
@@ -997,9 +1005,9 @@ src/
 
 다음 챕터에서부터 이 뼈대 위에 살을 붙여나간다:
 
-| 다음 단계 | 내용 |
-|-----------|------|
-| Chapter 2 - Controller | 각 모듈의 컨트롤러에 HTTP 라우트 추가 |
+| 다음 단계                 | 내용                                  |
+| ------------------------- | ------------------------------------- |
+| Chapter 2 - Controller    | 각 모듈의 컨트롤러에 HTTP 라우트 추가 |
 | Chapter 3 - Provider & DI | 각 모듈의 서비스에 비즈니스 로직 구현 |
 
 ---
@@ -1031,20 +1039,20 @@ src/
 
 ## 정리
 
-| 개념 | 핵심 |
-|------|------|
-| Module | 관련 기능(컨트롤러 + 서비스)을 하나로 묶는 NestJS의 기본 구성 단위 |
-| [@Module()](references/decorators.md#moduleoptions) 4가지 속성 | `imports`(가져오기), `controllers`(컨트롤러), `providers`(서비스), `exports`(공개) |
-| 모듈 트리 | AppModule(루트)을 꼭대기로 Feature 모듈들이 연결되는 트리 구조 |
-| 공유 모듈 | `exports`로 provider를 공개하여 여러 모듈에서 재사용 |
-| 전역 모듈 | [`@Global()`](references/decorators.md#global)로 선언하면 import 없이 어디서든 사용 가능 (남용 주의) |
-| 동적 모듈 | `forRoot()` 등으로 설정값을 전달하며 모듈 등록 (이후 챕터에서 상세 학습) |
-| 캡슐화 원칙 | provider는 exports에 명시하지 않으면 모듈 외부에서 접근 불가 |
-| 모듈 재내보내기 | import한 모듈을 `exports`에 추가하면, 해당 모듈의 provider가 함께 재내보내짐 |
-| 순환 의존성 | 두 모듈이 서로를 참조하는 구조. 설계 개선이 우선이며, 불가피할 때 `forwardRef()` 사용 |
+| 개념                                                           | 핵심                                                                                                 |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Module                                                         | 관련 기능(컨트롤러 + 서비스)을 하나로 묶는 NestJS의 기본 구성 단위                                   |
+| [@Module()](references/decorators.md#moduleoptions) 4가지 속성 | `imports`(가져오기), `controllers`(컨트롤러), `providers`(서비스), `exports`(공개)                   |
+| 모듈 트리                                                      | AppModule(루트)을 꼭대기로 Feature 모듈들이 연결되는 트리 구조                                       |
+| 공유 모듈                                                      | `exports`로 provider를 공개하여 여러 모듈에서 재사용                                                 |
+| 전역 모듈                                                      | [`@Global()`](references/decorators.md#global)로 선언하면 import 없이 어디서든 사용 가능 (남용 주의) |
+| 동적 모듈                                                      | `forRoot()` 등으로 설정값을 전달하며 모듈 등록 (이후 챕터에서 상세 학습)                             |
+| 캡슐화 원칙                                                    | provider는 exports에 명시하지 않으면 모듈 외부에서 접근 불가                                         |
+| 모듈 재내보내기                                                | import한 모듈을 `exports`에 추가하면, 해당 모듈의 provider가 함께 재내보내짐                         |
+| 순환 의존성                                                    | 두 모듈이 서로를 참조하는 구조. 설계 개선이 우선이며, 불가피할 때 `forwardRef()` 사용                |
+
 ---
 
 ## 다음 챕터 예고
 
 챕터 2에서는 **Controller**를 학습한다. 각 모듈에 HTTP 라우트를 추가하고, 요청/응답 처리 방법을 익힌다. 블로그 API의 Users, Posts, Comments 컨트롤러를 만들어 CRUD 엔드포인트를 정의한다.
-

@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 16에서 PostsModule을 CQRS 패턴으로 리팩토링하여 Command(쓰기)와 Query(읽기)를 분리했다. 이번 챕터에서는 **Microservices**를 학습한다. 알림 기능을 독립적인 마이크로서비스로 분리하여 블로그 프로젝트를 완성한다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [마이크로서비스란?](#1-마이크로서비스란)
 2. [NestJS 마이크로서비스 개요](#2-nestjs-마이크로서비스-개요)
 3. [Transport Layer](#3-transport-layer)
@@ -14,9 +14,11 @@
 6. [하이브리드 애플리케이션](#6-하이브리드-애플리케이션)
 
 ### 2단계: 기본 예제
+
 7. [기본 예제: TCP 마이크로서비스](#7-기본-예제-tcp-마이크로서비스)
 
 ### 3단계: 블로그 API 적용
+
 8. [블로그 API 적용: 알림 마이크로서비스](#8-블로그-api-적용-알림-마이크로서비스)
 9. [RpcException과 에러 처리](#9-rpcexception과-에러-처리)
 10. [재시도 로직 (Retry)](#10-재시도-로직-retry)
@@ -25,6 +27,7 @@
 13. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 14. [정리](#정리)
 
 ---
@@ -62,11 +65,11 @@
      ↑ 하나의 프로세스, 하나의 배포
 ```
 
-| 장점 | 단점 |
-|------|------|
-| 개발 초기에 단순하고 빠르다 | 규모가 커지면 코드가 복잡해진다 |
+| 장점                          | 단점                                 |
+| ----------------------------- | ------------------------------------ |
+| 개발 초기에 단순하고 빠르다   | 규모가 커지면 코드가 복잡해진다      |
 | 배포가 간단하다 (하나만 배포) | 작은 변경에도 전체를 재배포해야 한다 |
-| 로컬에서 테스트하기 쉽다 | 특정 기능만 스케일링할 수 없다 |
+| 로컬에서 테스트하기 쉽다      | 특정 기능만 스케일링할 수 없다       |
 
 ### 마이크로서비스 아키텍처
 
@@ -91,12 +94,12 @@
                     Client
 ```
 
-| 장점 | 단점 |
-|------|------|
-| 서비스별 독립 배포/스케일링 가능 | 분산 시스템 복잡성 증가 |
-| 장애가 전체로 전파되지 않음 | 서비스 간 통신 비용 발생 |
-| 팀 단위로 서비스 분리 개발 가능 | 데이터 일관성 유지가 어려움 |
-| 서비스별 다른 기술 스택 사용 가능 | 운영/모니터링이 복잡함 |
+| 장점                              | 단점                        |
+| --------------------------------- | --------------------------- |
+| 서비스별 독립 배포/스케일링 가능  | 분산 시스템 복잡성 증가     |
+| 장애가 전체로 전파되지 않음       | 서비스 간 통신 비용 발생    |
+| 팀 단위로 서비스 분리 개발 가능   | 데이터 일관성 유지가 어려움 |
+| 서비스별 다른 기술 스택 사용 가능 | 운영/모니터링이 복잡함      |
 
 > **팁:** 처음부터 마이크로서비스로 시작할 필요는 없다. 대부분의 프로젝트는 **모놀리식으로 시작**하고, 서비스가 성장하면서 특정 기능을 마이크로서비스로 **점진적으로 분리**하는 것이 일반적이다. 우리 블로그 API도 이 방식을 따른다!
 
@@ -134,10 +137,10 @@ NestJS 마이크로서비스는 두 가지 핵심 통신 패턴을 제공한다.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| 패턴 | 데코레이터 | 클라이언트 메서드 | 응답 | 사용 예 |
-|------|-----------|----------------|------|---------|
-| Request-Response | [`@MessagePattern()`](references/decorators.md#messagepatternpattern) | `client.send()` | 있음 | 데이터 조회, 사용자 인증 |
-| Event-based | [`@EventPattern()`](references/decorators.md#eventpatternpattern) | `client.emit()` | 없음 | 알림 발송, 로그 기록 |
+| 패턴             | 데코레이터                                                            | 클라이언트 메서드 | 응답 | 사용 예                  |
+| ---------------- | --------------------------------------------------------------------- | ----------------- | ---- | ------------------------ |
+| Request-Response | [`@MessagePattern()`](references/decorators.md#messagepatternpattern) | `client.send()`   | 있음 | 데이터 조회, 사용자 인증 |
+| Event-based      | [`@EventPattern()`](references/decorators.md#eventpatternpattern)     | `client.emit()`   | 없음 | 알림 발송, 로그 기록     |
 
 ---
 
@@ -147,14 +150,14 @@ Transport Layer는 마이크로서비스 간 **메시지를 주고받는 통로*
 
 NestJS는 다양한 Transport를 지원하며, `Transport` enum으로 선택한다.
 
-| Transport | enum 값 | 추가 패키지 | 특징 | 사용 사례 |
-|-----------|---------|------------|------|----------|
-| **TCP** | `Transport.TCP` | 없음 | 가장 단순, 별도 인프라 불필요 | 학습용, 간단한 서비스 분리 |
-| **Redis** | `Transport.REDIS` | `ioredis` | Pub/Sub 기반, 빠름 | 이벤트 브로드캐스트, 캐시 연동 |
-| **RabbitMQ** | `Transport.RMQ` | `amqplib`, `amqp-connection-manager` | 안정적 메시지 큐 | 주문 처리, 안정성이 중요한 작업 |
-| **Kafka** | `Transport.KAFKA` | `kafkajs` | 대용량 스트리밍 | 로그 수집, 실시간 데이터 파이프라인 |
-| **gRPC** | `Transport.GRPC` | `@grpc/grpc-js`, `@grpc/proto-loader` | 바이너리 프로토콜, 고성능 | 서비스 간 고속 통신, 다중 언어 환경 |
-| **NATS** | `Transport.NATS` | `nats` | 경량, 클라우드 네이티브 | 클라우드 환경, 경량 메시징 |
+| Transport    | enum 값           | 추가 패키지                           | 특징                          | 사용 사례                           |
+| ------------ | ----------------- | ------------------------------------- | ----------------------------- | ----------------------------------- |
+| **TCP**      | `Transport.TCP`   | 없음                                  | 가장 단순, 별도 인프라 불필요 | 학습용, 간단한 서비스 분리          |
+| **Redis**    | `Transport.REDIS` | `ioredis`                             | Pub/Sub 기반, 빠름            | 이벤트 브로드캐스트, 캐시 연동      |
+| **RabbitMQ** | `Transport.RMQ`   | `amqplib`, `amqp-connection-manager`  | 안정적 메시지 큐              | 주문 처리, 안정성이 중요한 작업     |
+| **Kafka**    | `Transport.KAFKA` | `kafkajs`                             | 대용량 스트리밍               | 로그 수집, 실시간 데이터 파이프라인 |
+| **gRPC**     | `Transport.GRPC`  | `@grpc/grpc-js`, `@grpc/proto-loader` | 바이너리 프로토콜, 고성능     | 서비스 간 고속 통신, 다중 언어 환경 |
+| **NATS**     | `Transport.NATS`  | `nats`                                | 경량, 클라우드 네이티브       | 클라우드 환경, 경량 메시징          |
 
 > **팁:** 이번 챕터에서는 **TCP**를 사용한다. 별도 인프라(Redis 서버, RabbitMQ 서버 등)를 설치할 필요가 없어서 학습에 가장 적합하다. 개념을 이해하면 Transport만 바꿔서 Redis나 RabbitMQ로 쉽게 전환할 수 있다.
 
@@ -206,7 +209,9 @@ export class NotificationController {
   // 'comment_created' 이벤트가 오면 실행된다
   @EventPattern('comment_created')
   handleCommentCreated(@Payload() data: { postId: number; author: string }) {
-    console.log(`새 댓글 알림: ${data.author}님이 게시글 ${data.postId}에 댓글을 남겼습니다`);
+    console.log(
+      `새 댓글 알림: ${data.author}님이 게시글 ${data.postId}에 댓글을 남겼습니다`
+    );
     // 반환값이 있어도 클라이언트에 전달되지 않는다
   }
 }
@@ -239,11 +244,11 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
   imports: [
     ClientsModule.register([
       {
-        name: 'MATH_SERVICE',       // 주입 토큰 이름
-        transport: Transport.TCP,    // Transport 종류
+        name: 'MATH_SERVICE', // 주입 토큰 이름
+        transport: Transport.TCP, // Transport 종류
         options: {
-          host: '127.0.0.1',        // 마이크로서비스 호스트
-          port: 3001,               // 마이크로서비스 포트
+          host: '127.0.0.1', // 마이크로서비스 호스트
+          port: 3001, // 마이크로서비스 포트
         },
       },
     ]),
@@ -265,14 +270,14 @@ import { firstValueFrom } from 'rxjs';
 @Controller()
 export class AppController {
   constructor(
-    @Inject('MATH_SERVICE') private readonly mathClient: ClientProxy,
+    @Inject('MATH_SERVICE') private readonly mathClient: ClientProxy
   ) {}
 
   @Get('sum')
   async getSum() {
     //          send(패턴, 데이터) → Observable 반환
     const result = await firstValueFrom(
-      this.mathClient.send<number>({ cmd: 'sum' }, [1, 2, 3, 4, 5]),
+      this.mathClient.send<number>({ cmd: 'sum' }, [1, 2, 3, 4, 5])
     );
     return { result }; // { result: 15 }
   }
@@ -292,7 +297,7 @@ import { ClientProxy } from '@nestjs/microservices';
 export class CommentController {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
   ) {}
 
   @Post()
@@ -413,7 +418,7 @@ async function bootstrap() {
     {
       transport: Transport.TCP,
       options: { host: '127.0.0.1', port: 3001 },
-    },
+    }
   );
   await app.listen();
   console.log('계산기 마이크로서비스 시작 (포트 3001)');
@@ -432,15 +437,13 @@ import { firstValueFrom } from 'rxjs';
 
 @Controller('calc')
 class CalcController {
-  constructor(
-    @Inject('CALC_SERVICE') private readonly client: ClientProxy,
-  ) {}
+  constructor(@Inject('CALC_SERVICE') private readonly client: ClientProxy) {}
 
   // GET /calc/add?a=10&b=20 → { result: 30 }
   @Get('add')
   async add(@Query('a') a: string, @Query('b') b: string) {
     const result = await firstValueFrom(
-      this.client.send<number>({ cmd: 'add' }, { a: +a, b: +b }),
+      this.client.send<number>({ cmd: 'add' }, { a: +a, b: +b })
     );
     return { result };
   }
@@ -449,7 +452,7 @@ class CalcController {
   @Get('multiply')
   async multiply(@Query('a') a: string, @Query('b') b: string) {
     const result = await firstValueFrom(
-      this.client.send<number>({ cmd: 'multiply' }, { a: +a, b: +b }),
+      this.client.send<number>({ cmd: 'multiply' }, { a: +a, b: +b })
     );
     return { result };
   }
@@ -504,7 +507,9 @@ export class LogController {
   // 이벤트를 수신만 한다. 응답을 반환하지 않는다.
   @EventPattern('user_login')
   handleUserLogin(@Payload() data: { userId: number; timestamp: string }) {
-    console.log(`[로그] 사용자 로그인 - ID: ${data.userId}, 시간: ${data.timestamp}`);
+    console.log(
+      `[로그] 사용자 로그인 - ID: ${data.userId}, 시간: ${data.timestamp}`
+    );
     // DB에 로그 저장 등의 처리
   }
 
@@ -519,9 +524,7 @@ export class LogController {
 // api-gateway 측에서 이벤트 발행
 @Controller('auth')
 export class AuthController {
-  constructor(
-    @Inject('LOG_SERVICE') private readonly logClient: ClientProxy,
-  ) {}
+  constructor(@Inject('LOG_SERVICE') private readonly logClient: ClientProxy) {}
 
   @Post('login')
   async login(@Body() body: { email: string; password: string }) {
@@ -540,6 +543,7 @@ export class AuthController {
 ```
 
 > **핵심 차이 정리:**
+>
 > - `send()` + [`@MessagePattern()`](references/decorators.md#messagepatternpattern) = "요청 → 응답" (데이터가 필요할 때)
 > - `emit()` + [`@EventPattern()`](references/decorators.md#eventpatternpattern) = "알림 → 끝" (처리만 하면 될 때)
 
@@ -587,9 +591,9 @@ import { Injectable } from '@nestjs/common';
 // 알림 데이터 타입
 export interface Notification {
   id: number;
-  type: string;           // 'comment_created', 'post_liked' 등
+  type: string; // 'comment_created', 'post_liked' 등
   message: string;
-  recipientId: number;    // 알림을 받을 사용자 ID
+  recipientId: number; // 알림을 받을 사용자 ID
   postId?: number;
   commentId?: number;
   isRead: boolean;
@@ -632,13 +636,15 @@ export class NotificationsService {
   // 읽지 않은 알림 개수
   countUnread(recipientId: number): number {
     return this.notifications.filter(
-      (n) => n.recipientId === recipientId && !n.isRead,
+      (n) => n.recipientId === recipientId && !n.isRead
     ).length;
   }
 
   // 알림 읽음 처리
   markAsRead(notificationId: number): Notification | null {
-    const notification = this.notifications.find((n) => n.id === notificationId);
+    const notification = this.notifications.find(
+      (n) => n.id === notificationId
+    );
     if (notification) {
       notification.isRead = true;
     }
@@ -674,7 +680,7 @@ export class NotificationsController {
       commentId: number;
       authorName: string;
       postAuthorId: number;
-    },
+    }
   ) {
     console.log('──────────────────────────────────────');
     console.log('[알림 서비스] 댓글 작성 이벤트 수신!');
@@ -700,9 +706,11 @@ export class NotificationsController {
       postTitle: string;
       likerName: string;
       postAuthorId: number;
-    },
+    }
   ) {
-    console.log(`[알림 서비스] 좋아요 이벤트: ${data.likerName}님이 "${data.postTitle}"에 좋아요`);
+    console.log(
+      `[알림 서비스] 좋아요 이벤트: ${data.likerName}님이 "${data.postTitle}"에 좋아요`
+    );
 
     this.notificationsService.create({
       type: 'post_liked',
@@ -718,7 +726,9 @@ export class NotificationsController {
 
   @MessagePattern({ cmd: 'get_notifications' })
   getNotifications(@Payload() data: { recipientId: number }) {
-    console.log(`[알림 서비스] 알림 목록 조회 요청 - 사용자 ID: ${data.recipientId}`);
+    console.log(
+      `[알림 서비스] 알림 목록 조회 요청 - 사용자 ID: ${data.recipientId}`
+    );
     return this.notificationsService.findByRecipient(data.recipientId);
   }
 
@@ -731,7 +741,9 @@ export class NotificationsController {
 
   @MessagePattern({ cmd: 'mark_as_read' })
   markAsRead(@Payload() data: { notificationId: number }) {
-    const notification = this.notificationsService.markAsRead(data.notificationId);
+    const notification = this.notificationsService.markAsRead(
+      data.notificationId
+    );
     return notification
       ? { success: true, notification }
       : { success: false, message: '알림을 찾을 수 없습니다' };
@@ -794,7 +806,7 @@ import { ClientProxy } from '@nestjs/microservices';
 export class CommentsService {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
     // ... 기존 의존성 (Repository 등)
   ) {}
 
@@ -802,7 +814,7 @@ export class CommentsService {
     postId: number,
     content: string,
     authorId: number,
-    authorName: string,
+    authorName: string
   ) {
     // 1. 댓글 저장 (기존 로직)
     const comment = {
@@ -825,7 +837,7 @@ export class CommentsService {
         postTitle: post.title,
         commentId: comment.id,
         authorName: authorName,
-        postAuthorId: post.authorId,  // 알림을 받을 사람
+        postAuthorId: post.authorId, // 알림을 받을 사람
       });
 
       console.log(`[Blog API] 알림 이벤트 발행 완료 → comment_created`);
@@ -842,7 +854,14 @@ export class CommentsService {
 
 ```typescript
 // src/notifications/notifications-http.controller.ts
-import { Controller, Get, Patch, Param, Inject, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Inject,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 
@@ -850,14 +869,17 @@ import { firstValueFrom } from 'rxjs';
 export class NotificationsHttpController {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
   ) {}
 
   // GET /notifications/user/1 → 사용자 1의 알림 목록
   @Get('user/:userId')
   async getNotifications(@Param('userId', ParseIntPipe) userId: number) {
     const notifications = await firstValueFrom(
-      this.notificationClient.send({ cmd: 'get_notifications' }, { recipientId: userId }),
+      this.notificationClient.send(
+        { cmd: 'get_notifications' },
+        { recipientId: userId }
+      )
     );
     return { data: notifications };
   }
@@ -866,7 +888,10 @@ export class NotificationsHttpController {
   @Get('user/:userId/unread-count')
   async getUnreadCount(@Param('userId', ParseIntPipe) userId: number) {
     return firstValueFrom(
-      this.notificationClient.send({ cmd: 'get_unread_count' }, { recipientId: userId }),
+      this.notificationClient.send(
+        { cmd: 'get_unread_count' },
+        { recipientId: userId }
+      )
     );
   }
 
@@ -874,7 +899,10 @@ export class NotificationsHttpController {
   @Patch(':id/read')
   async markAsRead(@Param('id', ParseIntPipe) id: number) {
     return firstValueFrom(
-      this.notificationClient.send({ cmd: 'mark_as_read' }, { notificationId: id }),
+      this.notificationClient.send(
+        { cmd: 'mark_as_read' },
+        { notificationId: id }
+      )
     );
   }
 }
@@ -945,7 +973,7 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-    }),
+    })
   );
 
   // 3. TCP 마이크로서비스 연결 추가 (알림 서비스)
@@ -1001,7 +1029,7 @@ async function bootstrap() {
         host: '127.0.0.1',
         port: 3001,
       },
-    },
+    }
   );
 
   await app.listen();
@@ -1125,7 +1153,9 @@ export class NotificationsController {
 
   @MessagePattern({ cmd: 'mark_as_read' })
   markAsRead(@Payload() data: { notificationId: number }) {
-    const notification = this.notificationsService.markAsRead(data.notificationId);
+    const notification = this.notificationsService.markAsRead(
+      data.notificationId
+    );
 
     if (!notification) {
       // RpcException으로 에러를 던져야 클라이언트가 올바르게 받을 수 있다
@@ -1159,7 +1189,12 @@ API Gateway(HTTP 서버)에서 마이크로서비스 에러를 받으면, 기본
 
 ```typescript
 // src/common/filters/rpc-exception.filter.ts
-import { Catch, ArgumentsHost, ExceptionFilter, HttpStatus } from '@nestjs/common';
+import {
+  Catch,
+  ArgumentsHost,
+  ExceptionFilter,
+  HttpStatus,
+} from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { Response } from 'express';
 import { throwError } from 'rxjs';
@@ -1210,11 +1245,17 @@ bootstrap();
 
 ```typescript
 // src/notifications/notifications-http.controller.ts
-import { Controller, Get, Param, ParseIntPipe, UseFilters } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  UseFilters,
+} from '@nestjs/common';
 import { RpcExceptionFilter } from '../common/filters/rpc-exception.filter';
 
 @Controller('notifications')
-@UseFilters(new RpcExceptionFilter())  // 이 컨트롤러에만 적용
+@UseFilters(new RpcExceptionFilter()) // 이 컨트롤러에만 적용
 export class NotificationsHttpController {
   // ...
 }
@@ -1227,8 +1268,14 @@ export class NotificationsHttpController {
 ```typescript
 // src/notifications/notifications-http.controller.ts
 import {
-  Controller, Get, Patch, Param, Inject, ParseIntPipe,
-  NotFoundException, BadRequestException,
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Inject,
+  ParseIntPipe,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
@@ -1237,14 +1284,17 @@ import { firstValueFrom } from 'rxjs';
 export class NotificationsHttpController {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
   ) {}
 
   @Patch(':id/read')
   async markAsRead(@Param('id', ParseIntPipe) id: number) {
     try {
       return await firstValueFrom(
-        this.notificationClient.send({ cmd: 'mark_as_read' }, { notificationId: id }),
+        this.notificationClient.send(
+          { cmd: 'mark_as_read' },
+          { notificationId: id }
+        )
       );
     } catch (error) {
       // RpcException에서 전달된 에러 객체를 HTTP 에러로 변환
@@ -1290,7 +1340,7 @@ import { firstValueFrom, retry } from 'rxjs';
 export class NotificationsHttpController {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
   ) {}
 
   @Get('user/:userId')
@@ -1299,8 +1349,8 @@ export class NotificationsHttpController {
       this.notificationClient
         .send({ cmd: 'get_notifications' }, { recipientId: userId })
         .pipe(
-          retry(3), // 실패 시 최대 3번 재시도
-        ),
+          retry(3) // 실패 시 최대 3번 재시도
+        )
     );
     return { data: notifications };
   }
@@ -1314,7 +1364,11 @@ export class NotificationsHttpController {
 ```typescript
 // src/notifications/notifications-http.controller.ts
 import {
-  Controller, Get, Param, ParseIntPipe, Inject,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Inject,
   InternalServerErrorException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
@@ -1331,7 +1385,7 @@ import {
 export class NotificationsHttpController {
   constructor(
     @Inject('NOTIFICATION_SERVICE')
-    private readonly notificationClient: ClientProxy,
+    private readonly notificationClient: ClientProxy
   ) {}
 
   @Get('user/:userId/unread-count')
@@ -1340,20 +1394,21 @@ export class NotificationsHttpController {
       this.notificationClient
         .send({ cmd: 'get_unread_count' }, { recipientId: userId })
         .pipe(
-          timeout(3000),  // 3초 안에 응답이 없으면 TimeoutError 발생
+          timeout(3000), // 3초 안에 응답이 없으면 TimeoutError 발생
           retry({
-            count: 2,       // 최대 2번 재시도
-            delay: 1000,    // 재시도 전 1초 대기 (RxJS 7.4+)
+            count: 2, // 최대 2번 재시도
+            delay: 1000, // 재시도 전 1초 대기 (RxJS 7.4+)
           }),
           catchError((err) => {
             if (err instanceof TimeoutError) {
               return throwError(
-                () => new InternalServerErrorException('알림 서비스 응답 시간 초과'),
+                () =>
+                  new InternalServerErrorException('알림 서비스 응답 시간 초과')
               );
             }
             return throwError(() => err);
-          }),
-        ),
+          })
+        )
     );
   }
 
@@ -1365,11 +1420,11 @@ export class NotificationsHttpController {
       catchError((err) => {
         if (err instanceof TimeoutError) {
           return throwError(
-            () => new InternalServerErrorException('서비스 응답 시간 초과'),
+            () => new InternalServerErrorException('서비스 응답 시간 초과')
           );
         }
         return throwError(() => err);
-      }),
+      })
     );
   }
 
@@ -1379,9 +1434,9 @@ export class NotificationsHttpController {
       this.withRetry(
         this.notificationClient.send(
           { cmd: 'get_notifications' },
-          { recipientId: userId },
-        ),
-      ),
+          { recipientId: userId }
+        )
+      )
     );
     return { data: notifications };
   }
@@ -1551,15 +1606,15 @@ nest start notification-service --watch
 
 ### 챕터별 학습 내용 되돌아보기
 
-| Phase | 챕터 | 배운 것 | 블로그 API에 적용한 것 |
-|-------|------|--------|----------------------|
-| **Phase 1** | Ch.1-3 | Module, Controller, Provider & DI | 도메인별 모듈 분리, CRUD 라우트, 서비스 분리 |
-| **Phase 2** | Ch.4-6 | Middleware, Pipe, Guard | 요청 로깅, DTO 검증, 인증 가드 |
-| **Phase 3** | Ch.7-9 | Interceptor, Exception Filter, Decorator | 응답 포맷 통일, 에러 처리, @CurrentUser |
-| **Phase 4** | Ch.10 | TypeORM | 메모리 배열 → 실제 DB 교체 |
-| **Phase 5** | Ch.11-13 | Config, Auth, Testing | 환경 변수, JWT 인증, 테스트 코드 |
-| **Phase 6** | Ch.14-15 | Swagger, WebSocket | API 문서화, 실시간 댓글 알림 |
-| **Phase 7** | Ch.16-17 | CQRS, Microservices | 아키텍처 패턴, 알림 서비스 분리 |
+| Phase       | 챕터     | 배운 것                                  | 블로그 API에 적용한 것                       |
+| ----------- | -------- | ---------------------------------------- | -------------------------------------------- |
+| **Phase 1** | Ch.1-3   | Module, Controller, Provider & DI        | 도메인별 모듈 분리, CRUD 라우트, 서비스 분리 |
+| **Phase 2** | Ch.4-6   | Middleware, Pipe, Guard                  | 요청 로깅, DTO 검증, 인증 가드               |
+| **Phase 3** | Ch.7-9   | Interceptor, Exception Filter, Decorator | 응답 포맷 통일, 에러 처리, @CurrentUser      |
+| **Phase 4** | Ch.10    | TypeORM                                  | 메모리 배열 → 실제 DB 교체                   |
+| **Phase 5** | Ch.11-13 | Config, Auth, Testing                    | 환경 변수, JWT 인증, 테스트 코드             |
+| **Phase 6** | Ch.14-15 | Swagger, WebSocket                       | API 문서화, 실시간 댓글 알림                 |
+| **Phase 7** | Ch.16-17 | CQRS, Microservices                      | 아키텍처 패턴, 알림 서비스 분리              |
 
 ---
 
@@ -1575,16 +1630,16 @@ NestJS 기본기를 마스터했으니, 다음 단계로 나아갈 수 있다.
 
 **실무 심화 주제:**
 
-| 주제 | 설명 | 추천 이유 |
-|------|------|----------|
-| **Docker & 배포** | Docker Compose로 멀티 서비스 구성 | 마이크로서비스를 실제로 분리 배포할 때 필수 |
-| **Redis 기반 마이크로서비스** | TCP → Redis Pub/Sub 전환 | 더 안정적이고 실무에서 많이 사용 |
-| **GraphQL** | `@nestjs/graphql` | REST 대안, 프론트엔드와 효율적 통신 |
-| **캐싱** | `@nestjs/cache-manager` | API 성능 향상 |
-| **Rate Limiting** | `@nestjs/throttler` | API 보안 강화 |
-| **Health Check** | `@nestjs/terminus` | 마이크로서비스 모니터링 |
-| **Task Scheduling** | `@nestjs/schedule` | Cron 작업, 배치 처리 |
-| **Event Sourcing** | CQRS + Event Store | 대규모 시스템 아키텍처 |
+| 주제                          | 설명                              | 추천 이유                                   |
+| ----------------------------- | --------------------------------- | ------------------------------------------- |
+| **Docker & 배포**             | Docker Compose로 멀티 서비스 구성 | 마이크로서비스를 실제로 분리 배포할 때 필수 |
+| **Redis 기반 마이크로서비스** | TCP → Redis Pub/Sub 전환          | 더 안정적이고 실무에서 많이 사용            |
+| **GraphQL**                   | `@nestjs/graphql`                 | REST 대안, 프론트엔드와 효율적 통신         |
+| **캐싱**                      | `@nestjs/cache-manager`           | API 성능 향상                               |
+| **Rate Limiting**             | `@nestjs/throttler`               | API 보안 강화                               |
+| **Health Check**              | `@nestjs/terminus`                | 마이크로서비스 모니터링                     |
+| **Task Scheduling**           | `@nestjs/schedule`                | Cron 작업, 배치 처리                        |
+| **Event Sourcing**            | CQRS + Event Store                | 대규모 시스템 아키텍처                      |
 
 **추천 학습 순서:**
 
@@ -1626,11 +1681,11 @@ src/
 
 ## 정리
 
-| 개념 | 핵심 |
-|------|------|
-| **마이크로서비스** | 애플리케이션을 독립 서비스로 분리하는 아키텍처 패턴 |
-| **Transport Layer** | 서비스 간 통신 방식. TCP(기본), Redis, Kafka, NATS 등 |
-| [`@MessagePattern`](references/decorators.md#messagepatternpattern) | 요청-응답 방식. 클라이언트가 결과를 기다림 |
-| [`@EventPattern`](references/decorators.md#eventpatternpattern) | 이벤트 기반 방식. 발행 후 결과를 기다리지 않음 |
-| **하이브리드 앱** | HTTP API + 마이크로서비스를 동시에 처리하는 앱 (`connectMicroservice`) |
-| **ClientProxy** | 마이크로서비스에 메시지/이벤트를 보내는 클라이언트 (`ClientsModule.register`) |
+| 개념                                                                | 핵심                                                                          |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **마이크로서비스**                                                  | 애플리케이션을 독립 서비스로 분리하는 아키텍처 패턴                           |
+| **Transport Layer**                                                 | 서비스 간 통신 방식. TCP(기본), Redis, Kafka, NATS 등                         |
+| [`@MessagePattern`](references/decorators.md#messagepatternpattern) | 요청-응답 방식. 클라이언트가 결과를 기다림                                    |
+| [`@EventPattern`](references/decorators.md#eventpatternpattern)     | 이벤트 기반 방식. 발행 후 결과를 기다리지 않음                                |
+| **하이브리드 앱**                                                   | HTTP API + 마이크로서비스를 동시에 처리하는 앱 (`connectMicroservice`)        |
+| **ClientProxy**                                                     | 마이크로서비스에 메시지/이벤트를 보내는 클라이언트 (`ClientsModule.register`) |

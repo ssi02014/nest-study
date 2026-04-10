@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 10에서 TypeORM으로 SQLite DB를 연동하고, User/Post/Comment Entity를 정의하여 메모리 배열 대신 실제 DB에 데이터를 저장하게 했다. 이번 챕터에서는 DB 연결 정보 등 **하드코딩된 설정값을 환경 변수로 분리**한다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [왜 환경 변수가 필요한가?](#1-왜-환경-변수가-필요한가)
 2. [@nestjs/config 패키지](#2-nestjsconfig-패키지)
 3. [.env 파일](#3-env-파일)
@@ -15,11 +15,13 @@
 7. [환경 변수 유효성 검사](#7-환경-변수-유효성-검사)
 
 ### 2단계: 기본 예제
+
 8. [.env + ConfigModule 기본 사용](#8-env--configmodule-기본-사용)
 9. [ConfigService.get() 예제](#9-configserviceget-예제)
 10. [registerAs 네임스페이스 예제](#10-registeras-네임스페이스-예제)
 
 ### 3단계: 블로그 API 적용
+
 11. [@nestjs/config 설치](#11-nestjsconfig-설치)
 12. [.env 파일 생성](#12-env-파일-생성)
 13. [.env.example 작성과 .gitignore 설정](#13-envexample-작성과-gitignore-설정)
@@ -33,6 +35,7 @@
 21. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 22. [정리](#정리)
 23. [다음 챕터 예고](#다음-챕터-예고)
 
@@ -62,12 +65,12 @@ TypeOrmModule.forRoot({
 
 ### 하드코딩의 위험성
 
-| 문제 | 설명 |
-|------|------|
-| **보안 위험** | JWT 비밀 키, DB 비밀번호 같은 민감한 정보가 소스 코드에 노출된다. Git에 커밋하면 누구나 볼 수 있다 |
-| **환경 분리 불가** | 개발 환경에서는 SQLite, 운영 환경에서는 PostgreSQL을 쓰고 싶어도 코드를 매번 수정해야 한다 |
-| **유지보수 어려움** | 설정값이 여러 파일에 흩어져 있으면 변경할 때 일일이 찾아 수정해야 한다 |
-| **배포 위험** | 개발용 설정이 운영에 그대로 올라가는 사고가 발생할 수 있다 |
+| 문제                | 설명                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| **보안 위험**       | JWT 비밀 키, DB 비밀번호 같은 민감한 정보가 소스 코드에 노출된다. Git에 커밋하면 누구나 볼 수 있다 |
+| **환경 분리 불가**  | 개발 환경에서는 SQLite, 운영 환경에서는 PostgreSQL을 쓰고 싶어도 코드를 매번 수정해야 한다         |
+| **유지보수 어려움** | 설정값이 여러 파일에 흩어져 있으면 변경할 때 일일이 찾아 수정해야 한다                             |
+| **배포 위험**       | 개발용 설정이 운영에 그대로 올라가는 사고가 발생할 수 있다                                         |
 
 ### 해결책: 환경 변수
 
@@ -146,9 +149,9 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,        // 모든 모듈에서 ConfigService를 바로 주입받을 수 있다
-      envFilePath: '.env',   // 읽을 .env 파일 경로 (기본값이 '.env'이므로 생략 가능)
-      cache: true,           // 환경 변수 접근을 캐시하여 성능을 높인다
+      isGlobal: true, // 모든 모듈에서 ConfigService를 바로 주입받을 수 있다
+      envFilePath: '.env', // 읽을 .env 파일 경로 (기본값이 '.env'이므로 생략 가능)
+      cache: true, // 환경 변수 접근을 캐시하여 성능을 높인다
     }),
   ],
 })
@@ -157,15 +160,15 @@ export class AppModule {}
 
 ### 주요 옵션 정리
 
-| 옵션 | 타입 | 기본값 | 설명 |
-|------|------|--------|------|
-| `isGlobal` | `boolean` | `false` | `true`면 다른 모듈에서 `ConfigModule`을 import하지 않아도 `ConfigService`를 주입받을 수 있다 |
-| `envFilePath` | `string \| string[]` | `'.env'` | `.env` 파일 경로. 배열로 여러 파일을 지정하면 앞의 파일이 우선순위가 높다 |
-| `ignoreEnvFile` | `boolean` | `false` | `true`면 `.env` 파일을 읽지 않는다. 운영 환경에서 시스템 환경 변수만 사용할 때 유용하다 |
-| `expandVariables` | `boolean` | `false` | `.env`에서 `${VAR}` 형식으로 다른 변수를 참조할 수 있다 |
-| `cache` | `boolean` | `false` | `ConfigService.get()` 결과를 메모리에 캐시한다 |
-| `load` | `Function[]` | `[]` | `registerAs()`로 만든 커스텀 설정 팩토리 함수 배열 |
-| `validationSchema` | `object` | - | Joi 스키마로 환경 변수를 시작 시점에 검증한다 |
+| 옵션               | 타입                 | 기본값   | 설명                                                                                         |
+| ------------------ | -------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `isGlobal`         | `boolean`            | `false`  | `true`면 다른 모듈에서 `ConfigModule`을 import하지 않아도 `ConfigService`를 주입받을 수 있다 |
+| `envFilePath`      | `string \| string[]` | `'.env'` | `.env` 파일 경로. 배열로 여러 파일을 지정하면 앞의 파일이 우선순위가 높다                    |
+| `ignoreEnvFile`    | `boolean`            | `false`  | `true`면 `.env` 파일을 읽지 않는다. 운영 환경에서 시스템 환경 변수만 사용할 때 유용하다      |
+| `expandVariables`  | `boolean`            | `false`  | `.env`에서 `${VAR}` 형식으로 다른 변수를 참조할 수 있다                                      |
+| `cache`            | `boolean`            | `false`  | `ConfigService.get()` 결과를 메모리에 캐시한다                                               |
+| `load`             | `Function[]`         | `[]`     | `registerAs()`로 만든 커스텀 설정 팩토리 함수 배열                                           |
+| `validationSchema` | `object`             | -        | Joi 스키마로 환경 변수를 시작 시점에 검증한다                                                |
 
 > **팁:** `isGlobal: true`는 거의 항상 사용한다. 이 옵션이 없으면 `ConfigService`가 필요한 모든 모듈에서 `ConfigModule`을 일일이 import해야 한다.
 
@@ -177,11 +180,11 @@ export class AppModule {}
 
 ### 핵심 메서드
 
-| 메서드 | 값이 없을 때 | 용도 |
-|--------|-------------|------|
-| `get<T>(key)` | `undefined` 반환 | 선택적인 설정, 기본값과 함께 사용 |
-| `get<T>(key, defaultValue)` | `defaultValue` 반환 | 기본값을 명시적으로 지정할 때 |
-| `getOrThrow<T>(key)` | 예외 발생 | 반드시 존재해야 하는 설정 (DB 정보, JWT 비밀 키 등) |
+| 메서드                      | 값이 없을 때        | 용도                                                |
+| --------------------------- | ------------------- | --------------------------------------------------- |
+| `get<T>(key)`               | `undefined` 반환    | 선택적인 설정, 기본값과 함께 사용                   |
+| `get<T>(key, defaultValue)` | `defaultValue` 반환 | 기본값을 명시적으로 지정할 때                       |
+| `getOrThrow<T>(key)`        | 예외 발생           | 반드시 존재해야 하는 설정 (DB 정보, JWT 비밀 키 등) |
 
 ```typescript
 // 예시: 서비스에서 환경 변수 읽기
@@ -245,7 +248,7 @@ import databaseConfig from '../config/database.config';
 export class SomeService {
   constructor(
     @Inject(databaseConfig.KEY)
-    private readonly dbConfig: ConfigType<typeof databaseConfig>,
+    private readonly dbConfig: ConfigType<typeof databaseConfig>
   ) {}
 
   example() {
@@ -599,9 +602,9 @@ TypeOrmModule.forRootAsync({
 
 ### forRoot vs forRootAsync
 
-| 메서드 | 설명 |
-|--------|------|
-| `forRoot(옵션)` | 옵션을 즉시 전달한다. 정적인 값만 사용 가능하다 |
+| 메서드               | 설명                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `forRoot(옵션)`      | 옵션을 즉시 전달한다. 정적인 값만 사용 가능하다                                                                     |
 | `forRootAsync(옵션)` | 다른 서비스(ConfigService 등)를 주입받아 비동기로 옵션을 만든다. **환경 변수를 사용할 때는 반드시 이것을 사용한다** |
 
 `forRootAsync`의 구조를 분해해 보자.
@@ -649,14 +652,14 @@ export const envValidationSchema = Joi.object({
 
 ### Joi 메서드 정리
 
-| 메서드 | 의미 |
-|--------|------|
-| `Joi.string()` | 문자열 타입이어야 한다 |
-| `Joi.number()` | 숫자 타입이어야 한다 |
-| `.required()` | 반드시 존재해야 한다 (없으면 시작 실패) |
-| `.default(값)` | 없으면 이 값을 기본값으로 사용한다 |
-| `.min(n)` | 문자열은 최소 n자, 숫자는 최소값 n |
-| `.valid('a', 'b')` | 지정한 값 중 하나여야 한다 |
+| 메서드             | 의미                                    |
+| ------------------ | --------------------------------------- |
+| `Joi.string()`     | 문자열 타입이어야 한다                  |
+| `Joi.number()`     | 숫자 타입이어야 한다                    |
+| `.required()`      | 반드시 존재해야 한다 (없으면 시작 실패) |
+| `.default(값)`     | 없으면 이 값을 기본값으로 사용한다      |
+| `.min(n)`          | 문자열은 최소 n자, 숫자는 최소값 n      |
+| `.valid('a', 'b')` | 지정한 값 중 하나여야 한다              |
 
 > **팁:** `abortEarly` 옵션을 `false`로 설정하면 모든 유효성 검사 에러를 한 번에 볼 수 있다. 기본값은 `true`(첫 번째 에러에서 중단)이다. `ConfigModule.forRoot()`의 `validationOptions`에서 설정한다.
 
@@ -738,13 +741,13 @@ export class AppModule {}
 
 ### 달라진 점 정리
 
-| 항목 | 변경 전 (챕터 10) | 변경 후 (챕터 11) |
-|------|-------------------|-------------------|
-| DB 경로 | `'./blog.sqlite'` 하드코딩 | `.env`의 `DATABASE_PATH`에서 읽음 |
-| synchronize | `true` 하드코딩 | `NODE_ENV`에 따라 자동 결정 |
-| JWT 비밀 키 | (아직 없음) | `.env`의 `JWT_SECRET`에서 읽음 |
-| 포트 번호 | `3000` 하드코딩 | `.env`의 `PORT`에서 읽음 |
-| 유효성 검사 | 없음 | Joi로 시작 시 검증 |
+| 항목        | 변경 전 (챕터 10)          | 변경 후 (챕터 11)                 |
+| ----------- | -------------------------- | --------------------------------- |
+| DB 경로     | `'./blog.sqlite'` 하드코딩 | `.env`의 `DATABASE_PATH`에서 읽음 |
+| synchronize | `true` 하드코딩            | `NODE_ENV`에 따라 자동 결정       |
+| JWT 비밀 키 | (아직 없음)                | `.env`의 `JWT_SECRET`에서 읽음    |
+| 포트 번호   | `3000` 하드코딩            | `.env`의 `PORT`에서 읽음          |
+| 유효성 검사 | 없음                       | Joi로 시작 시 검증                |
 
 ---
 
@@ -754,12 +757,12 @@ export class AppModule {}
 
 ### 환경별 .env 파일 역할
 
-| 파일 | 역할 |
-|------|------|
-| `.env` | 로컬 개발 기본값. `NODE_ENV`가 명시되지 않을 때 fallback으로 사용된다 |
-| `.env.development` | 개발 서버 전용 설정 (로컬 DB 경로, 디버그 모드 등) |
-| `.env.production` | 운영 서버 전용 설정 (실제 DB 접속 정보, 강화된 보안 값 등) |
-| `.env.test` | 테스트 실행 전용 설정 (인메모리 DB, 짧은 토큰 만료 시간 등) |
+| 파일               | 역할                                                                  |
+| ------------------ | --------------------------------------------------------------------- |
+| `.env`             | 로컬 개발 기본값. `NODE_ENV`가 명시되지 않을 때 fallback으로 사용된다 |
+| `.env.development` | 개발 서버 전용 설정 (로컬 DB 경로, 디버그 모드 등)                    |
+| `.env.production`  | 운영 서버 전용 설정 (실제 DB 접속 정보, 강화된 보안 값 등)            |
+| `.env.test`        | 테스트 실행 전용 설정 (인메모리 DB, 짧은 토큰 만료 시간 등)           |
 
 ### NODE_ENV에 따라 파일을 자동으로 선택하기
 
@@ -847,12 +850,12 @@ JWT_ACCESS_EXPIRATION=1h
 })
 ```
 
-| 민감 정보 예시 | 올바른 관리 방법 |
-|----------------|-----------------|
-| DB 비밀번호 | `.env`에 저장, `ConfigService`로 읽기 |
-| JWT 시크릿 키 | `.env`에 저장, 충분한 길이(32자 이상) 권장 |
-| API 키 / 토큰 | `.env`에 저장, `.gitignore`로 제외 |
-| OAuth 클라이언트 시크릿 | `.env`에 저장 또는 시크릿 매니저 사용 |
+| 민감 정보 예시          | 올바른 관리 방법                           |
+| ----------------------- | ------------------------------------------ |
+| DB 비밀번호             | `.env`에 저장, `ConfigService`로 읽기      |
+| JWT 시크릿 키           | `.env`에 저장, 충분한 길이(32자 이상) 권장 |
+| API 키 / 토큰           | `.env`에 저장, `.gitignore`로 제외         |
+| OAuth 클라이언트 시크릿 | `.env`에 저장 또는 시크릿 매니저 사용      |
 
 ### 프로덕션 환경 권고 사항
 
@@ -895,21 +898,21 @@ JWT_ACCESS_EXPIRATION=1h
 
 ## 정리
 
-| 개념 | 핵심 포인트 |
-|------|------------|
-| 환경 변수의 필요성 | 하드코딩은 보안, 유연성, 유지보수 측면에서 위험하다 |
-| `@nestjs/config` | `.env` 파일을 읽어 `ConfigService`로 안전하게 접근하게 해주는 공식 패키지 |
-| `ConfigModule.forRoot()` | `isGlobal: true`로 전역 설정, `load`로 네임스페이스 등록, `validationSchema`로 검증 |
-| `ConfigService` | `get()`, `getOrThrow()`로 환경 변수를 읽는다. `main.ts`에서는 `app.get(ConfigService)`로 사용 |
-| `registerAs()` | 관련 설정을 네임스페이스로 묶는다. [`@Inject(config.KEY)`](references/decorators.md#injecttoken) + `ConfigType`으로 타입 안전하게 접근 |
-| `.env` + `.env.example` | `.env`는 Git에서 제외, `.env.example`은 커밋하여 팀원에게 필요한 변수 목록을 알린다 |
-| Joi 유효성 검사 | 필수 환경 변수가 빠졌을 때 시작 시점에 즉시 실패하도록 한다 |
-| `forRootAsync()` | TypeORM 등 외부 모듈 설정에 ConfigService를 주입하기 위해 사용한다 |
+| 개념                     | 핵심 포인트                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 환경 변수의 필요성       | 하드코딩은 보안, 유연성, 유지보수 측면에서 위험하다                                                                                    |
+| `@nestjs/config`         | `.env` 파일을 읽어 `ConfigService`로 안전하게 접근하게 해주는 공식 패키지                                                              |
+| `ConfigModule.forRoot()` | `isGlobal: true`로 전역 설정, `load`로 네임스페이스 등록, `validationSchema`로 검증                                                    |
+| `ConfigService`          | `get()`, `getOrThrow()`로 환경 변수를 읽는다. `main.ts`에서는 `app.get(ConfigService)`로 사용                                          |
+| `registerAs()`           | 관련 설정을 네임스페이스로 묶는다. [`@Inject(config.KEY)`](references/decorators.md#injecttoken) + `ConfigType`으로 타입 안전하게 접근 |
+| `.env` + `.env.example`  | `.env`는 Git에서 제외, `.env.example`은 커밋하여 팀원에게 필요한 변수 목록을 알린다                                                    |
+| Joi 유효성 검사          | 필수 환경 변수가 빠졌을 때 시작 시점에 즉시 실패하도록 한다                                                                            |
+| `forRootAsync()`         | TypeORM 등 외부 모듈 설정에 ConfigService를 주입하기 위해 사용한다                                                                     |
 
 > **다음 챕터 예고**: 챕터 12에서는 이 챕터에서 설정한 `JWT_SECRET`과 `JWT_ACCESS_EXPIRATION`을 활용하여 JWT 기반 인증(Authentication)을 구현한다.
+
 ---
 
 ## 다음 챕터 예고
 
 챕터 12에서는 **Authentication(인증)**을 학습한다. 챕터 6의 SimpleAuthGuard를 JWT 기반 인증으로 교체한다. 회원가입/로그인/토큰 갱신/로그아웃 엔드포인트를 만들고, Refresh Token을 DB에 안전하게 저장하는 방법도 배운다.
-

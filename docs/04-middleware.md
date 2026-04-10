@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 3에서 Service를 만들고 DI로 Controller에 주입하여, 메모리 기반의 블로그 CRUD API를 완성했다. 이번 챕터에서는 **Middleware**를 추가하여 모든 요청을 로깅한다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [Middleware란 무엇인가](#1-middleware란-무엇인가)
 2. [NestJS 요청 라이프사이클에서 미들웨어의 위치](#2-nestjs-요청-라이프사이클에서-미들웨어의-위치)
 3. [클래스 미들웨어 (NestMiddleware)](#3-클래스-미들웨어-nestmiddleware)
@@ -17,15 +17,18 @@
 9. [서드파티 Express 미들웨어 사용하기](#9-서드파티-express-미들웨어-사용하기)
 
 ### 2단계: 기본 예제
+
 10. [기본 예제](#10-기본-예제)
 
 ### 3단계: 블로그 API 적용
+
 11. [블로그 API에 적용하기](#11-블로그-api에-적용하기)
 12. [CORS 설정](#12-cors-설정)
 13. [에러 발생 시 미들웨어 동작](#13-에러-발생-시-미들웨어-동작)
 14. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 15. [정리](#정리)
 16. [다음 챕터 예고](#다음-챕터-예고)
 
@@ -122,11 +125,11 @@ export class LoggerMiddleware implements NestMiddleware {
 
 **핵심 포인트:**
 
-| 요소 | 설명 |
-|------|------|
+| 요소                                                          | 설명                                                            |
+| ------------------------------------------------------------- | --------------------------------------------------------------- |
 | [`@Injectable()`](references/decorators.md#injectableoptions) | NestJS의 DI 컨테이너에 등록한다. 다른 서비스를 주입받을 수 있다 |
-| `NestMiddleware` | `use()` 메서드를 반드시 구현해야 하는 인터페이스 |
-| `use(req, res, next)` | 실제 미들웨어 로직을 작성하는 메서드 |
+| `NestMiddleware`                                              | `use()` 메서드를 반드시 구현해야 하는 인터페이스                |
+| `use(req, res, next)`                                         | 실제 미들웨어 로직을 작성하는 메서드                            |
 
 ### 클래스 미들웨어의 가장 큰 장점: 의존성 주입(DI)
 
@@ -166,7 +169,7 @@ import { Request, Response, NextFunction } from 'express';
 export function simpleLoggerMiddleware(
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -177,13 +180,13 @@ export function simpleLoggerMiddleware(
 
 ### 클래스 vs 함수형 미들웨어 비교
 
-| 구분 | 클래스 미들웨어 | 함수형 미들웨어 |
-|------|----------------|----------------|
-| DI 지원 | O (다른 서비스 주입 가능) | X |
-| 코드량 | 상대적으로 많음 | 간결함 |
-| 사용 시점 | 서비스 주입이 필요할 때 | 단순 로직일 때 |
-| NestJS 권장 | 복잡한 미들웨어 | **단순 미들웨어에 권장** |
-| 글로벌 적용 | `forRoutes('*')` 필요 | `app.use()` 사용 가능 |
+| 구분        | 클래스 미들웨어           | 함수형 미들웨어          |
+| ----------- | ------------------------- | ------------------------ |
+| DI 지원     | O (다른 서비스 주입 가능) | X                        |
+| 코드량      | 상대적으로 많음           | 간결함                   |
+| 사용 시점   | 서비스 주입이 필요할 때   | 단순 로직일 때           |
+| NestJS 권장 | 복잡한 미들웨어           | **단순 미들웨어에 권장** |
+| 글로벌 적용 | `forRoutes('*')` 필요     | `app.use()` 사용 가능    |
 
 > **팁:** "이 미들웨어가 다른 서비스(ConfigService, Logger 등)를 주입받아야 하나?" 라고 자문해보자. "아니오"라면 함수형이 적합하다.
 
@@ -205,8 +208,8 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(LoggerMiddleware)       // 어떤 미들웨어를 적용할지
-      .forRoutes('posts');           // 어떤 경로에 적용할지
+      .apply(LoggerMiddleware) // 어떤 미들웨어를 적용할지
+      .forRoutes('posts'); // 어떤 경로에 적용할지
   }
 }
 ```
@@ -219,11 +222,11 @@ export class AppModule implements NestModule {
 
 `MiddlewareConsumer`는 미들웨어를 관리하기 위한 헬퍼 클래스로, 다음 메서드를 체이닝할 수 있다:
 
-| 메서드 | 역할 |
-|--------|------|
-| `apply()` | 적용할 미들웨어를 지정 |
+| 메서드        | 역할                            |
+| ------------- | ------------------------------- |
+| `apply()`     | 적용할 미들웨어를 지정          |
 | `forRoutes()` | 미들웨어를 적용할 라우트를 지정 |
-| `exclude()` | 특정 라우트를 제외 |
+| `exclude()`   | 특정 라우트를 제외              |
 
 ---
 
@@ -241,9 +244,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 @Module({})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(LoggerMiddleware)
-      .forRoutes('posts'); // '/posts' 경로의 모든 메서드에 적용
+    consumer.apply(LoggerMiddleware).forRoutes('posts'); // '/posts' 경로의 모든 메서드에 적용
   }
 }
 ```
@@ -269,7 +270,7 @@ export class AppModule implements NestModule {
       .apply(LoggerMiddleware)
       .forRoutes(
         { path: 'posts', method: RequestMethod.GET },
-        { path: 'posts', method: RequestMethod.POST },
+        { path: 'posts', method: RequestMethod.POST }
       );
     // GET /posts, POST /posts 에만 미들웨어가 동작한다
     // PATCH /posts/:id, DELETE /posts/:id 에는 동작하지 않는다
@@ -290,9 +291,7 @@ import { PostsController } from './posts/posts.controller';
 @Module({})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(LoggerMiddleware)
-      .forRoutes(PostsController); // PostsController의 모든 라우트에 적용
+    consumer.apply(LoggerMiddleware).forRoutes(PostsController); // PostsController의 모든 라우트에 적용
   }
 }
 ```
@@ -319,8 +318,8 @@ export class AppModule implements NestModule {
     consumer
       .apply(LoggerMiddleware)
       .exclude(
-        'posts/health',                                        // 문자열: 모든 메서드 제외
-        { path: 'posts/(:id)', method: RequestMethod.GET },   // 객체: 특정 메서드만 제외
+        'posts/health', // 문자열: 모든 메서드 제외
+        { path: 'posts/(:id)', method: RequestMethod.GET } // 객체: 특정 메서드만 제외
       )
       .forRoutes('posts');
   }
@@ -367,7 +366,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-### 방법 2: AppModule에서 forRoutes('*') (클래스 미들웨어도 가능)
+### 방법 2: AppModule에서 forRoutes('\*') (클래스 미들웨어도 가능)
 
 클래스 미들웨어를 전역으로 적용하고 싶다면, `AppModule`의 `configure()` 메서드에서 `forRoutes('*')`를 사용한다.
 
@@ -379,9 +378,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 @Module({})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(LoggerMiddleware)
-      .forRoutes('*'); // 모든 라우트에 적용 (DI도 사용 가능!)
+    consumer.apply(LoggerMiddleware).forRoutes('*'); // 모든 라우트에 적용 (DI도 사용 가능!)
   }
 }
 ```
@@ -405,9 +402,7 @@ import { PostsController } from './posts/posts.controller';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 여러 미들웨어를 순서대로 적용
-    consumer
-      .apply(LoggerMiddleware, AuthMiddleware)
-      .forRoutes(PostsController);
+    consumer.apply(LoggerMiddleware, AuthMiddleware).forRoutes(PostsController);
   }
 }
 ```
@@ -431,14 +426,10 @@ import { PostsController } from './posts/posts.controller';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // 1. 로깅 미들웨어: 모든 라우트에 적용
-    consumer
-      .apply(LoggerMiddleware)
-      .forRoutes('*');
+    consumer.apply(LoggerMiddleware).forRoutes('*');
 
     // 2. 인증 미들웨어: PostsController에만 적용
-    consumer
-      .apply(AuthMiddleware)
-      .forRoutes(PostsController);
+    consumer.apply(AuthMiddleware).forRoutes(PostsController);
   }
 }
 ```
@@ -485,7 +476,7 @@ import * as morgan from 'morgan';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(morgan('dev'))  // Express 미들웨어 함수를 바로 전달
+      .apply(morgan('dev')) // Express 미들웨어 함수를 바로 전달
       .forRoutes('*');
   }
 }
@@ -503,7 +494,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
-      .apply(morgan('dev'), LoggerMiddleware)  // 서드파티와 클래스 미들웨어 혼합 가능
+      .apply(morgan('dev'), LoggerMiddleware) // 서드파티와 클래스 미들웨어 혼합 가능
       .forRoutes('*');
   }
 }
@@ -571,7 +562,7 @@ import { Request, Response, NextFunction } from 'express';
 export function simpleLoggerMiddleware(
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
@@ -605,7 +596,7 @@ import { Request, Response, NextFunction } from 'express';
 export function writeLogMiddleware(
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) {
   console.log(`[WRITE] ${req.method} ${req.originalUrl} - 데이터 변경 요청`);
   next();
@@ -627,13 +618,11 @@ import { writeLogMiddleware } from './common/middleware/write-log.middleware';
 @Module({})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(writeLogMiddleware)
-      .forRoutes(
-        { path: 'posts', method: RequestMethod.POST },      // 게시글 작성
-        { path: 'posts/:id', method: RequestMethod.PATCH },  // 게시글 수정
-        { path: 'posts/:id', method: RequestMethod.DELETE },  // 게시글 삭제
-      );
+    consumer.apply(writeLogMiddleware).forRoutes(
+      { path: 'posts', method: RequestMethod.POST }, // 게시글 작성
+      { path: 'posts/:id', method: RequestMethod.PATCH }, // 게시글 수정
+      { path: 'posts/:id', method: RequestMethod.DELETE } // 게시글 삭제
+    );
     // GET /posts, GET /posts/:id 에는 적용되지 않는다
   }
 }
@@ -671,9 +660,7 @@ export class LoggerMiddleware implements NestMiddleware {
       const duration = Date.now() - start;
       const { statusCode } = res;
 
-      this.logger.log(
-        `${method} ${originalUrl} ${statusCode} - ${duration}ms`,
-      );
+      this.logger.log(`${method} ${originalUrl} ${statusCode} - ${duration}ms`);
     });
 
     next();
@@ -708,9 +695,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // LoggerMiddleware를 모든 라우트에 적용
-    consumer
-      .apply(LoggerMiddleware)
-      .forRoutes('*');
+    consumer.apply(LoggerMiddleware).forRoutes('*');
   }
 }
 ```
@@ -791,8 +776,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: 'http://localhost:3001',   // 허용할 프론트엔드 출처
-    credentials: true,                  // 쿠키/인증 헤더 전송 허용
+    origin: 'http://localhost:3001', // 허용할 프론트엔드 출처
+    credentials: true, // 쿠키/인증 헤더 전송 허용
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
@@ -817,9 +802,7 @@ async function bootstrap() {
 
   app.enableCors({
     // 개발: 로컬 프론트엔드 허용 / 운영: 실제 도메인만 허용
-    origin: isProduction
-      ? 'https://my-blog.com'
-      : 'http://localhost:3001',
+    origin: isProduction ? 'https://my-blog.com' : 'http://localhost:3001',
     credentials: true,
   });
 
@@ -866,7 +849,11 @@ NestJS에서 권장하는 방법으로, `HttpException` 또는 그 하위 클래
 
 ```typescript
 // src/common/middleware/auth-check.middleware.ts
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 @Injectable()
@@ -907,18 +894,18 @@ src/
 
 ## 정리
 
-| 개념 | 설명 |
-|------|------|
-| **Middleware** | 라우트 핸들러 전에 실행되는 함수. Express 미들웨어와 동일 |
-| **라이프사이클 위치** | 요청 파이프라인에서 가장 먼저 실행됨 (Guard, Pipe보다 앞) |
-| **클래스 미들웨어** | [`@Injectable()`](references/decorators.md#injectableoptions) + `NestMiddleware` 구현. DI 가능 |
-| **함수형 미들웨어** | 단순 함수. DI 불가. 단순 로직에 권장 |
-| **적용 방법** | `NestModule`의 `configure()` 메서드에서 `consumer.apply().forRoutes()` |
-| **forRoutes()** | 문자열 경로, `{ path, method }` 객체, 컨트롤러 클래스로 지정 가능 |
-| **exclude()** | 문자열 또는 `{ path, method }` 객체로 특정 라우트를 미들웨어 적용에서 제외 |
-| **글로벌 적용** | `app.use()` (함수형만) 또는 `forRoutes('*')` (클래스도 가능) |
-| **체이닝** | `apply(A, B, C)` 순서로 실행됨 |
-| **서드파티 미들웨어** | `apply()` 또는 `app.use()`에 Express 미들웨어 패키지를 직접 전달 가능 |
+| 개념                  | 설명                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| **Middleware**        | 라우트 핸들러 전에 실행되는 함수. Express 미들웨어와 동일                                      |
+| **라이프사이클 위치** | 요청 파이프라인에서 가장 먼저 실행됨 (Guard, Pipe보다 앞)                                      |
+| **클래스 미들웨어**   | [`@Injectable()`](references/decorators.md#injectableoptions) + `NestMiddleware` 구현. DI 가능 |
+| **함수형 미들웨어**   | 단순 함수. DI 불가. 단순 로직에 권장                                                           |
+| **적용 방법**         | `NestModule`의 `configure()` 메서드에서 `consumer.apply().forRoutes()`                         |
+| **forRoutes()**       | 문자열 경로, `{ path, method }` 객체, 컨트롤러 클래스로 지정 가능                              |
+| **exclude()**         | 문자열 또는 `{ path, method }` 객체로 특정 라우트를 미들웨어 적용에서 제외                     |
+| **글로벌 적용**       | `app.use()` (함수형만) 또는 `forRoutes('*')` (클래스도 가능)                                   |
+| **체이닝**            | `apply(A, B, C)` 순서로 실행됨                                                                 |
+| **서드파티 미들웨어** | `apply()` 또는 `app.use()`에 Express 미들웨어 패키지를 직접 전달 가능                          |
 
 ---
 

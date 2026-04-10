@@ -2,11 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 1에서 블로그 API의 모듈 구조(UsersModule, PostsModule, CommentsModule, CommonModule)를 설계하고 뼈대를 만들었다. 이번 챕터에서는 각 모듈에 **Controller**를 추가하여 HTTP 요청을 받는 라우트를 정의한다.
 
-
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [Controller란 무엇인가](#1-controller란-무엇인가)
 2. [@Controller() 데코레이터와 라우트 접두사](#2-controller-데코레이터와-라우트-접두사)
 3. [HTTP 메서드 데코레이터](#3-http-메서드-데코레이터)
@@ -16,10 +15,12 @@
 7. [비동기 처리](#7-비동기-처리)
 
 ### 2단계: 기본 예제
+
 8. [CatsController CRUD 예제](#8-catscontroller-crud-예제)
 9. [curl로 API 테스트하기](#9-curl로-api-테스트하기)
 
 ### 3단계: 블로그 API 적용
+
 10. [UsersController](#10-userscontroller)
 11. [PostsController](#11-postscontroller)
 12. [CommentsController](#12-commentscontroller)
@@ -27,6 +28,7 @@
 14. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 15. [정리](#정리)
 16. [다음 챕터 예고](#다음-챕터-예고)
 
@@ -95,11 +97,11 @@ export class CatsController {
 
 접두사를 사용하면 관련된 라우트를 하나의 컨트롤러 안에 깔끔하게 그룹화할 수 있다.
 
-| 데코레이터 조합 | 실제 매핑되는 경로 |
-|---|---|
-| [`@Controller('cats')`](references/decorators.md#controllerprefix) + [`@Get()`](references/decorators.md#http-메서드-데코레이터) | `GET /cats` |
-| [`@Controller('cats')`](references/decorators.md#controllerprefix) + [`@Get('breed')`](references/decorators.md#http-메서드-데코레이터) | `GET /cats/breed` |
-| [`@Controller()`](references/decorators.md#controllerprefix) + [`@Get('cats')`](references/decorators.md#http-메서드-데코레이터) | `GET /cats` |
+| 데코레이터 조합                                                                                                                         | 실제 매핑되는 경로 |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| [`@Controller('cats')`](references/decorators.md#controllerprefix) + [`@Get()`](references/decorators.md#http-메서드-데코레이터)        | `GET /cats`        |
+| [`@Controller('cats')`](references/decorators.md#controllerprefix) + [`@Get('breed')`](references/decorators.md#http-메서드-데코레이터) | `GET /cats/breed`  |
+| [`@Controller()`](references/decorators.md#controllerprefix) + [`@Get('cats')`](references/decorators.md#http-메서드-데코레이터)        | `GET /cats`        |
 
 > **라우트 접두사는 왜 쓰나요?**
 > 접두사 없이 [`@Controller()`](references/decorators.md#controllerprefix) + [`@Get('cats')`](references/decorators.md#http-메서드-데코레이터) + [`@Get('cats/breed')`](references/decorators.md#http-메서드-데코레이터)처럼 매번 전체 경로를 적어도 동작한다. 하지만 접두사를 쓰면 반복을 줄이고, 이 컨트롤러가 어떤 리소스를 담당하는지 한눈에 알 수 있다.
@@ -127,14 +129,14 @@ export class CatsModule {}
 
 NestJS는 모든 표준 HTTP 메서드에 대한 데코레이터를 제공한다.
 
-| 데코레이터 | HTTP 메서드 | 용도 | 일상적 비유 |
-|---|---|---|---|
-| [`@Get()`](references/decorators.md#http-메서드-데코레이터) | GET | 리소스 조회 | "이 정보 좀 보여줘" |
-| [`@Post()`](references/decorators.md#http-메서드-데코레이터) | POST | 리소스 생성 | "이걸 새로 만들어줘" |
-| [`@Put()`](references/decorators.md#http-메서드-데코레이터) | PUT | 리소스 전체 수정 | "이걸 통째로 바꿔줘" |
-| [`@Patch()`](references/decorators.md#http-메서드-데코레이터) | PATCH | 리소스 부분 수정 | "이 부분만 고쳐줘" |
-| [`@Delete()`](references/decorators.md#http-메서드-데코레이터) | DELETE | 리소스 삭제 | "이걸 지워줘" |
-| [`@All()`](references/decorators.md#http-메서드-데코레이터) | 모든 메서드 | 모든 HTTP 메서드 처리 | "뭐든 다 받을게" |
+| 데코레이터                                                     | HTTP 메서드 | 용도                  | 일상적 비유          |
+| -------------------------------------------------------------- | ----------- | --------------------- | -------------------- |
+| [`@Get()`](references/decorators.md#http-메서드-데코레이터)    | GET         | 리소스 조회           | "이 정보 좀 보여줘"  |
+| [`@Post()`](references/decorators.md#http-메서드-데코레이터)   | POST        | 리소스 생성           | "이걸 새로 만들어줘" |
+| [`@Put()`](references/decorators.md#http-메서드-데코레이터)    | PUT         | 리소스 전체 수정      | "이걸 통째로 바꿔줘" |
+| [`@Patch()`](references/decorators.md#http-메서드-데코레이터)  | PATCH       | 리소스 부분 수정      | "이 부분만 고쳐줘"   |
+| [`@Delete()`](references/decorators.md#http-메서드-데코레이터) | DELETE      | 리소스 삭제           | "이걸 지워줘"        |
+| [`@All()`](references/decorators.md#http-메서드-데코레이터)    | 모든 메서드 | 모든 HTTP 메서드 처리 | "뭐든 다 받을게"     |
 
 ```typescript
 // cats.controller.ts
@@ -142,17 +144,17 @@ import { Controller, Get, Post, Put, Patch, Delete } from '@nestjs/common';
 
 @Controller('cats')
 export class CatsController {
-  @Get()        // GET /cats
+  @Get() // GET /cats
   findAll() {
     return '모든 고양이 조회';
   }
 
-  @Post()       // POST /cats
+  @Post() // POST /cats
   create() {
     return '새 고양이 등록';
   }
 
-  @Put(':id')   // PUT /cats/1, /cats/2 ...
+  @Put(':id') // PUT /cats/1, /cats/2 ...
   update() {
     return '고양이 정보 전체 수정';
   }
@@ -248,7 +250,7 @@ export class CatsController {
   @Get(':catId/toys/:toyId')
   findToy(
     @Param('catId') catId: string,
-    @Param('toyId') toyId: string,
+    @Param('toyId') toyId: string
   ): string {
     return `고양이 #${catId}의 장난감 #${toyId}`;
   }
@@ -278,7 +280,7 @@ export class CatsController {
   findAll(
     @Query('page') page: string,
     @Query('limit') limit: string,
-    @Query('sort') sort: string,
+    @Query('sort') sort: string
   ): string {
     return `페이지: ${page}, 제한: ${limit}, 정렬: ${sort}`;
   }
@@ -357,17 +359,17 @@ export class CatsController {
 
 ### 전체 요청 데코레이터 정리
 
-| NestJS 데코레이터 | 추출 대상 | Express 동등 표현 |
-|---|---|---|
-| [`@Req()`](references/decorators.md#req-res) / [`@Request()`](references/decorators.md#req-res) | 요청 객체 전체 | `req` |
-| [`@Res()`](references/decorators.md#req-res) / [`@Response()`](references/decorators.md#req-res) | 응답 객체 전체 | `res` |
-| [`@Param(key?)`](references/decorators.md#paramkey) | URL 경로 파라미터 | `req.params` / `req.params[key]` |
-| [`@Query(key?)`](references/decorators.md#querykey) | 쿼리 파라미터 | `req.query` / `req.query[key]` |
-| [`@Body(key?)`](references/decorators.md#bodykey) | 요청 본문 | `req.body` / `req.body[key]` |
-| [`@Headers(name?)`](references/decorators.md#headerskey) | 요청 헤더 | `req.headers` / `req.headers[name]` |
-| [`@Ip()`](references/decorators.md#ip) | 클라이언트 IP | `req.ip` |
-| `@Session()` | 세션 객체 | `req.session` |
-| [`@HostParam()`](references/decorators.md#hostparamkey) | 호스트 파라미터 | `req.hosts` |
+| NestJS 데코레이터                                                                                | 추출 대상         | Express 동등 표현                   |
+| ------------------------------------------------------------------------------------------------ | ----------------- | ----------------------------------- |
+| [`@Req()`](references/decorators.md#req-res) / [`@Request()`](references/decorators.md#req-res)  | 요청 객체 전체    | `req`                               |
+| [`@Res()`](references/decorators.md#req-res) / [`@Response()`](references/decorators.md#req-res) | 응답 객체 전체    | `res`                               |
+| [`@Param(key?)`](references/decorators.md#paramkey)                                              | URL 경로 파라미터 | `req.params` / `req.params[key]`    |
+| [`@Query(key?)`](references/decorators.md#querykey)                                              | 쿼리 파라미터     | `req.query` / `req.query[key]`      |
+| [`@Body(key?)`](references/decorators.md#bodykey)                                                | 요청 본문         | `req.body` / `req.body[key]`        |
+| [`@Headers(name?)`](references/decorators.md#headerskey)                                         | 요청 헤더         | `req.headers` / `req.headers[name]` |
+| [`@Ip()`](references/decorators.md#ip)                                                           | 클라이언트 IP     | `req.ip`                            |
+| `@Session()`                                                                                     | 세션 객체         | `req.session`                       |
+| [`@HostParam()`](references/decorators.md#hostparamkey)                                          | 호스트 파라미터   | `req.hosts`                         |
 
 ---
 
@@ -417,9 +419,7 @@ import { Response } from 'express';
 export class CatsController {
   @Get()
   findAll(@Res() res: Response) {
-    res.status(HttpStatus.OK).json([
-      { id: 1, name: 'Kitty' },
-    ]);
+    res.status(HttpStatus.OK).json([{ id: 1, name: 'Kitty' }]);
   }
 
   @Post()
@@ -478,13 +478,13 @@ export class CatsController {
 
 자주 사용하는 상태 코드 상수는 다음과 같다.
 
-| 상수 | 값 | 의미 |
-|---|---|---|
-| `HttpStatus.OK` | 200 | 요청 성공 |
-| `HttpStatus.CREATED` | 201 | 리소스 생성 성공 |
-| `HttpStatus.NO_CONTENT` | 204 | 성공, 응답 본문 없음 |
-| `HttpStatus.BAD_REQUEST` | 400 | 잘못된 요청 |
-| `HttpStatus.NOT_FOUND` | 404 | 리소스를 찾을 수 없음 |
+| 상수                     | 값  | 의미                  |
+| ------------------------ | --- | --------------------- |
+| `HttpStatus.OK`          | 200 | 요청 성공             |
+| `HttpStatus.CREATED`     | 201 | 리소스 생성 성공      |
+| `HttpStatus.NO_CONTENT`  | 204 | 성공, 응답 본문 없음  |
+| `HttpStatus.BAD_REQUEST` | 400 | 잘못된 요청           |
+| `HttpStatus.NOT_FOUND`   | 404 | 리소스를 찾을 수 없음 |
 
 ### @Header() - 응답 헤더 설정
 
@@ -606,7 +606,7 @@ export class CreateCatDto {
 ```typescript
 // cats/dto/update-cat.dto.ts
 export class UpdateCatDto {
-  readonly name?: string;   // 부분 수정이므로 모든 필드가 선택적(optional)
+  readonly name?: string; // 부분 수정이므로 모든 필드가 선택적(optional)
   readonly age?: number;
   readonly breed?: string;
 }
@@ -648,10 +648,7 @@ export class CatsController {
   // ──────────────────────────────────────
   @Get()
   @Header('Cache-Control', 'no-cache')
-  findAll(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
+  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
     console.log(`page: ${page}, limit: ${limit}`);
     return this.cats;
   }
@@ -782,10 +779,10 @@ curl -X DELETE http://localhost:3000/cats/1 -v
 
 사용자 관련 엔드포인트를 정의한다.
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| `POST` | `/users` | 회원가입 |
-| `GET` | `/users/:id` | 프로필 조회 |
+| 메서드 | 경로         | 설명        |
+| ------ | ------------ | ----------- |
+| `POST` | `/users`     | 회원가입    |
+| `GET`  | `/users/:id` | 프로필 조회 |
 
 ### DTO 정의
 
@@ -811,7 +808,12 @@ export class UsersController {
   constructor(private readonly commonService: CommonService) {}
 
   private users = [
-    { id: 1, email: 'hong@example.com', name: '홍길동', createdAt: '2025-01-01' },
+    {
+      id: 1,
+      email: 'hong@example.com',
+      name: '홍길동',
+      createdAt: '2025-01-01',
+    },
   ];
   private nextId = 2;
 
@@ -863,13 +865,13 @@ curl http://localhost:3000/users/1
 
 게시글 관련 CRUD 전체를 정의한다.
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| `GET` | `/posts` | 게시글 목록 (쿼리: page, limit, search) |
-| `GET` | `/posts/:id` | 게시글 상세 조회 |
-| `POST` | `/posts` | 게시글 작성 |
-| `PATCH` | `/posts/:id` | 게시글 수정 |
-| `DELETE` | `/posts/:id` | 게시글 삭제 |
+| 메서드   | 경로         | 설명                                    |
+| -------- | ------------ | --------------------------------------- |
+| `GET`    | `/posts`     | 게시글 목록 (쿼리: page, limit, search) |
+| `GET`    | `/posts/:id` | 게시글 상세 조회                        |
+| `POST`   | `/posts`     | 게시글 작성                             |
+| `PATCH`  | `/posts/:id` | 게시글 수정                             |
+| `DELETE` | `/posts/:id` | 게시글 삭제                             |
 
 ### DTO 정의
 
@@ -933,15 +935,13 @@ export class PostsController {
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('search') search?: string,
+    @Query('search') search?: string
   ) {
     let result = this.posts;
 
     // 검색어가 있으면 제목에서 필터링
     if (search) {
-      result = result.filter((post) =>
-        post.title.includes(search),
-      );
+      result = result.filter((post) => post.title.includes(search));
     }
 
     // 실제 페이지네이션은 Service에서 처리하겠지만, 여기서는 간단히 구현
@@ -1046,11 +1046,11 @@ curl -X DELETE http://localhost:3000/posts/1 -v
 
 댓글은 게시글에 종속된 리소스이므로, URL 구조가 조금 특별하다. 댓글 작성과 조회는 **게시글 하위 경로**(`/posts/:postId/comments`)로, 삭제는 **댓글 자체 경로**(`/comments/:id`)로 설계한다.
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| `POST` | `/posts/:postId/comments` | 댓글 작성 |
-| `GET` | `/posts/:postId/comments` | 해당 게시글의 댓글 목록 |
-| `DELETE` | `/comments/:id` | 댓글 삭제 |
+| 메서드   | 경로                      | 설명                    |
+| -------- | ------------------------- | ----------------------- |
+| `POST`   | `/posts/:postId/comments` | 댓글 작성               |
+| `GET`    | `/posts/:postId/comments` | 해당 게시글의 댓글 목록 |
+| `DELETE` | `/comments/:id`           | 댓글 삭제               |
 
 > **왜 두 가지 경로 패턴을 섞어 쓰나요?**
 > 댓글을 작성하고 조회할 때는 "어떤 게시글의 댓글인지"가 중요하므로 `/posts/:postId/comments`가 직관적이다. 하지만 삭제할 때는 댓글 ID만 있으면 충분하므로 `/comments/:id`가 더 깔끔하다. 이런 식으로 RESTful API에서는 맥락에 맞는 URL을 설계한다.
@@ -1096,14 +1096,20 @@ export class PostCommentsController {
   // 여러 컨트롤러에서 같은 데이터를 공유하려면 Service가 필요하다.
   // 지금은 임시로 static 배열을 사용한다.
   static comments = [
-    { id: 1, postId: 1, content: '좋은 글이네요!', authorId: 1, createdAt: '2025-01-01' },
+    {
+      id: 1,
+      postId: 1,
+      content: '좋은 글이네요!',
+      authorId: 1,
+      createdAt: '2025-01-01',
+    },
   ];
   static nextId = 2;
 
   @Post()
   create(
     @Param('postId') postId: string,
-    @Body() createCommentDto: CreateCommentDto,
+    @Body() createCommentDto: CreateCommentDto
   ) {
     const newComment = {
       id: PostCommentsController.nextId++,
@@ -1117,9 +1123,7 @@ export class PostCommentsController {
 
   @Get()
   findAll(@Param('postId') postId: string) {
-    return PostCommentsController.comments.filter(
-      (c) => c.postId === +postId,
-    );
+    return PostCommentsController.comments.filter((c) => c.postId === +postId);
   }
 }
 
@@ -1133,7 +1137,7 @@ export class CommentsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string) {
     PostCommentsController.comments = PostCommentsController.comments.filter(
-      (c) => c.id !== +id,
+      (c) => c.id !== +id
     );
   }
 }
@@ -1187,7 +1191,10 @@ export class PostsModule {}
 ```typescript
 // comments/comments.module.ts
 import { Module } from '@nestjs/common';
-import { PostCommentsController, CommentsController } from './comments.controller';
+import {
+  PostCommentsController,
+  CommentsController,
+} from './comments.controller';
 
 @Module({
   controllers: [PostCommentsController, CommentsController], // 두 컨트롤러 모두 등록
@@ -1239,19 +1246,19 @@ src/
 
 ## 정리
 
-| 개념 | 데코레이터/키워드 | 설명 |
-|---|---|---|
-| 컨트롤러 선언 | [`@Controller('prefix')`](references/decorators.md#controllerprefix) | 클래스를 컨트롤러로 등록, 라우트 접두사 지정 |
-| HTTP 메서드 | [`@Get()`](references/decorators.md#http-메서드-데코레이터), [`@Post()`](references/decorators.md#http-메서드-데코레이터), [`@Patch()`](references/decorators.md#http-메서드-데코레이터), [`@Delete()`](references/decorators.md#http-메서드-데코레이터) 등 | 요청 메서드별 핸들러 지정 |
-| 라우트 파라미터 | [`@Param('key')`](references/decorators.md#paramkey) | URL 경로의 동적 값 추출 (`:id`) |
-| 쿼리 파라미터 | [`@Query('key')`](references/decorators.md#querykey) | 쿼리 문자열 값 추출 (`?key=value`) |
-| 요청 본문 | [`@Body()`](references/decorators.md#bodykey) | 요청 본문 추출, DTO와 함께 사용 |
-| 요청 헤더 | [`@Headers('name')`](references/decorators.md#headerskey) | HTTP 요청 헤더 값 추출 |
-| 상태 코드 | [`@HttpCode(204)`](references/decorators.md#httpcodestatuscode) | 응답 상태 코드 지정 |
-| 헤더 설정 | [`@Header('key', 'value')`](references/decorators.md#headername-value) | 응답 헤더 추가 |
-| 리다이렉트 | [`@Redirect('url', 301)`](references/decorators.md#redirecturl-statuscode) | URL 리다이렉트 |
-| 비동기 처리 | `async/await`, `Observable` | 비동기 요청 처리 |
-| 응답 방식 | `return` (표준) / [`@Res()`](references/decorators.md#req-res) (Express) | 표준 방식 권장 |
+| 개념            | 데코레이터/키워드                                                                                                                                                                                                                                           | 설명                                         |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| 컨트롤러 선언   | [`@Controller('prefix')`](references/decorators.md#controllerprefix)                                                                                                                                                                                        | 클래스를 컨트롤러로 등록, 라우트 접두사 지정 |
+| HTTP 메서드     | [`@Get()`](references/decorators.md#http-메서드-데코레이터), [`@Post()`](references/decorators.md#http-메서드-데코레이터), [`@Patch()`](references/decorators.md#http-메서드-데코레이터), [`@Delete()`](references/decorators.md#http-메서드-데코레이터) 등 | 요청 메서드별 핸들러 지정                    |
+| 라우트 파라미터 | [`@Param('key')`](references/decorators.md#paramkey)                                                                                                                                                                                                        | URL 경로의 동적 값 추출 (`:id`)              |
+| 쿼리 파라미터   | [`@Query('key')`](references/decorators.md#querykey)                                                                                                                                                                                                        | 쿼리 문자열 값 추출 (`?key=value`)           |
+| 요청 본문       | [`@Body()`](references/decorators.md#bodykey)                                                                                                                                                                                                               | 요청 본문 추출, DTO와 함께 사용              |
+| 요청 헤더       | [`@Headers('name')`](references/decorators.md#headerskey)                                                                                                                                                                                                   | HTTP 요청 헤더 값 추출                       |
+| 상태 코드       | [`@HttpCode(204)`](references/decorators.md#httpcodestatuscode)                                                                                                                                                                                             | 응답 상태 코드 지정                          |
+| 헤더 설정       | [`@Header('key', 'value')`](references/decorators.md#headername-value)                                                                                                                                                                                      | 응답 헤더 추가                               |
+| 리다이렉트      | [`@Redirect('url', 301)`](references/decorators.md#redirecturl-statuscode)                                                                                                                                                                                  | URL 리다이렉트                               |
+| 비동기 처리     | `async/await`, `Observable`                                                                                                                                                                                                                                 | 비동기 요청 처리                             |
+| 응답 방식       | `return` (표준) / [`@Res()`](references/decorators.md#req-res) (Express)                                                                                                                                                                                    | 표준 방식 권장                               |
 
 ---
 

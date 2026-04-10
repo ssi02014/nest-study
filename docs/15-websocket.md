@@ -2,10 +2,10 @@
 
 > **이전 챕터 요약**: 챕터 14에서 Swagger로 블로그 API의 모든 엔드포인트를 문서화했다. 이번 챕터에서는 **WebSocket**을 학습한다. 댓글이 작성되면 같은 게시글을 보고 있는 사용자들에게 실시간으로 알림을 보내는 기능을 추가한다.
 
-
 ## 목차
 
 ### 1단계: 개념 학습
+
 1. [WebSocket이란?](#1-websocket이란)
 2. [HTTP vs WebSocket 비교](#2-http-vs-websocket-비교)
 3. [NestJS Gateway 핵심 개념](#3-nestjs-gateway-핵심-개념)
@@ -13,17 +13,20 @@
 5. [네임스페이스와 룸(Room)](#5-네임스페이스와-룸room)
 
 ### 2단계: 기본 예제
+
 6. [기본 예제: 에코 Gateway](#6-기본-예제-에코-gateway)
 7. [기본 예제: 메시지 브로드캐스트](#7-기본-예제-메시지-브로드캐스트)
 8. [기본 예제: Room 활용](#8-기본-예제-room-활용)
 
 ### 3단계: 블로그 API 적용
+
 9. [블로그 API 적용: 실시간 댓글 알림](#9-블로그-api-적용-실시간-댓글-알림)
 10. [Redis Adapter (다중 서버 환경)](#10-redis-adapter-다중-서버-환경)
 11. [소켓 인증 미들웨어](#11-소켓-인증-미들웨어)
 12. [프로젝트 구조](#프로젝트-구조)
 
 ### 4단계: 정리
+
 13. [정리](#정리)
 14. [다음 챕터 예고](#다음-챕터-예고)
 
@@ -57,14 +60,14 @@ WebSocket 연결 흐름:
 
 ## 2. HTTP vs WebSocket 비교
 
-| 구분 | HTTP | WebSocket |
-|------|------|-----------|
-| 통신 방식 | 단방향 (요청-응답) | 양방향 (Full-Duplex) |
-| 연결 유지 | 요청마다 연결/해제 반복 | 한 번 연결 후 지속 유지 |
-| 프로토콜 | `http://` / `https://` | `ws://` / `wss://` |
-| 오버헤드 | 매 요청마다 헤더 전송 | 최초 핸드셰이크 이후 헤더 없음 |
-| 서버 푸시 | 불가능 (폴링 방식 필요) | 가능 (서버가 자유롭게 전송) |
-| 적합한 경우 | REST API, 일반적인 웹 요청 | 실시간 통신, 채팅, 알림 |
+| 구분        | HTTP                       | WebSocket                      |
+| ----------- | -------------------------- | ------------------------------ |
+| 통신 방식   | 단방향 (요청-응답)         | 양방향 (Full-Duplex)           |
+| 연결 유지   | 요청마다 연결/해제 반복    | 한 번 연결 후 지속 유지        |
+| 프로토콜    | `http://` / `https://`     | `ws://` / `wss://`             |
+| 오버헤드    | 매 요청마다 헤더 전송      | 최초 핸드셰이크 이후 헤더 없음 |
+| 서버 푸시   | 불가능 (폴링 방식 필요)    | 가능 (서버가 자유롭게 전송)    |
+| 적합한 경우 | REST API, 일반적인 웹 요청 | 실시간 통신, 채팅, 알림        |
 
 > **팁:** 블로그 API에서 "새 댓글이 달렸습니다" 같은 알림을 구현한다고 생각해보자. HTTP만 사용하면 클라이언트가 주기적으로 서버에 "새 댓글 있어요?" 하고 물어봐야 한다(폴링). WebSocket을 사용하면 댓글이 작성되는 순간 서버가 바로 클라이언트에게 알려줄 수 있다.
 
@@ -104,12 +107,12 @@ export class EchoGateway {
 export class EchoGateway {}
 ```
 
-| 옵션 | 설명 |
-|------|------|
+| 옵션                | 설명                                                                 |
+| ------------------- | -------------------------------------------------------------------- |
 | 첫 번째 인자 (포트) | WebSocket이 수신할 포트. 생략하면 HTTP 서버와 동일한 포트를 사용한다 |
-| `namespace` | 네임스페이스를 지정한다 |
-| `cors` | CORS 설정을 지정한다 |
-| `transports` | 전송 방식을 지정한다 (`websocket`, `polling` 등) |
+| `namespace`         | 네임스페이스를 지정한다                                              |
+| `cors`              | CORS 설정을 지정한다                                                 |
+| `transports`        | 전송 방식을 지정한다 (`websocket`, `polling` 등)                     |
 
 ### @SubscribeMessage
 
@@ -130,7 +133,7 @@ export class EchoGateway {
   @SubscribeMessage('message')
   handleMessage(
     @MessageBody() data: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ): string {
     console.log(`클라이언트 ${client.id}로부터 메시지 수신: ${data}`);
     return data; // 요청한 클라이언트에게 응답 반환
@@ -140,10 +143,10 @@ export class EchoGateway {
 
 ### 매개변수 데코레이터
 
-| 데코레이터 | 설명 |
-|-------------|------|
-| [`@MessageBody()`](references/decorators.md#messagebodykey) | 클라이언트가 보낸 메시지 데이터를 추출한다 |
-| [`@ConnectedSocket()`](references/decorators.md#connectedsocket) | 현재 연결된 소켓 인스턴스를 주입한다 |
+| 데코레이터                                                       | 설명                                       |
+| ---------------------------------------------------------------- | ------------------------------------------ |
+| [`@MessageBody()`](references/decorators.md#messagebodykey)      | 클라이언트가 보낸 메시지 데이터를 추출한다 |
+| [`@ConnectedSocket()`](references/decorators.md#connectedsocket) | 현재 연결된 소켓 인스턴스를 주입한다       |
 
 ### @WebSocketServer
 
@@ -166,7 +169,9 @@ export class NotificationGateway {
 
   // 특정 룸에 알림 전송
   sendNotificationToRoom(room: string, message: string) {
-    this.server.to(room).emit('notification', { message, timestamp: new Date() });
+    this.server
+      .to(room)
+      .emit('notification', { message, timestamp: new Date() });
   }
 }
 ```
@@ -209,11 +214,11 @@ handleMessage(
 
 NestJS는 Gateway의 라이프사이클을 관리하기 위한 세 가지 인터페이스를 제공한다. 이 인터페이스들을 구현하면 Gateway 초기화, 클라이언트 연결/해제 시점에 원하는 로직을 실행할 수 있다.
 
-| 인터페이스 | 메서드 | 호출 시점 |
-|-------------|--------|-----------|
-| `OnGatewayInit` | `afterInit(server: Server)` | Gateway가 초기화된 후 |
-| `OnGatewayConnection` | `handleConnection(client: Socket, ...args)` | 클라이언트가 연결되었을 때 |
-| `OnGatewayDisconnect` | `handleDisconnect(client: Socket)` | 클라이언트가 연결을 해제했을 때 |
+| 인터페이스            | 메서드                                      | 호출 시점                       |
+| --------------------- | ------------------------------------------- | ------------------------------- |
+| `OnGatewayInit`       | `afterInit(server: Server)`                 | Gateway가 초기화된 후           |
+| `OnGatewayConnection` | `handleConnection(client: Socket, ...args)` | 클라이언트가 연결되었을 때      |
+| `OnGatewayDisconnect` | `handleDisconnect(client: Socket)`          | 클라이언트가 연결을 해제했을 때 |
 
 ```typescript
 // events.gateway.ts
@@ -287,6 +292,7 @@ export class UserGateway {
 룸은 네임스페이스 안에서 클라이언트를 **그룹별로 분류**하는 기능이다. 특정 룸에 속한 클라이언트들에게만 메시지를 전송할 수 있다.
 
 이해를 돕기 위해 비유하면:
+
 - **네임스페이스** = 건물 (아파트, 오피스텔 등 완전히 다른 공간)
 - **룸** = 건물 안의 방 (같은 건물이지만 방마다 다른 사람들이 있음)
 
@@ -366,10 +372,7 @@ export class EchoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('echo')
-  handleEcho(
-    @MessageBody() data: string,
-    @ConnectedSocket() client: Socket,
-  ) {
+  handleEcho(@MessageBody() data: string, @ConnectedSocket() client: Socket) {
     this.logger.log(`수신: ${data}`);
     // 보낸 클라이언트에게 그대로 돌려준다
     return { event: 'echo', data: `에코: ${data}` };
@@ -476,7 +479,7 @@ export class BroadcastGateway
   @SubscribeMessage('announce')
   handleAnnounce(
     @MessageBody() message: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     // server.emit() → 본인 포함 전체
     this.server.emit('announcement', {
@@ -490,7 +493,7 @@ export class BroadcastGateway
   @SubscribeMessage('whisperAll')
   handleWhisperAll(
     @MessageBody() message: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     // client.broadcast.emit() → 본인 제외 전체
     client.broadcast.emit('whisper', {
@@ -534,7 +537,7 @@ export class RoomGateway {
   @SubscribeMessage('joinRoom')
   handleJoinRoom(
     @MessageBody() roomName: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     client.join(roomName);
     this.logger.log(`${client.id}가 ${roomName}에 입장`);
@@ -552,7 +555,7 @@ export class RoomGateway {
   @SubscribeMessage('leaveRoom')
   handleLeaveRoom(
     @MessageBody() roomName: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     client.leave(roomName);
     this.logger.log(`${client.id}가 ${roomName}에서 퇴장`);
@@ -569,7 +572,7 @@ export class RoomGateway {
   @SubscribeMessage('messageToRoom')
   handleMessageToRoom(
     @MessageBody() payload: { room: string; message: string },
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     // 본인 포함 해당 룸 전체에 전송
     this.server.to(payload.room).emit('roomMessage', {
@@ -592,6 +595,7 @@ export class RoomGateway {
 이제 지금까지 배운 WebSocket 개념을 블로그 API에 적용한다. 이전 챕터에서 만든 Post(게시글)와 Comment(댓글) 기능에 **실시간 댓글 알림**을 추가한다.
 
 구현할 기능:
+
 1. 사용자가 게시글 상세 페이지에 접속하면 해당 게시글의 Room에 입장
 2. 누군가 댓글을 작성하면, 같은 게시글을 보고 있는 모든 사용자에게 실시간 알림 전송
 3. 페이지를 떠나면 Room에서 퇴장
@@ -750,7 +754,7 @@ export class BlogGateway
   @SubscribeMessage('joinPostRoom')
   handleJoinPostRoom(
     @MessageBody() postId: number,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     const roomName = `post-${postId}`;
     client.join(roomName);
@@ -769,7 +773,7 @@ export class BlogGateway
   @SubscribeMessage('leavePostRoom')
   handleLeavePostRoom(
     @MessageBody() postId: number,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: Socket
   ) {
     const roomName = `post-${postId}`;
     client.leave(roomName);
@@ -785,12 +789,15 @@ export class BlogGateway
    * 댓글 작성 시 해당 게시글 Room에 실시간 알림 전송
    * CommentsService에서 호출하는 메서드다. (서비스 → Gateway)
    */
-  notifyNewComment(postId: number, comment: {
-    id: number;
-    content: string;
-    author: string;
-    createdAt: Date;
-  }) {
+  notifyNewComment(
+    postId: number,
+    comment: {
+      id: number;
+      content: string;
+      author: string;
+      createdAt: Date;
+    }
+  ) {
     const roomName = `post-${postId}`;
     this.server.to(roomName).emit('newComment', {
       postId,
@@ -826,7 +833,7 @@ export class CommentsService {
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
     // BlogGateway를 주입받는다
-    private readonly blogGateway: BlogGateway,
+    private readonly blogGateway: BlogGateway
   ) {}
 
   async create(dto: CreateCommentDto): Promise<Comment> {
@@ -836,7 +843,9 @@ export class CommentsService {
     });
 
     if (!post) {
-      throw new NotFoundException(`게시글 ${dto.postId}을(를) 찾을 수 없습니다.`);
+      throw new NotFoundException(
+        `게시글 ${dto.postId}을(를) 찾을 수 없습니다.`
+      );
     }
 
     // 2. 댓글 저장
@@ -873,7 +882,14 @@ export class CommentsService {
 
 ```typescript
 // src/blog/comments/comments.controller.ts
-import { Controller, Post, Body, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
@@ -884,7 +900,7 @@ export class CommentsController {
   @Post()
   async create(
     @Param('postId', ParseIntPipe) postId: number,
-    @Body() dto: CreateCommentDto,
+    @Body() dto: CreateCommentDto
   ) {
     return this.commentsService.create({ ...dto, postId });
   }
@@ -967,7 +983,9 @@ bootstrap();
 
   // 실시간 댓글 알림 수신
   socket.on('newComment', (data) => {
-    console.log(`[게시글 #${data.postId}] ${data.comment.author}: "${data.comment.content}"`);
+    console.log(
+      `[게시글 #${data.postId}] ${data.comment.author}: "${data.comment.content}"`
+    );
   });
 
   // Room 입장 (게시글 페이지 진입 시)
@@ -977,7 +995,9 @@ bootstrap();
 
   // Room 퇴장 (게시글 페이지 이탈 시)
   function leaveRoom(postId) {
-    socket.emit('leavePostRoom', postId, (res) => console.log(res.data.message));
+    socket.emit('leavePostRoom', postId, (res) =>
+      console.log(res.data.message)
+    );
   }
 
   // 댓글 작성 (REST API → 서버 → WebSocket 알림 자동 발송)
@@ -1192,11 +1212,17 @@ export class BlogGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // 3. 검증된 사용자 정보를 소켓 데이터에 저장 (이후 이벤트 핸들러에서 사용)
       client.data.user = payload;
 
-      this.logger.log(`인증된 클라이언트 연결: ${client.id} (userId: ${payload.sub})`);
+      this.logger.log(
+        `인증된 클라이언트 연결: ${client.id} (userId: ${payload.sub})`
+      );
     } catch (err) {
-      this.logger.warn(`미인증 클라이언트 연결 거부: ${client.id} - ${err.message}`);
+      this.logger.warn(
+        `미인증 클라이언트 연결 거부: ${client.id} - ${err.message}`
+      );
       // 4. 미인증 클라이언트 연결 강제 종료
-      client.emit('error', { message: '인증에 실패했습니다. 연결을 종료합니다.' });
+      client.emit('error', {
+        message: '인증에 실패했습니다. 연결을 종료합니다.',
+      });
       client.disconnect(true);
     }
   }
@@ -1280,20 +1306,20 @@ public/
 
 이 챕터에서 학습한 내용을 정리하면:
 
-| 개념 | 설명 |
-|------|------|
-| [`@WebSocketGateway()`](references/decorators.md#websocketgatewayport-options) | WebSocket 서버(Gateway)를 선언하는 데코레이터 |
-| [`@SubscribeMessage()`](references/decorators.md#subscribemessageevent) | 클라이언트 이벤트를 구독하는 데코레이터 |
-| [`@WebSocketServer()`](references/decorators.md#websocketserver) | Socket.IO Server 인스턴스에 접근하는 데코레이터 |
-| [`@MessageBody()`](references/decorators.md#messagebodykey) | 메시지 데이터를 추출하는 매개변수 데코레이터 |
-| [`@ConnectedSocket()`](references/decorators.md#connectedsocket) | 소켓 인스턴스를 주입하는 매개변수 데코레이터 |
-| `OnGatewayInit` | Gateway 초기화 시 호출 |
-| `OnGatewayConnection` | 클라이언트 연결 시 호출 |
-| `OnGatewayDisconnect` | 클라이언트 연결 해제 시 호출 |
-| 네임스페이스 | 논리적으로 분리된 통신 채널 |
-| 룸 (Room) | 네임스페이스 안에서 클라이언트를 그룹별로 분류 |
-| Redis Adapter | 다중 서버 환경에서 WebSocket 상태를 Redis로 공유 |
-| 소켓 인증 | `handleConnection`에서 JWT 검증 후 미인증 클라이언트 연결 거부 |
+| 개념                                                                           | 설명                                                           |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| [`@WebSocketGateway()`](references/decorators.md#websocketgatewayport-options) | WebSocket 서버(Gateway)를 선언하는 데코레이터                  |
+| [`@SubscribeMessage()`](references/decorators.md#subscribemessageevent)        | 클라이언트 이벤트를 구독하는 데코레이터                        |
+| [`@WebSocketServer()`](references/decorators.md#websocketserver)               | Socket.IO Server 인스턴스에 접근하는 데코레이터                |
+| [`@MessageBody()`](references/decorators.md#messagebodykey)                    | 메시지 데이터를 추출하는 매개변수 데코레이터                   |
+| [`@ConnectedSocket()`](references/decorators.md#connectedsocket)               | 소켓 인스턴스를 주입하는 매개변수 데코레이터                   |
+| `OnGatewayInit`                                                                | Gateway 초기화 시 호출                                         |
+| `OnGatewayConnection`                                                          | 클라이언트 연결 시 호출                                        |
+| `OnGatewayDisconnect`                                                          | 클라이언트 연결 해제 시 호출                                   |
+| 네임스페이스                                                                   | 논리적으로 분리된 통신 채널                                    |
+| 룸 (Room)                                                                      | 네임스페이스 안에서 클라이언트를 그룹별로 분류                 |
+| Redis Adapter                                                                  | 다중 서버 환경에서 WebSocket 상태를 Redis로 공유               |
+| 소켓 인증                                                                      | `handleConnection`에서 JWT 검증 후 미인증 클라이언트 연결 거부 |
 
 블로그 API에 적용한 핵심 패턴:
 
@@ -1303,10 +1329,8 @@ public/
 4. **Redis Adapter**: 다중 서버 배포 시 Redis를 통해 WebSocket 이벤트 동기화 (상용 배포 시 적용)
 5. **소켓 인증**: `handleConnection`에서 JWT 검증, `client.data.user`로 사용자 정보 전달, 미인증 시 `client.disconnect(true)` 호출
 
-이 챕터를 마치면 **실시간 댓글 알림 기능이 완성**된다. 다음 챕터에서는 CQRS 패턴에 대해 알아본다.
----
+## 이 챕터를 마치면 **실시간 댓글 알림 기능이 완성**된다. 다음 챕터에서는 CQRS 패턴에 대해 알아본다.
 
 ## 다음 챕터 예고
 
 챕터 16에서는 **CQRS** 패턴을 학습한다. PostsModule의 Service를 Command(쓰기)와 Query(읽기)로 분리하여 구조를 개선한다. 대규모 애플리케이션에서 유지보수성을 높이는 아키텍처 패턴이다.
-
