@@ -255,13 +255,16 @@ export class CatsController {
     return `고양이 #${catId}의 장난감 #${toyId}`;
   }
 
-  // 파라미터 전체를 객체로 받을 수도 있다
-  @Get(':id/info')
-  findInfo(@Param() params: { id: string }): string {
-    return `고양이 #${params.id} 정보`;
+  // 파라미터 전체를 객체로 한 번에 받을 수도 있다
+  // GET /cats/3/toys/7 이라면 params = { catId: "3", toyId: "7" }
+  @Get(':catId/toys/:toyId')
+  findToyByParams(@Param() params: { catId: string; toyId: string }): string {
+    return `고양이 #${params.catId}의 장난감 #${params.toyId}`;
   }
 }
 ```
+
+> **팁:** 파라미터가 많을 때는 `@Param()` 없이 전체 객체로 받으면 코드가 간결해진다. 단, 각 파라미터에 개별적으로 파이프(예: `ParseIntPipe`)를 적용하려면 `@Param('key')` 방식을 사용해야 한다.
 
 > **주의:** [`@Param('id')`](references/decorators.md#paramkey)로 꺼낸 값은 항상 **문자열(string)**이다. 숫자로 쓰려면 `+id` 또는 `parseInt(id)` 등으로 변환하거나, 나중에 배울 `ParseIntPipe`를 사용한다.
 
@@ -368,7 +371,7 @@ export class CatsController {
 | [`@Body(key?)`](references/decorators.md#bodykey)                                                | 요청 본문         | `req.body` / `req.body[key]`        |
 | [`@Headers(name?)`](references/decorators.md#headerskey)                                         | 요청 헤더         | `req.headers` / `req.headers[name]` |
 | [`@Ip()`](references/decorators.md#ip)                                                           | 클라이언트 IP     | `req.ip`                            |
-| `@Session()`                                                                                     | 세션 객체         | `req.session`                       |
+| [`@Session()`](references/decorators.md#session)                                                 | 세션 객체         | `req.session`                       |
 | [`@HostParam()`](references/decorators.md#hostparamkey)                                          | 호스트 파라미터   | `req.hosts`                         |
 
 ---
@@ -508,6 +511,8 @@ export class CatsController {
 ### [@Redirect()](references/decorators.md#redirecturl-statuscode) - 리다이렉트
 
 [`@Redirect()`](references/decorators.md#redirecturl-statuscode) 데코레이터로 클라이언트를 다른 URL로 이동시킬 수 있다.
+
+`@Redirect()`는 두 개의 인자를 받는다. `url`과 `statusCode`이며, 둘 다 선택 사항이다. `statusCode`를 생략하면 기본값은 `302`(Found)가 사용된다.
 
 ```typescript
 // cats.controller.ts

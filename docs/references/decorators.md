@@ -526,6 +526,64 @@ export class AuthController {
 
 ---
 
+### `@Session()`
+
+**무엇인가:** HTTP 요청의 **세션 객체**에 접근하는 데코레이터입니다. `req.session`을 파라미터로 주입합니다.
+
+**왜 쓰는가:** 로그인 상태, 장바구니, 폼 입력 임시 저장 등 **요청 간 상태를 유지**해야 할 때 사용합니다. JWT 기반 인증과 달리, 세션은 서버 측에 상태를 보관합니다.
+
+**사전 준비:** `@Session()`을 사용하려면 `express-session` 미들웨어를 먼저 설정해야 합니다.
+
+```bash
+npm install express-session
+npm install --save-dev @types/express-session
+```
+
+```typescript
+// main.ts
+import * as session from 'express-session';
+
+app.use(
+  session({
+    secret: 'my-secret',
+    resave: false,
+    saveUninitialized: false,
+  }),
+);
+```
+
+**예제 코드:**
+
+```typescript
+import { Controller, Get, Post, Session } from '@nestjs/common';
+
+@Controller('auth')
+export class AuthController {
+  @Post('login')
+  login(@Session() session: Record<string, any>) {
+    session.userId = 1; // 세션에 값 저장
+    return { message: '로그인 성공' };
+  }
+
+  @Get('me')
+  getProfile(@Session() session: Record<string, any>) {
+    return { userId: session.userId }; // 세션에서 값 읽기
+  }
+
+  @Post('logout')
+  logout(@Session() session: Record<string, any>) {
+    session.destroy(); // 세션 삭제
+    return { message: '로그아웃 성공' };
+  }
+}
+```
+
+> **팁:** NestJS 공식 문서는 세션 기반 인증보다 **JWT 기반 인증(Passport + JWT)**을 권장합니다. 세션은 서버 메모리나 별도 스토어(Redis 등)에 상태를 저장하므로, 수평 확장(scale-out) 환경에서 추가 설정이 필요합니다.
+
+> **주의:** `@Session()` 없이 세션을 사용하려면 `@Req() req: Request`로 원본 요청 객체를 받아 `req.session`에 직접 접근할 수도 있습니다.
+
+---
+
 ### `@HostParam(key?)`
 
 **무엇인가:** **호스트 이름의 동적 부분**을 추출하는 데코레이터입니다. 서브도메인 기반 라우팅에서 사용합니다.
