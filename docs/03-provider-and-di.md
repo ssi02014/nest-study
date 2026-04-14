@@ -53,17 +53,17 @@ NestJS에서 **Provider**는 NestJS의 IoC(Inversion of Control) 컨테이너가
 
 > **참고:** Controller는 "요청을 받고 응답을 보내는 것"에만 집중하고, 실제 로직은 Provider(주로 Service)에 맡긴다. 이것이 **관심사의 분리(Separation of Concerns)** 원칙이다.
 
-> **팁:** NestJS는 의존성을 더 객체 지향적인 방식으로 설계하고 구성할 수 있는 가능성을 제공하기 때문에, **SOLID 원칙을 따르는 것을 강력히 권장합니다.**
+> **팁:** NestJS는 의존성을 더 객체 지향적인 방식으로 설계하고 구성할 수 있는 가능성을 제공하기 때문에, **[SOLID 원칙](references/SOLID.md)을 따르는 것을 강력히 권장합니다.**
 
-**SOLID**는 좋은 객체 지향 설계를 위한 5가지 원칙의 약자다. NestJS의 Provider + DI 구조는 이 원칙을 자연스럽게 따르도록 설계되어 있다.
+**[SOLID](references/SOLID.md)**는 좋은 객체 지향 설계를 위한 5가지 원칙의 약자다. NestJS의 Provider + DI 구조는 이 원칙을 자연스럽게 따르도록 설계되어 있다.
 
 | 원칙                                        | 핵심 내용                                          | NestJS에서의 적용                                         |
 | ------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
-| **Single** Responsibility (단일 책임)       | 클래스는 하나의 책임만 가진다                      | `Controller`는 라우팅만, `Service`는 비즈니스 로직만 담당 |
-| **Open**/Closed (개방/폐쇄)                 | 확장에는 열려있고, 수정에는 닫혀있다               | 인터페이스 기반 설계로 기존 코드를 수정하지 않고 확장     |
-| **Liskov** Substitution (리스코프 치환)     | 자식 클래스는 부모를 대체할 수 있어야 한다         | 인터페이스를 구현한 클래스는 언제든 교체 가능             |
-| **Interface** Segregation (인터페이스 분리) | 사용하지 않는 인터페이스에 의존하지 않는다         | 역할별로 인터페이스를 분리해 필요한 것만 주입             |
-| **Dependency** Inversion (의존성 역전)      | 추상(인터페이스)에 의존하고 구체에 의존하지 않는다 | DI를 통해 구체 클래스 대신 토큰/인터페이스로 주입         |
+| [**Single** Responsibility (단일 책임)](references/SOLID.md#2-s--single-responsibility-단일-책임-원칙)       | 클래스는 하나의 책임만 가진다                      | `Controller`는 라우팅만, `Service`는 비즈니스 로직만 담당 |
+| [**Open**/Closed (개방/폐쇄)](references/SOLID.md#3-o--openclosed-개방폐쇄-원칙)                 | 확장에는 열려있고, 수정에는 닫혀있다               | 인터페이스 기반 설계로 기존 코드를 수정하지 않고 확장     |
+| [**Liskov** Substitution (리스코프 치환)](references/SOLID.md#4-l--liskov-substitution-리스코프-치환-원칙)     | 자식 클래스는 부모를 대체할 수 있어야 한다         | 인터페이스를 구현한 클래스는 언제든 교체 가능             |
+| [**Interface** Segregation (인터페이스 분리)](references/SOLID.md#5-i--interface-segregation-인터페이스-분리-원칙) | 사용하지 않는 인터페이스에 의존하지 않는다         | 역할별로 인터페이스를 분리해 필요한 것만 주입             |
+| [**Dependency** Inversion (의존성 역전)](references/SOLID.md#6-d--dependency-inversion-의존성-역전-원칙)      | 추상(인터페이스)에 의존하고 구체에 의존하지 않는다 | DI를 통해 구체 클래스 대신 토큰/인터페이스로 주입         |
 
 ---
 
