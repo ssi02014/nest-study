@@ -1530,6 +1530,8 @@ import {
   Body,
   Param,
   Query,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
@@ -1577,11 +1579,12 @@ export class PostsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('id') userId: number
-  ) {
-    return this.postsService.remove(id, userId);
+  ): void {
+    this.postsService.remove(id, userId);
   }
 }
 ```
@@ -1640,6 +1643,8 @@ import {
   Delete,
   Body,
   Param,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -1667,11 +1672,12 @@ export class CommentsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser('id') userId: number
-  ) {
-    return this.commentsService.remove(id, userId);
+  ): void {
+    this.commentsService.remove(id, userId);
   }
 }
 ```

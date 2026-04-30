@@ -1610,6 +1610,8 @@ import {
   Delete,
   Param,
   Body,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
   UseGuards,
   Request,
@@ -1650,8 +1652,9 @@ export class PostsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.postsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.postsService.remove(id);
   }
 }
 ```

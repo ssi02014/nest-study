@@ -1554,11 +1554,13 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
@@ -1588,7 +1590,7 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto
@@ -1597,8 +1599,9 @@ export class UsersController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.usersService.remove(id);
   }
 }
 ```
@@ -1732,11 +1735,13 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
@@ -1776,7 +1781,7 @@ export class PostsController {
     return this.postsService.findByAuthor(authorId);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto
@@ -1785,8 +1790,9 @@ export class PostsController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.postsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.postsService.remove(id);
   }
 }
 ```
@@ -1912,10 +1918,12 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Body,
   Param,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -1942,7 +1950,7 @@ export class CommentsController {
     return this.commentsService.findOne(id);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateCommentDto: UpdateCommentDto
@@ -1951,8 +1959,9 @@ export class CommentsController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.commentsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.commentsService.remove(id);
   }
 }
 ```

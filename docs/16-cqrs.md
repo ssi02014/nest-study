@@ -970,6 +970,8 @@ import {
   Delete,
   Body,
   Param,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -1025,9 +1027,9 @@ export class PostsController {
 
   // 게시글 삭제 → Command
   @Delete(':id')
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.commandBus.execute(new DeletePostCommand(id));
-    return { message: '게시글이 삭제되었습니다.' };
   }
 }
 ```

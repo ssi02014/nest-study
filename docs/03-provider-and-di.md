@@ -902,10 +902,12 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Param,
   Body,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -935,8 +937,8 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
-  /** PUT /users/:id - 사용자 정보 수정 */
-  @Put(':id')
+  /** PATCH /users/:id - 사용자 정보 수정 */
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateUserDto
@@ -946,6 +948,7 @@ export class UsersController {
 
   /** DELETE /users/:id - 사용자 삭제 */
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseIntPipe) id: number): void {
     this.usersService.remove(id);
   }
@@ -1287,6 +1290,8 @@ import {
   Delete,
   Param,
   Body,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -1314,6 +1319,7 @@ export class CommentsController {
 
   /** DELETE /comments/:id - 댓글 삭제 */
   @Delete('comments/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseIntPipe) id: number): void {
     this.commentsService.remove(id);
   }
