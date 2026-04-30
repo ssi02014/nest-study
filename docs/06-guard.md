@@ -865,12 +865,13 @@ export class CreatePostDto {
 // src/posts/posts.service.ts
 // create 메서드 시그니처 수정 — Guard에서 추출한 userId를 authorId로 받는다
 create(createPostDto: CreatePostDto, authorId: number): Post {
+  const now = this.commonService.formatDate(new Date());
   const newPost: Post = {
     id: this.nextId++,
     ...createPostDto,
     authorId,           // DTO의 authorId 대신 Guard에서 받은 값 사용
-    createdAt: this.commonService.formatDate(new Date()),
-    updatedAt: this.commonService.formatDate(new Date()),
+    createdAt: now,
+    updatedAt: now,
   };
   this.posts.push(newPost);
   return newPost;
@@ -915,16 +916,20 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Param,
   Body,
+  Query,
   Req,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/enums/role.enum';
@@ -937,9 +942,9 @@ export class PostsController {
 
   @Public()
   @Get()
-  findAll() {
+  findAll(@Query() query: PaginationQueryDto) {
     // 누구나 게시글 목록을 볼 수 있음
-    return this.postsService.findAll();
+    return this.postsService.findAll(query);
   }
 
   @Public()
@@ -959,7 +964,7 @@ export class PostsController {
     return this.postsService.create(createPostDto, userId);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto,
@@ -971,19 +976,21 @@ export class PostsController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any): void {
     // 인증된 사용자만 삭제 가능
     const userId = req.user.id;
-    return this.postsService.remove(id, userId);
+    this.postsService.remove(id, userId);
   }
 
   // --- 관리자 전용 라우트 ---
 
   @Delete(':id/force')
   @Roles(Role.Admin)
-  forceRemove(@Param('id', ParseIntPipe) id: number) {
+  @HttpCode(HttpStatus.NO_CONTENT)
+  forceRemove(@Param('id', ParseIntPipe) id: number): void {
     // 관리자만 강제 삭제 가능
-    return this.postsService.forceRemove(id);
+    this.postsService.forceRemove(id);
   }
 }
 ```
@@ -1050,6 +1057,8 @@ import {
   Param,
   Body,
   Req,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -1085,26 +1094,28 @@ export class CommentsController {
   }
 
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @Param('postId', ParseIntPipe) postId: number,
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any
-  ) {
+  ): void {
     // 인증된 사용자만 자신의 댓글 삭제 가능
     const userId = req.user.id;
-    return this.commentsService.remove(postId, id, userId);
+    this.commentsService.remove(postId, id, userId);
   }
 
   // --- 관리자 전용 라우트 ---
 
   @Delete(':id/force')
   @Roles(Role.Admin)
+  @HttpCode(HttpStatus.NO_CONTENT)
   forceRemove(
     @Param('postId', ParseIntPipe) postId: number,
     @Param('id', ParseIntPipe) id: number
-  ) {
+  ): void {
     // 관리자만 어떤 댓글이든 강제 삭제 가능
-    return this.commentsService.forceRemove(postId, id);
+    this.commentsService.forceRemove(postId, id);
   }
 }
 ```

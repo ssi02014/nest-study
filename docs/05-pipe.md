@@ -1088,7 +1088,60 @@ export class PaginationQueryDto {
 >
 > `transform: true` 옵션만으로도 TypeScript 타입 힌트에 따라 기본 변환이 되지만, `@Type()`을 명시적으로 쓰는 것이 더 안전하고 명확하다.
 
-### 11-8. 컨트롤러에 DTO와 ParseIntPipe 적용
+### 11-8. PostsService.findAll() 시그니처 변경
+
+`PaginationQueryDto` 도입으로 서비스 메서드 시그니처도 바꿔야 한다. 변경 전후를 비교하면 Pipe가 무엇을 대신해주는지 바로 보인다.
+
+```typescript
+// ❌ 변경 전 (챕터 3) — 쿼리 파라미터가 항상 문자열로 들어오므로 수동 변환이 필요했다
+findAll(page?: string, limit?: string, search?: string) {
+  let result = this.posts;
+
+  if (search) {
+    result = result.filter((post) => post.title.includes(search));
+  }
+
+  const pageNum = parseInt(page) || 1;    // 문자열 → 숫자 수동 변환
+  const limitNum = parseInt(limit) || 10; // 문자열 → 숫자 수동 변환
+  const start = (pageNum - 1) * limitNum;
+  const end = start + limitNum;
+
+  return {
+    data: result.slice(start, end),
+    total: result.length,
+    page: pageNum,
+    limit: limitNum,
+  };
+}
+```
+
+```typescript
+// ✅ 변경 후 (챕터 5) — @Type(() => Number)가 변환을, @IsInt/@Min/@Max가 검증을 대신한다
+// src/posts/posts.service.ts
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+
+findAll(query: PaginationQueryDto) {
+  let result = this.posts;
+
+  if (query.search) {
+    result = result.filter((post) => post.title.includes(query.search));
+  }
+
+  const start = (query.page - 1) * query.limit; // 이미 number — parseInt 불필요
+  const end = start + query.limit;
+
+  return {
+    data: result.slice(start, end),
+    total: result.length,
+    page: query.page,
+    limit: query.limit,
+  };
+}
+```
+
+> **포인트:** `parseInt()`와 `|| 1` 같은 방어 코드가 전부 사라졌다. `PaginationQueryDto`의 `@Type(() => Number)`가 문자열을 숫자로 변환하고, `@Min(1)`·`@Max(100)` 이 범위를 검증하며, 기본값(`= 1`, `= 10`)이 빈 파라미터를 처리한다. 서비스는 이미 검증·변환된 값만 받으므로 비즈니스 로직에만 집중할 수 있다.
+
+### 11-9. 컨트롤러에 DTO와 ParseIntPipe 적용
 
 이제 각 컨트롤러에서 DTO와 파이프를 적용한다. `ValidationPipe`는 글로벌로 설정했으므로 각 메서드에 별도로 적용할 필요가 없다.
 
@@ -1139,6 +1192,8 @@ import {
   Param,
   Query,
   Body,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
@@ -1176,8 +1231,9 @@ export class PostsController {
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.postsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.postsService.remove(id);
   }
 }
 ```
@@ -1193,6 +1249,8 @@ import {
   Delete,
   Param,
   Body,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -1216,13 +1274,14 @@ export class CommentsController {
   }
 
   @Delete('comments/:id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.commentsService.remove(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.commentsService.remove(id);
   }
 }
 ```
 
-### 11-9. 요청/응답 예시
+### 11-10. 요청/응답 예시
 
 **회원가입 - 유효한 요청:**
 
@@ -1340,7 +1399,7 @@ GET /posts?page=-1&limit=500
 }
 ```
 
-### 11-10. 프로젝트 구조 (챕터 5 완료 후)
+### 11-11. 프로젝트 구조 (챕터 5 완료 후)
 
 ```
 src/

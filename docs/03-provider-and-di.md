@@ -1045,9 +1045,25 @@ export class PostsService {
     return post;
   }
 
-  /** 게시글 목록 조회 */
-  findAll(): Post[] {
-    return this.posts;
+  /** 게시글 목록 조회 (검색, 페이지네이션) */
+  findAll(page?: string, limit?: string, search?: string) {
+    let result = this.posts;
+
+    if (search) {
+      result = result.filter((post) => post.title.includes(search));
+    }
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const start = (pageNum - 1) * limitNum;
+    const end = start + limitNum;
+
+    return {
+      data: result.slice(start, end),
+      total: result.length,
+      page: pageNum,
+      limit: limitNum,
+    };
   }
 
   /** 게시글 상세 조회 */
@@ -1079,7 +1095,7 @@ export class PostsService {
 }
 ```
 
-> **포인트**: `PostsService`의 생성자에서 `UsersService`와 `CommonService`를 주입받는다. 이것이 **Service 간 의존성 주입**이다. `UsersService`는 게시글 작성 시 작성자 존재 여부를 확인하기 위해, `CommonService`는 날짜 포맷을 위해 사용한다.
+> **포인트**: `PostsService`의 생성자에서 `UsersService`와 `CommonService`를 주입받는다. 이것이 **Service 간 의존성 주입**이다. `UsersService`는 게시글 작성 시 작성자 존재 여부를 확인하기 위해, `CommonService`는 날짜 포맷을 위해 사용한다. 또한 챕터 2에서 `PostsController` 안에 있던 검색·페이지네이션 로직이 이번 챕터에서 `PostsService`로 이동했다. 컨트롤러는 요청 파라미터를 받아 서비스에 위임하는 역할만 하고, 실제 비즈니스 로직은 서비스가 담당한다.
 
 ### PostsController
 
@@ -1093,6 +1109,9 @@ import {
   Delete,
   Param,
   Body,
+  Query,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
@@ -1110,10 +1129,14 @@ export class PostsController {
     return this.postsService.create(dto);
   }
 
-  /** GET /posts - 게시글 목록 */
+  /** GET /posts - 게시글 목록 (쿼리: page, limit, search) */
   @Get()
-  findAll(): BlogPost[] {
-    return this.postsService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.postsService.findAll(page, limit, search);
   }
 
   /** GET /posts/:id - 게시글 상세 */
@@ -1133,6 +1156,7 @@ export class PostsController {
 
   /** DELETE /posts/:id - 게시글 삭제 */
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id', ParseIntPipe) id: number): void {
     this.postsService.remove(id);
   }

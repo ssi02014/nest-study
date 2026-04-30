@@ -816,30 +816,39 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
+import { CommonService } from '../common/common.service';
+import { UsersService } from '../users/users.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-
-interface Post {
-  id: number;
-  title: string;
-  content: string;
-  authorId: number;
-}
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import type { Post } from './interfaces/post.interface';
 
 @Injectable()
 export class PostsService {
-  private posts: Post[] = [
-    { id: 1, title: '첫 번째 게시글', content: 'NestJS 시작하기', authorId: 1 },
-    {
-      id: 2,
-      title: '두 번째 게시글',
-      content: 'Exception Filter 배우기',
-      authorId: 2,
-    },
-  ];
+  private nextId = 1;
+  private posts: Post[] = [];
 
-  findAll(): Post[] {
-    return this.posts;
+  constructor(
+    private readonly commonService: CommonService,
+    private readonly usersService: UsersService
+  ) {}
+
+  findAll(query: PaginationQueryDto) {
+    let result = this.posts;
+
+    if (query.search) {
+      result = result.filter((post) => post.title.includes(query.search));
+    }
+
+    const start = (query.page - 1) * query.limit;
+    const end = start + query.limit;
+
+    return {
+      data: result.slice(start, end),
+      total: result.length,
+      page: query.page,
+      limit: query.limit,
+    };
   }
 
   findOne(id: number): Post {
@@ -864,11 +873,14 @@ export class PostsService {
       );
     }
 
+    const now = this.commonService.formatDate(new Date());
     const newPost: Post = {
-      id: this.posts.length + 1,
+      id: this.nextId++,
       title: createPostDto.title,
       content: createPostDto.content,
       authorId,
+      createdAt: now,
+      updatedAt: now,
     };
 
     this.posts.push(newPost);
@@ -884,9 +896,9 @@ export class PostsService {
       throw new ForbiddenException('본인이 작성한 게시글만 수정할 수 있습니다');
     }
 
-    // 수정 적용
-    if (updatePostDto.title) post.title = updatePostDto.title;
-    if (updatePostDto.content) post.content = updatePostDto.content;
+    Object.assign(post, updatePostDto, {
+      updatedAt: this.commonService.formatDate(new Date()),
+    });
 
     return post;
   }
@@ -902,6 +914,12 @@ export class PostsService {
 
     this.posts = this.posts.filter((p) => p.id !== id);
   }
+
+  // forceRemove — 관리자 전용, 작성자 확인 없이 삭제
+  forceRemove(id: number): void {
+    this.findOne(id); // 게시글이 없으면 NotFoundException
+    this.posts = this.posts.filter((p) => p.id !== id);
+  }
 }
 ```
 
@@ -911,25 +929,29 @@ import {
   Controller,
   Get,
   Post,
-  Put,
+  Patch,
   Delete,
   Body,
   Param,
+  Query,
   Req,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
   @Get()
-  findAll() {
-    return this.postsService.findAll();
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.postsService.findAll(query);
   }
 
   @Get(':id')
@@ -945,7 +967,7 @@ export class PostsController {
     return this.postsService.create(createPostDto, userId);
   }
 
-  @Put(':id')
+  @Patch(':id')
   update(
     @Req() req: Request,
     @Param('id', ParseIntPipe) id: number,
@@ -956,10 +978,10 @@ export class PostsController {
   }
 
   @Delete(':id')
-  remove(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Req() req: Request, @Param('id', ParseIntPipe) id: number): void {
     const userId = (req as any).user.id;
     this.postsService.remove(id, userId);
-    return { deleted: true };
   }
 }
 ```

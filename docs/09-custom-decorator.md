@@ -589,6 +589,8 @@ import {
   Body,
   Param,
   Query,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
@@ -637,11 +639,12 @@ export class PostsController {
 
   // 게시글 삭제 - 인증 필요
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @CurrentUser('id') userId: number,
     @Param('id', ParseIntPipe) id: number
-  ) {
-    return this.postsService.remove(id, userId);
+  ): void {
+    this.postsService.remove(id, userId);
   }
 }
 ```
@@ -657,6 +660,8 @@ import {
   Delete,
   Body,
   Param,
+  HttpCode,
+  HttpStatus,
   ParseIntPipe,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
@@ -687,11 +692,12 @@ export class CommentsController {
 
   // 댓글 삭제 - 인증 필요
   @Delete('comments/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(
     @CurrentUser('id') userId: number,
     @Param('id', ParseIntPipe) id: number
-  ) {
-    return this.commentsService.remove(id, userId);
+  ): void {
+    this.commentsService.remove(id, userId);
   }
 }
 ```
