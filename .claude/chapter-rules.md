@@ -303,6 +303,31 @@ constructor(private readonly commonService: CommonService) {}
 
 ---
 
+## 13. CommonModule 누적 항목
+
+### common/ 폴더에 추가된 파일 (챕터별)
+
+| 챕터 | 추가 파일 | 제공 기능 |
+|------|-----------|-----------|
+| 챕터 1 | `common/common.module.ts` | CommonService export |
+| 챕터 1 | `common/common.service.ts` | `formatDate()`, `generateSlug()` |
+| 챕터 2~ | (추가 없음) | 이후 챕터는 common/ 파일을 새로 추가하지 않음 |
+
+### CommonModule을 import하는 모듈 (챕터 1부터 누적)
+
+모든 Feature 모듈(`UsersModule`, `PostsModule`, `CommentsModule`)은 챕터 1부터 `CommonModule`을 `imports`에 포함한다.
+
+### CommonService 메서드 목록
+
+| 메서드 | 반환 타입 | 설명 |
+|--------|-----------|------|
+| `formatDate(date: Date)` | `string` | `YYYY-MM-DD` 형식 날짜 문자열 반환 |
+| `generateSlug(title: string)` | `string` | 한글·공백을 처리한 URL 슬러그 생성 |
+
+> **주의:** 챕터 10(TypeORM) 도입 이후에는 날짜 필드를 `Date` 타입으로 직접 관리하므로 `formatDate()` 사용 범위가 줄어든다.
+
+---
+
 ## 빠른 참조: 모든 챕터 헤더 방식
 
 모든 챕터(01~17, 신규 18~)는 **방식 A** (명시적 단계 헤더)를 사용한다.
