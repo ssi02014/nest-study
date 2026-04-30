@@ -1281,6 +1281,8 @@ export class CommentsService {
 
 ### CommentsController
 
+> **참고:** 챕터 2에서는 `CommentsService`가 없어서 두 컨트롤러(`PostCommentsController`, `CommentsController`)가 `static` 배열로 데이터를 공유했다. 이번 챕터에서 `CommentsService`를 도입했으므로 데이터 공유를 Service에 위임할 수 있다. 덕분에 `@Controller()`에 접두사를 비우고 하나의 컨트롤러로 통합한다.
+
 ```typescript
 // comments/comments.controller.ts
 import {

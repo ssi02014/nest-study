@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NestJS Blog API Playground</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --border: #475569;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      font-size: 14px;
+    }
+
+    /* ── Header ── */
+    header {
+      padding: 10px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 15px; font-weight: 700; white-space: nowrap; }
+    .header-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .header-field label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .header-field input {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    #serverUrl { width: 190px; }
+    #jwtToken  { width: 320px; }
+
+    /* ── Layout ── */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ── */
+    aside {
+      width: 210px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .ch-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 9px 14px;
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .ch-btn:hover { background: var(--surface2); color: var(--text); }
+    .ch-btn.active {
+      background: var(--surface2);
+      color: var(--text);
+      border-left: 3px solid var(--accent);
+      padding-left: 11px;
+    }
+    .ch-num { font-size: 10px; color: var(--accent); font-weight: 700; display: block; }
+    .ch-name { font-size: 12px; }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .page-header { margin-bottom: 18px; }
+    .page-title { font-size: 18px; font-weight: 700; }
+    .page-note {
+      margin-top: 10px;
+      padding: 9px 13px;
+      background: #1e3a5f;
+      border-left: 3px solid #3b82f6;
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Group ── */
+    .group { margin-bottom: 24px; }
+    .group-name {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Endpoint card ── */
+    .ep-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+    .ep-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .ep-head:hover { background: var(--surface2); }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      min-width: 58px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .GET    { background: #1d4ed8; color: #bfdbfe; }
+    .POST   { background: #15803d; color: #bbf7d0; }
+    .PATCH  { background: #b45309; color: #fef3c7; }
+    .PUT    { background: #b45309; color: #fef3c7; }
+    .DELETE { background: #b91c1c; color: #fee2e2; }
+
+    .ep-path {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+    }
+    .ep-desc { font-size: 12px; color: var(--muted); }
+    .lock-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: #3b1f6e;
+      color: #c4b5fd;
+      border: 1px solid #6d28d9;
+      flex-shrink: 0;
+    }
+    .chevron {
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+    .ep-card.open .chevron { transform: rotate(180deg); }
+
+    /* ── Form ── */
+    .ep-body {
+      display: none;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+    }
+    .ep-card.open .ep-body { display: block; }
+
+    .form-section { margin-bottom: 12px; }
+    .form-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .field-name {
+      font-family: monospace;
+      font-size: 12px;
+      color: #93c5fd;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+    .optional-tag {
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .form-row input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 9px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: monospace;
+    }
+    .form-row input:focus { outline: none; border-color: var(--accent); }
+
+    .send-btn {
+      padding: 7px 18px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .send-btn:hover { background: #4f46e5; }
+
+    /* ── Response ── */
+    .resp-area { margin-top: 12px; display: none; }
+    .resp-area.show { display: block; }
+    .resp-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .status {
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .s2xx { background: #14532d; color: #86efac; }
+    .s3xx { background: #164e63; color: #a5f3fc; }
+    .s4xx { background: #7f1d1d; color: #fca5a5; }
+    .s5xx { background: #7c2d12; color: #fdba74; }
+    .s0xx { background: #27272a; color: #a1a1aa; }
+    .resp-time { color: var(--muted); }
+    .resp-body {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .cors-warn {
+      margin-top: 8px;
+      padding: 10px 14px;
+      background: #451a03;
+      border: 1px solid #92400e;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #fde68a;
+      line-height: 1.6;
+    }
+    .cors-warn code {
+      background: #1c1917;
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-family: monospace;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ NestJS Blog API Playground</h1>
+  <div class="header-field">
+    <label>서버 URL</label>
+    <input type="text" id="serverUrl" value="http://localhost:3000">
+  </div>
+  <div class="header-field">
+    <label>JWT Token (🔒 엔드포인트에 자동 첨부)</label>
+    <input type="text" id="jwtToken" placeholder="eyJhbGciOiJIUzI1NiIs...">
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar"></aside>
+  <main id="main"></main>
+</div>
+
+<script>
+/* ─────────────────────────────────────────
+   Endpoint Sets
+   각 챕터 상태의 누적 API 스냅샷
+───────────────────────────────────────── */
+
+const SETS = {
+
+  /* ── 챕터 02: Controller 기초 ── */
+  ep02: [
+    {
+      group: 'Users',
+      list: [
+        { method: 'POST', path: '/users', desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동' },
+          ]},
+        { method: 'GET', path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',     desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/:id', desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'POST',   path: '/posts',     desc: '게시글 작성',
+          body: [
+            { name: 'title',    ph: 'NestJS 학습 시작' },
+            { name: 'content',  ph: '오늘부터 NestJS를 공부합니다.' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id', desc: '게시글 수정', params: ['id'],
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id', desc: '게시글 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'POST', path: '/posts/:postId/comments', desc: '댓글 작성', params: ['postId'],
+          body: [
+            { name: 'content',  ph: '좋은 글이네요!' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'GET',    path: '/posts/:postId/comments', desc: '댓글 목록', params: ['postId'] },
+        { method: 'DELETE', path: '/comments/:id',           desc: '댓글 삭제', params: ['id'] },
+      ]
+    },
+  ],
+
+  /* ── 챕터 03-05: Provider & DI / Middleware / Pipe ── */
+  ep03: [
+    {
+      group: 'Users',
+      list: [
+        { method: 'POST',   path: '/users',     desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동' },
+          ]},
+        { method: 'GET',    path: '/users',     desc: '사용자 목록' },
+        { method: 'GET',    path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+        { method: 'PATCH',  path: '/users/:id', desc: '사용자 정보 수정', params: ['id'],
+          body: [
+            { name: 'email', ph: 'new@example.com', opt: true },
+            { name: 'name',  ph: '새 이름',          opt: true },
+          ]},
+        { method: 'DELETE', path: '/users/:id', desc: '사용자 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',     desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/:id', desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'POST',   path: '/posts',     desc: '게시글 작성',
+          body: [
+            { name: 'title',    ph: 'NestJS 학습 시작' },
+            { name: 'content',  ph: '오늘부터 NestJS를 공부합니다.' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id', desc: '게시글 수정', params: ['id'],
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id', desc: '게시글 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'POST', path: '/posts/:postId/comments', desc: '댓글 작성', params: ['postId'],
+          body: [
+            { name: 'content',  ph: '좋은 글이네요!' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'GET',    path: '/posts/:postId/comments', desc: '댓글 목록', params: ['postId'] },
+        { method: 'DELETE', path: '/comments/:id',           desc: '댓글 삭제', params: ['id'] },
+      ]
+    },
+  ],
+
+  /* ── 챕터 06-08: Guard / Interceptor / Exception Filter ── */
+  ep06: [
+    {
+      group: 'Users',
+      list: [
+        { method: 'POST',   path: '/users',     desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동' },
+          ]},
+        { method: 'GET',    path: '/users',     desc: '사용자 목록' },
+        { method: 'GET',    path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+        { method: 'PATCH',  path: '/users/:id', desc: '사용자 정보 수정', params: ['id'],
+          body: [
+            { name: 'email', ph: 'new@example.com', opt: true },
+            { name: 'name',  ph: '새 이름',          opt: true },
+          ]},
+        { method: 'DELETE', path: '/users/:id', desc: '사용자 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',           desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/:id',       desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'POST',   path: '/posts',           desc: '게시글 작성',
+          body: [
+            { name: 'title',    ph: 'NestJS 학습 시작' },
+            { name: 'content',  ph: '오늘부터 NestJS를 공부합니다.' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id',       desc: '게시글 수정', params: ['id'],
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id',       desc: '게시글 삭제', params: ['id'] },
+        { method: 'DELETE', path: '/posts/:id/force', desc: '게시글 강제 삭제 (어드민)', params: ['id'], auth: true },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'GET',    path: '/posts/:postId/comments',       desc: '댓글 목록',              params: ['postId'] },
+        { method: 'POST',   path: '/posts/:postId/comments',       desc: '댓글 작성',              params: ['postId'],
+          body: [
+            { name: 'content',  ph: '좋은 글이네요!' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:postId/comments/:id',       desc: '댓글 삭제',              params: ['postId', 'id'] },
+        { method: 'DELETE', path: '/posts/:postId/comments/:id/force', desc: '댓글 강제 삭제 (어드민)', params: ['postId', 'id'], auth: true },
+      ]
+    },
+  ],
+
+  /* ── 챕터 09: Custom Decorator ── */
+  ep09: [
+    {
+      group: 'Users',
+      list: [
+        { method: 'POST',   path: '/users',     desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동' },
+          ]},
+        { method: 'GET',    path: '/users',     desc: '사용자 목록' },
+        { method: 'GET',    path: '/users/me',  desc: '내 정보 조회 (@CurrentUser)', auth: true },
+        { method: 'GET',    path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+        { method: 'PATCH',  path: '/users/:id', desc: '사용자 정보 수정', params: ['id'],
+          body: [
+            { name: 'email', ph: 'new@example.com', opt: true },
+            { name: 'name',  ph: '새 이름',          opt: true },
+          ]},
+        { method: 'DELETE', path: '/users/:id', desc: '사용자 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',     desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/:id', desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'POST',   path: '/posts',     desc: '게시글 작성',
+          body: [
+            { name: 'title',    ph: 'NestJS 학습 시작' },
+            { name: 'content',  ph: '오늘부터 NestJS를 공부합니다.' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id', desc: '게시글 수정', params: ['id'],
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id', desc: '게시글 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'POST', path: '/posts/:postId/comments', desc: '댓글 작성', params: ['postId'],
+          body: [
+            { name: 'content',  ph: '좋은 글이네요!' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'GET',    path: '/posts/:postId/comments', desc: '댓글 목록', params: ['postId'] },
+        { method: 'DELETE', path: '/comments/:id',           desc: '댓글 삭제', params: ['id'] },
+      ]
+    },
+  ],
+
+  /* ── 챕터 10-11: TypeORM / Configuration ── */
+  ep10: [
+    {
+      group: 'Users',
+      list: [
+        { method: 'POST',   path: '/users',     desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동' },
+          ]},
+        { method: 'GET',    path: '/users',     desc: '사용자 목록' },
+        { method: 'GET',    path: '/users/me',  desc: '내 정보 조회', auth: true },
+        { method: 'GET',    path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+        { method: 'PATCH',  path: '/users/:id', desc: '사용자 정보 수정', params: ['id'],
+          body: [
+            { name: 'email', ph: 'new@example.com', opt: true },
+            { name: 'name',  ph: '새 이름',          opt: true },
+          ]},
+        { method: 'DELETE', path: '/users/:id', desc: '사용자 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',              desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/search',       desc: '게시글 검색 (title/content)',
+          query: [{ name: 'keyword', ph: '검색어' }] },
+        { method: 'GET',    path: '/posts/:id',          desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'GET',    path: '/posts/author/:authorId', desc: '작성자별 게시글', params: ['authorId'] },
+        { method: 'POST',   path: '/posts',              desc: '게시글 작성',
+          body: [
+            { name: 'title',    ph: 'NestJS 학습 시작' },
+            { name: 'content',  ph: '오늘부터 NestJS를 공부합니다.' },
+            { name: 'authorId', ph: '1', num: true },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id',          desc: '게시글 수정', params: ['id'],
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id',          desc: '게시글 삭제', params: ['id'] },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'POST',   path: '/comments',             desc: '댓글 작성',
+          body: [
+            { name: 'content',  ph: '좋은 글이네요!' },
+            { name: 'authorId', ph: '1', num: true },
+            { name: 'postId',   ph: '1', num: true },
+          ]},
+        { method: 'GET',    path: '/comments/post/:postId', desc: '게시글의 댓글 목록', params: ['postId'] },
+        { method: 'GET',    path: '/comments/:id',          desc: '댓글 단일 조회',      params: ['id'] },
+        { method: 'PATCH',  path: '/comments/:id',          desc: '댓글 수정',           params: ['id'],
+          body: [
+            { name: 'content', ph: '수정된 댓글 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/comments/:id',          desc: '댓글 삭제',           params: ['id'] },
+      ]
+    },
+  ],
+
+  /* ── 챕터 12-17: Authentication / Testing / Swagger / WebSocket / CQRS / Microservices ── */
+  ep12: [
+    {
+      group: 'Auth',
+      list: [
+        { method: 'POST', path: '/auth/signup',  desc: '회원가입',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+            { name: 'name',     ph: '홍길동', opt: true },
+          ]},
+        { method: 'POST', path: '/auth/login',   desc: '로그인 → accessToken, refreshToken',
+          body: [
+            { name: 'email',    ph: 'user@example.com' },
+            { name: 'password', ph: 'password123' },
+          ]},
+        { method: 'POST', path: '/auth/refresh', desc: 'Access Token 재발급', auth: true },
+        { method: 'POST', path: '/auth/logout',  desc: '로그아웃',            auth: true },
+      ]
+    },
+    {
+      group: 'Users',
+      list: [
+        { method: 'GET',    path: '/users',     desc: '사용자 목록' },
+        { method: 'GET',    path: '/users/:id', desc: '사용자 조회', params: ['id'] },
+        { method: 'PATCH',  path: '/users/:id', desc: '사용자 정보 수정', params: ['id'], auth: true,
+          body: [
+            { name: 'email', ph: 'new@example.com', opt: true },
+            { name: 'name',  ph: '새 이름',          opt: true },
+          ]},
+        { method: 'DELETE', path: '/users/:id', desc: '사용자 삭제', params: ['id'], auth: true },
+      ]
+    },
+    {
+      group: 'Posts',
+      list: [
+        { method: 'GET',    path: '/posts',     desc: '게시글 목록' },
+        { method: 'GET',    path: '/posts/search', desc: '게시글 검색',
+          query: [{ name: 'keyword', ph: '검색어' }] },
+        { method: 'GET',    path: '/posts/:id', desc: '게시글 단일 조회', params: ['id'] },
+        { method: 'POST',   path: '/posts',     desc: '게시글 작성', auth: true,
+          body: [
+            { name: 'title',   ph: 'NestJS 학습 시작' },
+            { name: 'content', ph: '오늘부터 NestJS를 공부합니다.' },
+          ]},
+        { method: 'PATCH',  path: '/posts/:id', desc: '게시글 수정', params: ['id'], auth: true,
+          body: [
+            { name: 'title',   ph: '수정된 제목', opt: true },
+            { name: 'content', ph: '수정된 내용', opt: true },
+          ]},
+        { method: 'DELETE', path: '/posts/:id', desc: '게시글 삭제', params: ['id'], auth: true },
+      ]
+    },
+    {
+      group: 'Comments',
+      list: [
+        { method: 'GET',    path: '/posts/:postId/comments',     desc: '댓글 목록', params: ['postId'] },
+        { method: 'POST',   path: '/posts/:postId/comments',     desc: '댓글 작성', params: ['postId'], auth: true,
+          body: [
+            { name: 'content', ph: '좋은 글이네요!' },
+          ]},
+        { method: 'DELETE', path: '/posts/:postId/comments/:id', desc: '댓글 삭제', params: ['postId', 'id'], auth: true },
+      ]
+    },
+  ],
+};
+
+/* ─────────────────────────────────────────
+   Chapter List
+───────────────────────────────────────── */
+const CHAPTERS = [
+  { id: '02', title: 'Controller',         set: 'ep02' },
+  { id: '03', title: 'Provider & DI',      set: 'ep03' },
+  { id: '04', title: 'Middleware',         set: 'ep03', sameAs: '03' },
+  { id: '05', title: 'Pipe',               set: 'ep03', sameAs: '03' },
+  { id: '06', title: 'Guard',              set: 'ep06' },
+  { id: '07', title: 'Interceptor',        set: 'ep06', sameAs: '06' },
+  { id: '08', title: 'Exception Filter',   set: 'ep06', sameAs: '06' },
+  { id: '09', title: 'Custom Decorator',   set: 'ep09' },
+  { id: '10', title: 'TypeORM',            set: 'ep10' },
+  { id: '11', title: 'Configuration',      set: 'ep10', sameAs: '10' },
+  { id: '12', title: 'Authentication',     set: 'ep12' },
+  { id: '13', title: 'Testing',            set: 'ep12', sameAs: '12' },
+  { id: '14', title: 'Swagger',            set: 'ep12', sameAs: '12' },
+  { id: '15', title: 'WebSocket',          set: 'ep12', sameAs: '12',
+    note: '💬 WebSocket(실시간 댓글 알림)은 HTTP 요청이 아니라 이 플레이그라운드에서 테스트할 수 없습니다. 나머지 REST API는 챕터 12와 동일합니다.' },
+  { id: '16', title: 'CQRS',               set: 'ep12', sameAs: '12' },
+  { id: '17', title: 'Microservices',      set: 'ep12', sameAs: '12',
+    note: '📡 알림 마이크로서비스는 내부 TCP 통신으로 동작하며 직접 HTTP 호출 대상이 아닙니다. 나머지 REST API는 챕터 12와 동일합니다.' },
+];
+
+/* ─────────────────────────────────────────
+   Render
+───────────────────────────────────────── */
+
+let currentChId = '02';
+
+function renderSidebar() {
+  const aside = document.getElementById('sidebar');
+  aside.innerHTML = CHAPTERS.map(ch => `
+    <button class="ch-btn${ch.id === currentChId ? ' active' : ''}"
+            onclick="selectChapter('${ch.id}')">
+      <span class="ch-num">챕터 ${ch.id}</span>
+      <span class="ch-name">${ch.title}</span>
+    </button>
+  `).join('');
+}
+
+function renderMain(chId) {
+  const ch  = CHAPTERS.find(c => c.id === chId);
+  const set = SETS[ch.set];
+  const main = document.getElementById('main');
+
+  let sameNote = '';
+  if (ch.sameAs) {
+    sameNote = `<div class="page-note">이번 챕터는 Blog API 엔드포인트 변경 없음 — 챕터 ${ch.sameAs}와 동일합니다.</div>`;
+  }
+  let extraNote = ch.note ? `<div class="page-note">${ch.note}</div>` : '';
+
+  const groupsHtml = set.map((g, gi) => `
+    <div class="group">
+      <div class="group-name">${g.group}</div>
+      ${g.list.map((ep, ei) => renderEndpoint(ep, `${chId}-${gi}-${ei}`)).join('')}
+    </div>
+  `).join('');
+
+  main.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">챕터 ${ch.id} — ${ch.title}</div>
+      ${sameNote}${extraNote}
+    </div>
+    ${groupsHtml}
+  `;
+}
+
+function renderEndpoint(ep, uid) {
+  const paramFields = (ep.params || []).map(p => `
+    <div class="form-row">
+      <span class="field-name">:${p}</span>
+      <input data-param="${p}" type="text" placeholder="1" value="1">
+    </div>
+  `).join('');
+
+  const queryFields = (ep.query || []).map(q => `
+    <div class="form-row">
+      <span class="field-name">${q.name}</span>
+      <input data-query="${q.name}" type="text" placeholder="${q.ph || ''}">
+    </div>
+  `).join('');
+
+  const bodyFields = (ep.body || []).map(f => `
+    <div class="form-row">
+      <span class="field-name">${f.name}</span>
+      <input data-body="${f.name}" data-num="${f.num || false}" type="text"
+             placeholder="${f.ph || ''}">
+      ${f.opt ? '<span class="optional-tag">선택</span>' : ''}
+    </div>
+  `).join('');
+
+  const hasParams = (ep.params || []).length > 0;
+  const hasQuery  = (ep.query  || []).length > 0;
+  const hasBody   = (ep.body   || []).length > 0;
+
+  const formHtml = (hasParams || hasQuery || hasBody) ? `
+    ${hasParams ? `<div class="form-section"><div class="form-label">Path Params</div>${paramFields}</div>` : ''}
+    ${hasQuery  ? `<div class="form-section"><div class="form-label">Query Params</div>${queryFields}</div>` : ''}
+    ${hasBody   ? `<div class="form-section"><div class="form-label">Request Body</div>${bodyFields}</div>` : ''}
+  ` : '';
+
+  return `
+    <div class="ep-card" id="card-${uid}">
+      <div class="ep-head" onclick="toggleCard('card-${uid}')">
+        <span class="badge ${ep.method}">${ep.method}</span>
+        <span class="ep-path">${ep.path}</span>
+        <span class="ep-desc">${ep.desc}</span>
+        ${ep.auth ? '<span class="lock-badge">🔒 JWT</span>' : ''}
+        <span class="chevron">▼</span>
+      </div>
+      <div class="ep-body" id="body-${uid}">
+        ${formHtml}
+        <button class="send-btn" onclick="send('${uid}', ${JSON.stringify(ep).replace(/'/g, '&#39;')})">▶ Send</button>
+        <div class="resp-area" id="resp-${uid}"></div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleCard(cardId) {
+  document.getElementById(cardId).classList.toggle('open');
+}
+
+function selectChapter(id) {
+  currentChId = id;
+  renderSidebar();
+  renderMain(id);
+}
+
+/* ─────────────────────────────────────────
+   Request Logic
+───────────────────────────────────────── */
+
+async function send(uid, ep) {
+  const serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
+  const jwtToken  = document.getElementById('jwtToken').value.trim();
+  const bodyEl    = document.getElementById(`body-${uid}`);
+  const respEl    = document.getElementById(`resp-${uid}`);
+
+  // Build path
+  let path = ep.path;
+  for (const p of (ep.params || [])) {
+    const val = bodyEl.querySelector(`[data-param="${p}"]`)?.value || '1';
+    path = path.replace(':' + p, encodeURIComponent(val));
+  }
+
+  // Build query string
+  const qp = new URLSearchParams();
+  for (const q of (ep.query || [])) {
+    const val = bodyEl.querySelector(`[data-query="${q.name}"]`)?.value || '';
+    if (val) qp.set(q.name, val);
+  }
+  const qs = qp.toString();
+  const url = serverUrl + path + (qs ? '?' + qs : '');
+
+  // Build body
+  let bodyStr = null;
+  if (ep.body) {
+    const obj = {};
+    for (const f of ep.body) {
+      const val = bodyEl.querySelector(`[data-body="${f.name}"]`)?.value ?? '';
+      if (val !== '') {
+        obj[f.name] = f.num ? Number(val) : val;
+      }
+    }
+    if (Object.keys(obj).length > 0) bodyStr = JSON.stringify(obj);
+  }
+
+  // Build headers
+  const headers = {};
+  if (bodyStr) headers['Content-Type'] = 'application/json';
+  if (jwtToken) {
+    headers['Authorization'] = jwtToken.startsWith('Bearer ')
+      ? jwtToken
+      : `Bearer ${jwtToken}`;
+  }
+
+  const t0 = performance.now();
+  let status = 0, respText = '', isCors = false;
+
+  try {
+    const res = await fetch(url, {
+      method: ep.method,
+      headers,
+      body: ep.method !== 'GET' ? bodyStr : undefined,
+    });
+    status    = res.status;
+    respText  = await res.text();
+    try { respText = JSON.stringify(JSON.parse(respText), null, 2); } catch {}
+  } catch (e) {
+    respText = e.message;
+    isCors   = e.message.includes('Failed to fetch') || e.message.includes('NetworkError');
+  }
+
+  const elapsed = Math.round(performance.now() - t0);
+
+  const statusClass = status >= 500 ? 's5xx'
+                    : status >= 400 ? 's4xx'
+                    : status >= 300 ? 's3xx'
+                    : status >= 200 ? 's2xx' : 's0xx';
+
+  const corsHtml = isCors ? `
+    <div class="cors-warn">
+      ⚠️ 요청 실패 — CORS 오류일 수 있습니다.<br>
+      NestJS <code>main.ts</code>에 다음을 추가하고 서버를 재시작하세요:<br><br>
+      <code>app.enableCors();</code>
+    </div>` : '';
+
+  respEl.className = 'resp-area show';
+  respEl.innerHTML = `
+    <div class="resp-meta">
+      <span class="status ${statusClass}">${status || 'ERR'}</span>
+      <span class="resp-time">${elapsed}ms</span>
+      <span style="color:var(--muted);font-size:11px;">${url}</span>
+    </div>
+    <pre class="resp-body">${escHtml(respText)}</pre>
+    ${corsHtml}
+  `;
+}
+
+function escHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/* ─────────────────────────────────────────
+   Init
+───────────────────────────────────────── */
+renderSidebar();
+renderMain(currentChId);
+</script>
+</body>
+</html>
