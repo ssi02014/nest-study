@@ -635,6 +635,7 @@ import {
   HttpCode,
   HttpStatus,
   Header,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { CreateCatDto } from './dto/create-cat.dto';
 import { UpdateCatDto } from './dto/update-cat.dto';
@@ -642,11 +643,11 @@ import { UpdateCatDto } from './dto/update-cat.dto';
 @Controller('cats')
 export class CatsController {
   // 이 시점에서는 Service가 없으므로 메모리 배열로 데이터를 관리한다
+  private nextId = 3;
   private cats = [
     { id: 1, name: 'Kitty', age: 2, breed: 'Persian' },
     { id: 2, name: 'Nabi', age: 3, breed: 'Korean Shorthair' },
   ];
-  private nextId = 3;
 
   // ──────────────────────────────────────
   // 1. 전체 조회 (GET /cats?page=1&limit=10)
@@ -662,8 +663,8 @@ export class CatsController {
   // 2. 단건 조회 (GET /cats/:id)
   // ──────────────────────────────────────
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    const cat = this.cats.find((c) => c.id === +id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    const cat = this.cats.find((c) => c.id === id);
     if (!cat) {
       return { message: `Cat #${id} not found` };
     }
@@ -688,8 +689,11 @@ export class CatsController {
   // 4. 수정 (PATCH /cats/:id)
   // ──────────────────────────────────────
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCatDto: UpdateCatDto) {
-    const index = this.cats.findIndex((c) => c.id === +id);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateCatDto: UpdateCatDto
+  ) {
+    const index = this.cats.findIndex((c) => c.id === id);
     if (index === -1) {
       return { message: `Cat #${id} not found` };
     }
@@ -702,8 +706,8 @@ export class CatsController {
   // ──────────────────────────────────────
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT) // 삭제 성공 시 본문 없이 204 응답
-  remove(@Param('id') id: string) {
-    this.cats = this.cats.filter((c) => c.id !== +id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    this.cats = this.cats.filter((c) => c.id !== id);
   }
 }
 ```
@@ -820,7 +824,6 @@ export class UsersController {
       createdAt: '2025-01-01',
     },
   ];
-  private nextId = 2;
 
   // ──────────────────────────────────────
   // POST /users - 회원가입
@@ -828,7 +831,7 @@ export class UsersController {
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     const newUser = {
-      id: this.nextId++,
+      id: this.users.length + 1,
       email: createUserDto.email,
       name: createUserDto.name,
       // 비밀번호는 응답에 포함하지 않는다 (보안)
@@ -930,7 +933,6 @@ export class PostsController {
       updatedAt: '2025-01-01',
     },
   ];
-  private nextId = 2;
 
   // ──────────────────────────────────────
   // GET /posts?page=1&limit=10&search=nest
@@ -982,7 +984,7 @@ export class PostsController {
   create(@Body() createPostDto: CreatePostDto) {
     const now = this.commonService.formatDate(new Date());
     const newPost = {
-      id: this.nextId++,
+      id: this.posts.length + 1,
       ...createPostDto,
       createdAt: now,
       updatedAt: now,
@@ -1066,7 +1068,7 @@ curl -X DELETE http://localhost:3000/posts/1 -v
 // comments/dto/create-comment.dto.ts
 export class CreateCommentDto {
   readonly content: string;
-  readonly authorId: number;
+  readonly authorId: string;
 }
 ```
 
@@ -1109,7 +1111,6 @@ export class PostCommentsController {
       createdAt: '2025-01-01',
     },
   ];
-  static nextId = 2;
 
   @Post()
   create(
@@ -1117,7 +1118,7 @@ export class PostCommentsController {
     @Body() createCommentDto: CreateCommentDto
   ) {
     const newComment = {
-      id: PostCommentsController.nextId++,
+      id: PostCommentsController.comments.length + 1,
       postId: +postId,
       ...createCommentDto,
       createdAt: this.commonService.formatDate(new Date()),
@@ -1128,7 +1129,7 @@ export class PostCommentsController {
 
   @Get()
   findAll(@Param('postId') postId: string) {
-    return PostCommentsController.comments.filter((c) => c.postId === +postId);
+    return PostCommentsController.comments.filter((c) => c.postId === postId);
   }
 }
 
@@ -1153,12 +1154,12 @@ export class CommentsController {
 ### curl 테스트
 
 ```bash
-# 댓글 작성 (게시글 1번에 댓글 추가)
+# 댓글 작성
 curl -X POST http://localhost:3000/posts/1/comments \
   -H "Content-Type: application/json" \
-  -d '{"content": "정말 유익한 글입니다!", "authorId": 2}'
+  -d '{"content": "정말 유익한 글입니다!", "authorId": 1}'
 
-# 댓글 목록 조회 (게시글 1번의 댓글들)
+# 댓글 목록 조회
 curl http://localhost:3000/posts/1/comments
 
 # 댓글 삭제
@@ -1174,9 +1175,11 @@ curl -X DELETE http://localhost:3000/comments/1 -v
 ```typescript
 // users/users.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
 import { UsersController } from './users.controller';
 
 @Module({
+  imports: [CommonModule], // CommonService(날짜 포맷) 사용
   controllers: [UsersController],
 })
 export class UsersModule {}
@@ -1185,9 +1188,11 @@ export class UsersModule {}
 ```typescript
 // posts/posts.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
 import { PostsController } from './posts.controller';
 
 @Module({
+  imports: [CommonModule], // CommonService(날짜 포맷) 사용
   controllers: [PostsController],
 })
 export class PostsModule {}
@@ -1196,12 +1201,14 @@ export class PostsModule {}
 ```typescript
 // comments/comments.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from '../common/common.module';
 import {
   PostCommentsController,
   CommentsController,
 } from './comments.controller';
 
 @Module({
+  imports: [CommonModule], // CommonService(날짜 포맷) 사용
   controllers: [PostCommentsController, CommentsController], // 두 컨트롤러 모두 등록
 })
 export class CommentsModule {}
@@ -1210,12 +1217,13 @@ export class CommentsModule {}
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
+import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [UsersModule, PostsModule, CommentsModule],
+  imports: [CommonModule, UsersModule, PostsModule, CommentsModule],
 })
 export class AppModule {}
 ```

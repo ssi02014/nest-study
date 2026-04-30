@@ -1,6 +1,6 @@
 # 챕터 8 - Exception Filter (예외 필터)
 
-> **이전 챕터 요약**: 챕터 7에서 TransformInterceptor로 성공 응답을 `{ success: true, data, timestamp }` 형태로 통일했다. 이번 챕터에서는 **Exception Filter**로 에러 응답도 `{ success: false, error: { ... } }` 형태로 통일하여 API 응답 포맷을 완전히 일관되게 만든다.
+> **이전 챕터 요약**: 챕터 7에서 TransformInterceptor로 성공 응답을 `{ success: true, data, timestamp }` 형태로 통일했다. 이번 챕터에서는 **Exception Filter**로 에러 응답도 `{ success: false, data: null, error: { ... }, timestamp }` 형태로 통일하여 API 응답 포맷을 완전히 일관되게 만든다.
 
 ## 목차
 
@@ -681,7 +681,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 ### 3-1. HttpExceptionFilter 작성
 
-블로그 API의 에러 응답을 `{ success: false, error: { statusCode, message, path, timestamp } }` 형태로 통일하는 필터다.
+블로그 API의 에러 응답을 `{ success: false, data: null, error: { statusCode, message, path }, timestamp }` 형태로 통일하는 필터다. 성공 응답(`{ success, data, timestamp }`)과 최상위 구조를 맞춰 클라이언트가 일관되게 응답을 처리할 수 있도록 한다.
 
 ```typescript
 // src/common/filters/http-exception.filter.ts
@@ -712,15 +712,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     const message = this.extractMessage(exception);
 
-    // 2) 에러 응답 포맷 구성
+    // 2) 에러 응답 포맷 구성 (성공 응답과 최상위 구조를 맞춤)
     const errorResponse = {
       success: false,
+      data: null,
       error: {
         statusCode: status,
         message,
         path: request.url,
-        timestamp: new Date().toISOString(),
       },
+      timestamp: new Date().toISOString(),
     };
 
     // 3) 로깅
@@ -777,10 +778,12 @@ import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
+import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [CommonModule, PostsModule],
+  imports: [CommonModule, UsersModule, PostsModule, CommentsModule],
   providers: [
     // 전역 예외 필터 등록
     {
@@ -834,7 +837,6 @@ export class PostsService {
       authorId: 2,
     },
   ];
-  private nextId = 3;
 
   findAll(): Post[] {
     return this.posts;
@@ -863,7 +865,7 @@ export class PostsService {
     }
 
     const newPost: Post = {
-      id: this.nextId++,
+      id: this.posts.length + 1,
       title: createPostDto.title,
       content: createPostDto.content,
       authorId,
@@ -913,8 +915,10 @@ import {
   Delete,
   Body,
   Param,
+  Req,
   ParseIntPipe,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -934,24 +938,26 @@ export class PostsController {
   }
 
   @Post()
-  create(@Body() createPostDto: CreatePostDto) {
-    // 실제로는 Guard에서 인증된 userId를 받지만, 여기서는 하드코딩
-    const userId = 1;
+  create(@Req() req: Request, @Body() createPostDto: CreatePostDto) {
+    // 챕터 6의 SimpleAuthGuard가 request.user에 저장한 유저 정보를 사용한다.
+    // 챕터 9에서 @CurrentUser() 데코레이터로 리팩토링한다.
+    const userId = (req as any).user.id;
     return this.postsService.create(createPostDto, userId);
   }
 
   @Put(':id')
   update(
+    @Req() req: Request,
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto
   ) {
-    const userId = 1;
+    const userId = (req as any).user.id;
     return this.postsService.update(id, updatePostDto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    const userId = 1;
+  remove(@Req() req: Request, @Param('id', ParseIntPipe) id: number) {
+    const userId = (req as any).user.id;
     this.postsService.remove(id, userId);
     return { deleted: true };
   }
@@ -988,25 +994,29 @@ export class PostsController {
 // GET /posts/999 - 존재하지 않는 게시글 조회
 {
   "success": false,
+  "data": null,
   "error": {
     "statusCode": 404,
     "message": "ID 999인 게시글을 찾을 수 없습니다",
-    "path": "/posts/999",
-    "timestamp": "2026-04-09T12:00:00.000Z"
-  }
+    "path": "/posts/999"
+  },
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
+
 **패턴 비교:**
 
-| 항목        | 성공 응답            | 에러 응답           |
-| ----------- | -------------------- | ------------------- |
-| `success`   | `true`               | `false`             |
-| 데이터 위치 | `data` 필드          | `error` 필드        |
-| 상태 코드   | `statusCode`         | `error.statusCode`  |
-| 담당        | TransformInterceptor | HttpExceptionFilter |
+| 항목          | 성공 응답            | 에러 응답           |
+| ------------- | -------------------- | ------------------- |
+| `success`     | `true`               | `false`             |
+| `data`        | 응답 데이터          | `null`              |
+| `error`       | (없음)               | 에러 상세 정보      |
+| `timestamp`   | 최상위 필드          | 최상위 필드         |
+| 상태 코드     | `statusCode`         | `error.statusCode`  |
+| 담당          | TransformInterceptor | HttpExceptionFilter |
 
-프론트엔드에서는 `success` 필드만 확인하면 성공/실패를 바로 알 수 있다.
+최상위 구조(`success`, `data`, `error`, `timestamp`)가 성공/에러 모두 동일하므로 프론트엔드에서 `success` 필드 하나만 확인하면 된다.
 
 ```typescript
 // 프론트엔드 코드 예시
@@ -1052,12 +1062,13 @@ GET /posts/999
 # 응답:
 {
   "success": false,
+  "data": null,
   "error": {
     "statusCode": 404,
     "message": "ID 999인 게시글을 찾을 수 없습니다",
-    "path": "/posts/999",
-    "timestamp": "2026-04-09T12:00:00.000Z"
-  }
+    "path": "/posts/999"
+  },
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1070,12 +1081,13 @@ PUT /posts/2
 # 응답:
 {
   "success": false,
+  "data": null,
   "error": {
     "statusCode": 403,
     "message": "본인이 작성한 게시글만 수정할 수 있습니다",
-    "path": "/posts/2",
-    "timestamp": "2026-04-09T12:00:00.000Z"
-  }
+    "path": "/posts/2"
+  },
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1087,12 +1099,13 @@ POST /posts
 # 응답:
 {
   "success": false,
+  "data": null,
   "error": {
     "statusCode": 409,
     "message": "\"첫 번째 게시글\" 제목의 게시글이 이미 존재합니다",
-    "path": "/posts",
-    "timestamp": "2026-04-09T12:00:00.000Z"
-  }
+    "path": "/posts"
+  },
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1103,12 +1116,13 @@ GET /posts/abc
 # 응답:
 {
   "success": false,
+  "data": null,
   "error": {
     "statusCode": 400,
     "message": "Validation failed (numeric string is expected)",
-    "path": "/posts/abc",
-    "timestamp": "2026-04-09T12:00:00.000Z"
-  }
+    "path": "/posts/abc"
+  },
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1160,12 +1174,13 @@ src/
 성공 응답 (TransformInterceptor)     에러 응답 (HttpExceptionFilter)
 {                                    {
   "success": true,                     "success": false,
-  "statusCode": 200,                   "error": {
-  "data": { ... },                       "statusCode": 404,
-  "timestamp": "...",                    "message": "...",
-  "path": "/posts"                       "path": "/posts/999",
-}                                        "timestamp": "..."
-                                       }
+  "statusCode": 200,                   "data": null,
+  "data": { ... },                     "error": {
+  "timestamp": "...",                    "statusCode": 404,
+  "path": "/posts"                       "message": "...",
+}                                        "path": "/posts/999"
+                                       },
+                                       "timestamp": "..."
                                      }
 ```
 
