@@ -609,18 +609,20 @@ npm install -D @types/socket.io
 
 ### 9-1. Post Entity
 
-이전 챕터(TypeORM)에서 만든 Entity를 그대로 사용한다. 아직 만들지 않았다면 아래를 참고한다:
+챕터 10에서 만든 `Post` 엔티티를 그대로 사용한다. `author` 필드는 단순 문자열이 아니라 챕터 10에서 정의한 `User`와의 `ManyToOne` 관계로 이미 구성되어 있다.
 
 ```typescript
-// src/blog/posts/entities/post.entity.ts
+// src/posts/entities/post.entity.ts  (챕터 10에서 작성한 코드 그대로)
 import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
   OneToMany,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 
 @Entity()
@@ -634,8 +636,8 @@ export class Post {
   @Column('text')
   content: string;
 
-  @Column()
-  author: string;
+  @ManyToOne(() => User, (user) => user.posts, { eager: true })
+  author: User;
 
   @OneToMany(() => Comment, (comment) => comment.post)
   comments: Comment[];
@@ -648,10 +650,14 @@ export class Post {
 }
 ```
 
+> **참고:** `author` 필드는 챕터 10에서 `User` 엔티티와 `ManyToOne` 관계로 정의되었다. 이 챕터에서 엔티티를 새로 정의하지 않고 챕터 10의 코드를 그대로 이어받는다.
+
 ### 9-2. Comment Entity
 
+마찬가지로 챕터 10에서 만든 `Comment` 엔티티를 그대로 사용한다. `author` 역시 `User`와의 관계로 구성되어 있다.
+
 ```typescript
-// src/blog/comments/entities/comment.entity.ts
+// src/comments/entities/comment.entity.ts  (챕터 10에서 작성한 코드 그대로)
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -659,6 +665,7 @@ import {
   CreateDateColumn,
   ManyToOne,
 } from 'typeorm';
+import { User } from '../../users/entities/user.entity';
 import { Post } from '../../posts/entities/post.entity';
 
 @Entity()
@@ -669,8 +676,8 @@ export class Comment {
   @Column('text')
   content: string;
 
-  @Column()
-  author: string;
+  @ManyToOne(() => User, (user) => user.comments, { eager: true })
+  author: User;
 
   @ManyToOne(() => Post, (post) => post.comments, { onDelete: 'CASCADE' })
   post: Post;
@@ -683,8 +690,8 @@ export class Comment {
 ### 9-3. CreateCommentDto
 
 ```typescript
-// src/blog/comments/dto/create-comment.dto.ts
-import { IsString, IsNotEmpty, IsNumber, MaxLength } from 'class-validator';
+// src/comments/dto/create-comment.dto.ts
+import { IsString, IsNotEmpty, IsInt, MaxLength } from 'class-validator';
 
 export class CreateCommentDto {
   @IsString()
@@ -692,21 +699,22 @@ export class CreateCommentDto {
   @MaxLength(1000)
   content: string;
 
-  @IsString()
-  @IsNotEmpty()
-  author: string;
+  @IsInt()
+  authorId: number;
 
-  @IsNumber()
+  @IsInt()
   postId: number;
 }
 ```
+
+> **참고:** `author`는 `User` 엔티티와의 관계이므로 DTO에서는 `authorId`(정수)만 받고, 서비스에서 User를 조회하여 연결한다.
 
 ### 9-4. BlogGateway (핵심)
 
 이 챕터의 핵심이다. 게시글 상세 페이지별로 Room을 만들어 관리한다.
 
 ```typescript
-// src/blog/blog.gateway.ts
+// src/gateway/blog.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -719,6 +727,7 @@ import {
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
+import { Comment } from '../comments/entities/comment.entity';
 
 @WebSocketGateway({
   namespace: 'blog',
@@ -762,7 +771,7 @@ export class BlogGateway
 
     return {
       event: 'joinedPostRoom',
-      data: { postId, message: `게시글 ${postId}번 Room에 입장했습니다.` },
+      data: { postId, message: `게시글 ${postId} Room에 입장했습니다.` },
     };
   }
 
@@ -781,7 +790,7 @@ export class BlogGateway
 
     return {
       event: 'leftPostRoom',
-      data: { postId, message: `게시글 ${postId}번 Room에서 퇴장했습니다.` },
+      data: { postId, message: `게시글 ${postId} Room에서 퇴장했습니다.` },
     };
   }
 
@@ -789,20 +798,18 @@ export class BlogGateway
    * 댓글 작성 시 해당 게시글 Room에 실시간 알림 전송
    * CommentsService에서 호출하는 메서드다. (서비스 → Gateway)
    */
-  notifyNewComment(
-    postId: number,
-    comment: {
-      id: number;
-      content: string;
-      author: string;
-      createdAt: Date;
-    }
-  ) {
+  notifyNewComment(comment: Comment) {
+    const postId = comment.post.id;
     const roomName = `post-${postId}`;
     this.server.to(roomName).emit('newComment', {
       postId,
-      comment,
-      message: `${comment.author}님이 새 댓글을 작성했습니다.`,
+      comment: {
+        id: comment.id,
+        content: comment.content,
+        authorName: comment.author.username,
+        createdAt: comment.createdAt,
+      },
+      message: `${comment.author.username}님이 새 댓글을 작성했습니다.`,
     });
     this.logger.log(`게시글 ${postId}에 새 댓글 알림 전송`);
   }
@@ -816,14 +823,15 @@ export class BlogGateway
 댓글을 생성할 때 BlogGateway의 `notifyNewComment()`를 호출하여 실시간 알림을 보낸다.
 
 ```typescript
-// src/blog/comments/comments.service.ts
+// src/comments/comments.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { Post } from '../posts/entities/post.entity';
-import { BlogGateway } from '../blog.gateway';
+import { User } from '../users/entities/user.entity';
+import { BlogGateway } from '../gateway/blog.gateway';
 
 @Injectable()
 export class CommentsService {
@@ -832,6 +840,8 @@ export class CommentsService {
     private readonly commentRepository: Repository<Comment>,
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     // BlogGateway를 주입받는다
     private readonly blogGateway: BlogGateway
   ) {}
@@ -841,28 +851,32 @@ export class CommentsService {
     const post = await this.postRepository.findOne({
       where: { id: dto.postId },
     });
-
     if (!post) {
       throw new NotFoundException(
-        `게시글 ${dto.postId}을(를) 찾을 수 없습니다.`
+        `게시글 ID ${dto.postId}을(를) 찾을 수 없습니다.`
       );
     }
 
-    // 2. 댓글 저장
+    // 2. 작성자(User) 조회
+    const author = await this.userRepository.findOne({
+      where: { id: dto.authorId },
+    });
+    if (!author) {
+      throw new NotFoundException(
+        `사용자 ${dto.authorId}을(를) 찾을 수 없습니다.`
+      );
+    }
+
+    // 3. 댓글 저장 (author는 User 엔티티 관계)
     const comment = this.commentRepository.create({
       content: dto.content,
-      author: dto.author,
+      author,
       post,
     });
     const savedComment = await this.commentRepository.save(comment);
 
-    // 3. WebSocket으로 실시간 알림 전송
-    this.blogGateway.notifyNewComment(dto.postId, {
-      id: savedComment.id,
-      content: savedComment.content,
-      author: savedComment.author,
-      createdAt: savedComment.createdAt,
-    });
+    // 4. WebSocket으로 실시간 알림 전송
+    this.blogGateway.notifyNewComment(savedComment);
 
     return savedComment;
   }
@@ -916,24 +930,40 @@ export class CommentsController {
 
 BlogGateway를 모듈에 등록하고, CommentsService에서 사용할 수 있도록 설정한다.
 
+BlogGateway를 독립 GatewayModule로 분리하고, CommentsModule에서 import하는 방식이 일반적이다. 여기서는 CommentsModule에 BlogGateway를 직접 등록하는 예시를 보여준다.
+
 ```typescript
-// src/blog/blog.module.ts
+// src/comments/comments.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Post } from './posts/entities/post.entity';
-import { Comment } from './comments/entities/comment.entity';
-import { PostsService } from './posts/posts.service';
-import { PostsController } from './posts/posts.controller';
-import { CommentsService } from './comments/comments.service';
-import { CommentsController } from './comments/comments.controller';
+import { Comment } from './entities/comment.entity';
+import { Post } from '../posts/entities/post.entity';
+import { User } from '../users/entities/user.entity';
+import { CommentsService } from './comments.service';
+import { CommentsController } from './comments.controller';
+import { BlogGateway } from '../gateway/blog.gateway';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Comment, Post, User])],
+  controllers: [CommentsController],
+  // BlogGateway를 providers에 함께 등록하면 CommentsService에서 주입받을 수 있다
+  providers: [CommentsService, BlogGateway],
+})
+export class CommentsModule {}
+```
+
+> **참고:** BlogGateway를 여러 모듈에서 공유해야 한다면, 별도의 `GatewayModule`로 분리한 후 `exports: [BlogGateway]`를 추가하고 CommentsModule에서 GatewayModule을 imports하는 방식을 사용한다.
+
+```typescript
+// src/gateway/gateway.module.ts
+import { Module } from '@nestjs/common';
 import { BlogGateway } from './blog.gateway';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Post, Comment])],
-  controllers: [PostsController, CommentsController],
-  providers: [PostsService, CommentsService, BlogGateway],
+  providers: [BlogGateway],
+  exports: [BlogGateway],  // 다른 모듈에서 BlogGateway를 사용할 수 있도록 내보낸다
 })
-export class BlogModule {}
+export class GatewayModule {}
 ```
 
 ### 9-8. main.ts (정적 파일 서빙 설정)
@@ -984,7 +1014,7 @@ bootstrap();
   // 실시간 댓글 알림 수신
   socket.on('newComment', (data) => {
     console.log(
-      `[게시글 #${data.postId}] ${data.comment.author}: "${data.comment.content}"`
+      `[게시글 #${data.postId}] ${data.comment.authorName}: "${data.comment.content}"`
     );
   });
 
@@ -1001,11 +1031,12 @@ bootstrap();
   }
 
   // 댓글 작성 (REST API → 서버 → WebSocket 알림 자동 발송)
-  async function postComment(postId, author, content) {
+  // authorId는 로그인한 사용자의 User ID (정수)
+  async function postComment(postId, authorId, content) {
     const res = await fetch(`/posts/${postId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, author, postId }),
+      body: JSON.stringify({ content, authorId, postId }),
     });
     return res.json();
   }
@@ -1049,7 +1080,7 @@ npm run start:dev
   브라우저 → REST POST /posts/1/comments → CommentsController
   CommentsController → CommentsService.create()
   CommentsService → DB에 댓글 저장
-  CommentsService → BlogGateway.notifyNewComment(1, comment)
+  CommentsService → BlogGateway.notifyNewComment(savedComment)
   BlogGateway → server.to('post-1').emit('newComment', ...)
   사용자 A, B 모두 실시간으로 'newComment' 이벤트 수신
 
@@ -1270,7 +1301,7 @@ handleJoinPostRoom(
 
   return {
     event: 'joinedPostRoom',
-    data: { postId, message: `게시글 ${postId}번 Room에 입장했습니다.` },
+    data: { postId, message: `게시글 ${postId} Room에 입장했습니다.` },
   };
 }
 ```

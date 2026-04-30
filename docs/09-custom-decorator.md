@@ -123,12 +123,12 @@ create(@Req() req: Request, @Body() dto: CreatePostDto) {
 ```typescript
 // 커스텀 데코레이터를 만든 후 - 의도가 명확하고 간결하다
 @Get('my-posts')
-findMyPosts(@CurrentUser('id') userId: number) {
+findMyPosts(@CurrentUser('id') userId: string) {
   return this.postsService.findByAuthor(userId);
 }
 
 @Post()
-create(@CurrentUser('id') userId: number, @Body() dto: CreatePostDto) {
+create(@CurrentUser('id') userId: string, @Body() dto: CreatePostDto) {
   return this.postsService.create(userId, dto);
 }
 ```
@@ -171,20 +171,20 @@ export const MyDecorator = createParamDecorator(
 
 ### 커스텀 파라미터 데코레이터에 파이프 연결하기
 
-`createParamDecorator`로 만든 커스텀 데코레이터에도 내장 파이프를 연결할 수 있다. [`@Param('id', ParseIntPipe)`](references/decorators.md#paramkey)처럼 두 번째 인자로 파이프를 전달하면 된다.
+`createParamDecorator`로 만든 커스텀 데코레이터에도 내장 파이프를 연결할 수 있다. [`@Param('id', ParseUUIDPipe)`](references/decorators.md#paramkey)처럼 두 번째 인자로 파이프를 전달하면 된다.
 
 ```typescript
 // src/posts/posts.controller.ts
 import { Controller, Get } from '@nestjs/common';
 import { User } from '../common/decorators/user.decorator';
-import { ParseIntPipe } from '@nestjs/common';
+import { ParseUUIDPipe } from '@nestjs/common';
 
 // 예시: 커스텀 데코레이터에서 꺼낸 값에 파이프 적용
-// @User()가 request.user.id를 문자열로 반환할 때 숫자로 변환
+// @User()가 request.user.id(UUID 문자열)를 반환할 때 파이프로 유효성 검사
 @Controller('posts')
 export class PostsController {
   @Get('my')
-  findMyPosts(@User('id', ParseIntPipe) userId: number) {
+  findMyPosts(@User('id', ParseUUIDPipe) userId: string) {
     return this.postsService.findByUserId(userId);
   }
 }
@@ -194,7 +194,7 @@ export class PostsController {
 
 ```typescript
 @Get('my')
-findMyPosts(@User('id', new ParseIntPipe(), new ValidationPipe()) userId: number) {
+findMyPosts(@User('id', new ParseUUIDPipe(), new ValidationPipe()) userId: string) {
   // ...
 }
 ```
@@ -519,7 +519,7 @@ export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 ```
 
-Guard에서 `@Public()`을 인식하는 코드 (챕터 6에서 작성한 것과 동일):
+Guard에서 `@Public()`을 인식하는 코드. 챕터 6에서 Guard 내부에 선언했던 users 배열을 제거하고, 챕터 6에서 분리한 `common/data/users.data.ts` 파일을 재사용한다.
 
 ```typescript
 // src/common/guards/auth.guard.ts
@@ -531,15 +531,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { USERS } from '../data/users.data';
 
 @Injectable()
 export class SimpleAuthGuard implements CanActivate {
-  // 메모리 기반 유저 데이터 (챕터 6에서 만든 것)
-  private users = [
-    { id: 1, email: 'admin@blog.com', name: '관리자', role: 'admin' },
-    { id: 2, email: 'user@blog.com', name: '사용자', role: 'user' },
-  ];
-
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -561,8 +556,8 @@ export class SimpleAuthGuard implements CanActivate {
       throw new UnauthorizedException('x-user-id 헤더가 필요합니다.');
     }
 
-    // 3. 유저 찾기
-    const user = this.users.find((u) => u.id === Number(userId));
+    // 3. 챕터 6에서 분리한 공용 데이터 파일에서 유저 찾기
+    const user = USERS.find((u) => u.id === userId);
 
     if (!user) {
       throw new UnauthorizedException('존재하지 않는 사용자입니다.');

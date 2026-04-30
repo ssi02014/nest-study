@@ -303,11 +303,16 @@ export class PostsController {
 }
 ```
 
-> **주의:** URL 파라미터로 받은 값은 항상 **문자열**입니다. 숫자가 필요하면 `+id` 또는 `Number(id)`로 변환하거나, `ParseIntPipe`를 사용하세요.
+> **주의:** URL 파라미터로 받은 값은 항상 **문자열**입니다. UUID 형태의 식별자라면 `ParseUUIDPipe`로 유효성을 검증하고, 숫자 파라미터라면 `ParseIntPipe`를 사용하세요.
 >
 > ```typescript
+> // UUID ID (권장)
 > @Get(':id')
-> findOne(@Param('id', ParseIntPipe) id: number) {}
+> findOne(@Param('id', ParseUUIDPipe) id: string) {}
+>
+> // 숫자 파라미터 (페이지 번호 등)
+> @Get()
+> findAll(@Query('page', ParseIntPipe) page: number) {}
 > ```
 
 ---
@@ -918,7 +923,7 @@ export class PostsController {
 
 | 레벨          | 적용 방법                    | 적용 범위                   |
 | ------------- | ---------------------------- | --------------------------- |
-| 파라미터 레벨 | `@Param('id', ParseIntPipe)` | 해당 파라미터만             |
+| 파라미터 레벨 | `@Param('id', ParseUUIDPipe)` | 해당 파라미터만             |
 | 메서드 레벨   | `@UsePipes(ValidationPipe)`  | 메서드의 모든 파라미터      |
 | 컨트롤러 레벨 | 클래스에 `@UsePipes(...)`    | 해당 컨트롤러의 모든 메서드 |
 | 글로벌 레벨   | `app.useGlobalPipes(...)`    | 앱 전체                     |
@@ -933,16 +938,16 @@ import {
   Body,
   Param,
   UsePipes,
-  ParseIntPipe,
+  ParseUUIDPipe,
   ValidationPipe,
 } from '@nestjs/common';
 
 @Controller('posts')
 export class PostsController {
-  // 파라미터 레벨 Pipe — id를 자동으로 정수로 변환
+  // 파라미터 레벨 Pipe — id가 유효한 UUID인지 검증
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    // id가 정수가 아니면 400 에러 자동 반환
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    // UUID 형식이 아니면 400 에러 자동 반환
   }
 
   // 메서드 레벨 Pipe — 이 메서드에 오는 모든 파라미터에 적용

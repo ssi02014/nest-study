@@ -491,9 +491,24 @@ Saga의 핵심 포인트:
 
 이전 챕터에서 만들어 온 블로그 게시글 도메인을 CQRS 패턴으로 리팩토링한다. 기존의 `PostsService` 한 곳에 모여 있던 로직을 Command, Query, Event로 분리하는 것이 목표다.
 
-> **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티([`@Entity()`](references/decorators.md#entitytablename) 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
+### 리팩토링 계획
+
+CQRS를 도입하면 기존 `PostsService`의 역할이 각 Handler로 이동한다. 아래 계획을 먼저 파악하고 진행하자:
+
+| 기존 코드 | CQRS 전환 후 |
+| --------- | ------------ |
+| `PostsService.create()` | `CreatePostHandler.execute()` |
+| `PostsService.findAll()` | `GetPostListHandler.execute()` |
+| `PostsService.findOne()` | `GetPostHandler.execute()` |
+| `PostsService.update()` | `UpdatePostHandler.execute()` |
+| `PostsService.remove()` | `DeletePostHandler.execute()` |
+| `PostsController` → `PostsService` | `PostsController` → `CommandBus` / `QueryBus` |
+
+**기존 `PostsService` 처리 방식**: `PostsService`의 각 메서드 로직을 해당 Handler로 **이동**시키고, `posts.module.ts`의 `providers` 배열에서 `PostsService`를 **제거**한다. `PostsController`도 `PostsService` 대신 `CommandBus`와 `QueryBus`를 주입받도록 변경한다.
 
 > **팁:** `commands/impl/`과 `commands/handlers/`를 분리하는 것이 NestJS CQRS의 일반적인 관례다. `impl`에는 데이터 클래스(Command, Query, Event)를, `handlers`에는 처리 로직을 배치한다.
+
+> **챕터 10 연결**: 이 섹션은 챕터 10에서 도입한 TypeORM + SQLite 환경을 그대로 이어받는다. 챕터 10에서 정의한 `Post` 엔티티([`@Entity()`](references/decorators.md#entitytablename) 데코레이터가 붙은 TypeORM 엔티티)와 `TypeOrmModule.forFeature([Post])`로 등록된 Repository를 Handler에서 직접 주입받아 사용한다. 별도의 인메모리 저장소를 만들지 않아도 된다.
 
 ### 1. Entity와 Repository
 
@@ -507,7 +522,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
 } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 
 @Entity()
 export class Post {
@@ -520,8 +537,8 @@ export class Post {
   @Column('text')
   content: string;
 
-  @Column()
-  author: string;
+  @ManyToOne(() => User, (user) => user.posts, { eager: true })
+  author: User;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -533,6 +550,8 @@ export class Post {
 
 > **팁:** [`@CreateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)과 [`@UpdateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn)은 TypeORM이 자동으로 값을 채워준다. 별도로 `new Date()`를 넣을 필요가 없다.
 
+> **참고:** `author` 필드는 챕터 10에서 `User` 엔티티와 `ManyToOne` 관계로 정의되었다. `User` 객체 타입이므로 Command와 Handler에서도 `authorId`(정수)로 받아 User를 조회하여 연결해야 한다.
+
 ### 2. DTO 정의
 
 ```typescript
@@ -540,7 +559,7 @@ export class Post {
 export class CreatePostDto {
   title: string;
   content: string;
-  author: string;
+  authorId: number;  // User의 ID를 받는다
 }
 ```
 
@@ -562,7 +581,7 @@ export class CreatePostCommand {
   constructor(
     public readonly title: string,
     public readonly content: string,
-    public readonly author: string
+    public readonly authorId: number  // User의 ID를 받는다
   ) {}
 }
 ```
@@ -594,28 +613,38 @@ export class DeletePostCommand {
 import { CommandHandler, ICommandHandler, EventBus } from '@nestjs/cqrs';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { NotFoundException } from '@nestjs/common';
 import { CreatePostCommand } from '../impl/create-post.command';
 import { PostCreatedEvent } from '../../events/impl/post-created.event';
 import { Post } from '../../entities/post.entity';
+import { User } from '../../../users/entities/user.entity';
 
 @CommandHandler(CreatePostCommand)
 export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
   constructor(
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly eventBus: EventBus
   ) {}
 
   async execute(command: CreatePostCommand): Promise<Post> {
-    const { title, content, author } = command;
+    const { title, content, authorId } = command;
 
-    // 1. 엔티티 인스턴스 생성 후 DB에 저장
+    // 1. 작성자(User) 조회
+    const author = await this.userRepository.findOneBy({ id: authorId });
+    if (!author) {
+      throw new NotFoundException(`사용자를 찾을 수 없습니다: ${authorId}`);
+    }
+
+    // 2. 엔티티 인스턴스 생성 후 DB에 저장 (author는 User 엔티티)
     const post = this.postRepository.create({ title, content, author });
     const savedPost = await this.postRepository.save(post);
 
-    // 2. 게시글 생성 이벤트 발행
+    // 3. 게시글 생성 이벤트 발행
     this.eventBus.publish(
-      new PostCreatedEvent(savedPost.id, savedPost.title, savedPost.author)
+      new PostCreatedEvent(savedPost.id, savedPost.title, savedPost.author.username)
     );
 
     return savedPost;
@@ -963,7 +992,7 @@ export class PostsController {
   @Post()
   async create(@Body() dto: CreatePostDto) {
     const post = await this.commandBus.execute(
-      new CreatePostCommand(dto.title, dto.content, dto.author)
+      new CreatePostCommand(dto.title, dto.content, dto.authorId)
     );
     return { data: post, message: '게시글이 생성되었습니다.' };
   }
@@ -1013,6 +1042,7 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
+import { User } from '../users/entities/user.entity';
 import { PostsController } from './posts.controller';
 
 // Command Handlers
@@ -1051,22 +1081,25 @@ const EventHandlers = [
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([Post]), // Repository<Post>를 DI 컨테이너에 등록
+    // CreatePostHandler에서 @InjectRepository(User)를 사용하므로 User도 함께 등록한다
+    TypeOrmModule.forFeature([Post, User]),
   ],
   controllers: [PostsController],
+  // PostsService는 더 이상 providers에 등록하지 않는다.
+  // 모든 비즈니스 로직은 각 CommandHandler / QueryHandler로 이동되었다.
   providers: [...CommandHandlers, ...QueryHandlers, ...EventHandlers, PostSaga],
 })
 export class PostsModule {}
 ```
 
-> **팁:** `TypeOrmModule.forFeature([Post])`를 imports에 추가하면 [`@InjectRepository(Post)`](references/decorators.md#injectrepositoryentity)로 `Repository<Post>`를 주입받을 수 있게 된다. 별도의 커스텀 `PostsRepository` 클래스를 providers에 등록할 필요가 없다.
+> **팁:** `TypeOrmModule.forFeature([Post, User])`를 imports에 추가하면 [`@InjectRepository(Post)`](references/decorators.md#injectrepositoryentity)와 `@InjectRepository(User)` 모두를 Handler에서 주입받을 수 있게 된다. 별도의 커스텀 Repository 클래스를 providers에 등록할 필요가 없다.
 
 ### 전체 실행 흐름
 
 게시글 생성 시 전체 흐름을 따라가 보자:
 
 ```
-1. POST /posts 요청 (title, content, author)
+1. POST /posts 요청 (title, content, authorId)
    │
    ▼
 2. PostsController.create()
@@ -1098,6 +1131,94 @@ export class PostsModule {}
 | 파일 수         | 적음 (Service 1개)       | 많음 (Command, Handler, Event 등)         |
 | 결합도          | 높음                     | 낮음 (이벤트 기반 느슨한 결합)            |
 | 적합한 경우     | 간단한 CRUD              | 복잡한 비즈니스 로직, 이벤트 기반 처리    |
+
+### 12. CommentsModule과 BlogGateway 연동 (챕터 15 연결)
+
+챕터 15에서 `CommentsService`가 `BlogGateway.notifyNewComment()`를 호출해 WebSocket 알림을 전송했다. CQRS를 도입하더라도 이 흐름은 유지되어야 한다. `CommentsService` 대신 `CreateCommentHandler`가 댓글을 저장하고, 저장 완료 후 `BlogGateway`를 호출한다.
+
+```typescript
+// src/comments/commands/handlers/create-comment.handler.ts
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NotFoundException } from '@nestjs/common';
+import { CreateCommentCommand } from '../impl/create-comment.command';
+import { Comment } from '../../entities/comment.entity';
+import { Post } from '../../../posts/entities/post.entity';
+import { User } from '../../../users/entities/user.entity';
+import { BlogGateway } from '../../../gateway/blog.gateway';
+
+@CommandHandler(CreateCommentCommand)
+export class CreateCommentHandler
+  implements ICommandHandler<CreateCommentCommand>
+{
+  constructor(
+    @InjectRepository(Comment)
+    private readonly commentRepository: Repository<Comment>,
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    // BlogGateway를 주입받아 댓글 생성 후 WebSocket 알림을 보낸다 (챕터 15 연동)
+    private readonly blogGateway: BlogGateway,
+  ) {}
+
+  async execute(command: CreateCommentCommand): Promise<Comment> {
+    const { content, authorId, postId } = command;
+
+    // 1. 게시글 존재 확인
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post) {
+      throw new NotFoundException(`게시글을 찾을 수 없습니다: ${postId}`);
+    }
+
+    // 2. 작성자(User) 조회
+    const author = await this.userRepository.findOneBy({ id: authorId });
+    if (!author) {
+      throw new NotFoundException(`사용자를 찾을 수 없습니다: ${authorId}`);
+    }
+
+    // 3. 댓글 저장
+    const comment = this.commentRepository.create({ content, author, post });
+    const savedComment = await this.commentRepository.save(comment);
+
+    // 4. WebSocket으로 실시간 알림 전송 (챕터 15 BlogGateway 연동)
+    this.blogGateway.notifyNewComment(savedComment);
+
+    return savedComment;
+  }
+}
+```
+
+**CommentsModule에서 BlogGateway 사용 방법**
+
+`CreateCommentHandler`에서 `BlogGateway`를 주입받으려면 `CommentsModule`이 `BlogGateway`를 알고 있어야 한다. 챕터 15에서 만든 `GatewayModule`을 import하는 방식을 사용한다:
+
+```typescript
+// src/comments/comments.module.ts
+import { Module } from '@nestjs/common';
+import { CqrsModule } from '@nestjs/cqrs';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Comment } from './entities/comment.entity';
+import { Post } from '../posts/entities/post.entity';
+import { User } from '../users/entities/user.entity';
+import { CommentsController } from './comments.controller';
+import { CreateCommentHandler } from './commands/handlers/create-comment.handler';
+import { GatewayModule } from '../gateway/gateway.module';
+
+@Module({
+  imports: [
+    CqrsModule,
+    TypeOrmModule.forFeature([Comment, Post, User]),
+    GatewayModule,  // BlogGateway를 export하는 모듈을 import한다
+  ],
+  controllers: [CommentsController],
+  providers: [CreateCommentHandler],
+})
+export class CommentsModule {}
+```
+
+> **팁:** `GatewayModule`에서 `exports: [BlogGateway]`를 지정했기 때문에 `CommentsModule`에서 `GatewayModule`을 import하는 것만으로도 `BlogGateway`를 주입받을 수 있다. Provider를 직접 providers 배열에 다시 등록할 필요가 없다.
 
 ---
 
@@ -1131,8 +1252,19 @@ src/
 ├── auth/
 ├── users/
 ├── gateway/
+│   ├── gateway.module.ts               ← GatewayModule (챕터 15, exports: [BlogGateway])
+│   └── blog.gateway.ts                 ← BlogGateway (챕터 15)
 ├── comments/
-└── posts/                         ← CQRS 패턴으로 리팩토링
+│   ├── commands/
+│   │   ├── impl/
+│   │   │   └── create-comment.command.ts  ← [이번 챕터 추가]
+│   │   └── handlers/
+│   │       └── create-comment.handler.ts  ← [이번 챕터 추가] BlogGateway 연동
+│   ├── entities/
+│   │   └── comment.entity.ts
+│   ├── comments.controller.ts
+│   └── comments.module.ts              ← GatewayModule import 추가
+└── posts/                              ← CQRS 패턴으로 리팩토링
     ├── commands/
     │   ├── impl/
     │   │   ├── create-post.command.ts   ← [이번 챕터 추가]

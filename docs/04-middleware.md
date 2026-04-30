@@ -684,13 +684,14 @@ export class LoggerMiddleware implements NestMiddleware {
 ```typescript
 // src/app.module.ts
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 @Module({
-  imports: [UsersModule, PostsModule, CommentsModule],
+  imports: [CommonModule, UsersModule, PostsModule, CommentsModule],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
@@ -713,13 +714,18 @@ npm run start:dev
 이제 블로그 API에 요청을 보내면 콘솔에 로그가 출력된다. curl 또는 Postman으로 테스트해보자:
 
 ```bash
+# 사용자 생성 (게시글 작성자 준비)
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
+  -d '{"email": "hong@example.com", "password": "password123", "name": "홍길동"}'
+
 # 게시글 목록 조회
 curl http://localhost:3000/posts
 
-# 게시글 작성
+# 게시글 작성 (authorId는 위에서 생성한 사용자 ID)
 curl -X POST http://localhost:3000/posts \
   -H "Content-Type: application/json" \
-  -d '{"title": "첫 번째 글", "content": "안녕하세요!"}'
+  -d '{"title": "첫 번째 글", "content": "안녕하세요!", "authorId": 1}'
 
 # 게시글 상세 조회
 curl http://localhost:3000/posts/1
@@ -728,7 +734,8 @@ curl http://localhost:3000/posts/1
 콘솔에 다음과 같은 로그가 출력된다:
 
 ```
-[Nest] 12345  - 04/09/2026, 10:30:00 AM  LOG [HTTP] GET /posts 200 - 3ms
+[Nest] 12345  - 04/09/2026, 10:30:00 AM  LOG [HTTP] POST /users 201 - 4ms
+[Nest] 12345  - 04/09/2026, 10:30:03 AM  LOG [HTTP] GET /posts 200 - 3ms
 [Nest] 12345  - 04/09/2026, 10:30:05 AM  LOG [HTTP] POST /posts 201 - 5ms
 [Nest] 12345  - 04/09/2026, 10:30:10 AM  LOG [HTTP] GET /posts/1 200 - 2ms
 ```

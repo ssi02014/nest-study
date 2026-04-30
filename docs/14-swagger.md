@@ -1308,7 +1308,7 @@ export class UpdatePostDto extends PartialType(CreatePostDto) {}
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PostAuthorDto {
-  @ApiProperty({ description: '작성자 ID', example: 1 })
+  @ApiProperty({ type: Number, description: '작성자 ID', example: 1 })
   id: number;
 
   @ApiProperty({ description: '작성자 이름', example: '홍길동' })
@@ -1316,7 +1316,7 @@ export class PostAuthorDto {
 }
 
 export class PostResponseDto {
-  @ApiProperty({ description: '게시글 ID', example: 1 })
+  @ApiProperty({ type: Number, description: '게시글 ID', example: 1 })
   id: number;
 
   @ApiProperty({ description: '게시글 제목', example: 'NestJS Swagger 사용법' })
@@ -1363,7 +1363,7 @@ export class CreateCommentDto {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CommentAuthorDto {
-  @ApiProperty({ description: '작성자 ID', example: 2 })
+  @ApiProperty({ type: Number, description: '작성자 ID', example: 1 })
   id: number;
 
   @ApiProperty({ description: '작성자 이름', example: '김철수' })
@@ -1371,7 +1371,7 @@ export class CommentAuthorDto {
 }
 
 export class CommentResponseDto {
-  @ApiProperty({ description: '댓글 ID', example: 1 })
+  @ApiProperty({ type: Number, description: '댓글 ID', example: 1 })
   id: number;
 
   @ApiProperty({ description: '댓글 내용', example: '좋은 글 감사합니다!' })
@@ -1392,7 +1392,7 @@ export class CommentResponseDto {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UserResponseDto {
-  @ApiProperty({ description: '사용자 ID', example: 1 })
+  @ApiProperty({ type: Number, description: '사용자 ID', example: 1 })
   id: number;
 
   @ApiProperty({ description: '이메일', example: 'user@example.com' })

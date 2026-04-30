@@ -601,8 +601,8 @@ import { UpdateCatDto } from './dto/update-cat.dto';
 
 @Injectable()
 export class CatsService {
-  private cats: Cat[] = [];
   private nextId = 1;
+  private cats: Cat[] = [];
 
   create(dto: CreateCatDto): Cat {
     const cat: Cat = {
@@ -751,6 +751,9 @@ import { Injectable, Inject, Optional } from '@nestjs/common';
 
 @Injectable()
 export class CatsService {
+  private nextId = 1;
+  private cats: Cat[] = [];
+
   constructor(
     @Optional()
     @Inject('LOGGER')
@@ -794,6 +797,7 @@ export interface User {
 // users/dto/create-user.dto.ts
 export class CreateUserDto {
   readonly email: string;
+  readonly password: string;
   readonly name: string;
 }
 ```
@@ -822,8 +826,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-  private users: User[] = [];
   private nextId = 1;
+  private users: User[] = [];
 
   constructor(private readonly commonService: CommonService) {}
 
@@ -835,6 +839,8 @@ export class UsersService {
       throw new ConflictException(`이미 사용 중인 이메일입니다: ${dto.email}`);
     }
 
+    // dto.password는 실제 서비스에서 해시 처리 후 저장해야 한다 (챕터 12 Authentication 참고)
+    // 이번 챕터에서는 메모리 기반 예제이므로 비밀번호는 저장하지 않는다
     const user: User = {
       id: this.nextId++,
       email: dto.email,
@@ -1012,8 +1018,8 @@ import { UpdatePostDto } from './dto/update-post.dto';
 
 @Injectable()
 export class PostsService {
-  private posts: Post[] = [];
   private nextId = 1;
+  private posts: Post[] = [];
 
   // UsersService와 CommonService를 모두 주입받는다
   constructor(
@@ -1200,8 +1206,8 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 
 @Injectable()
 export class CommentsService {
-  private comments: Comment[] = [];
   private nextId = 1;
+  private comments: Comment[] = [];
 
   // CommonService, UsersService, PostsService를 모두 주입받는다
   constructor(
@@ -1380,17 +1386,17 @@ export class AppModule {}
 # 사용자 생성
 curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
-  -d '{"email": "hong@example.com", "name": "홍길동"}'
+  -d '{"email": "hong@example.com", "password": "password123", "name": "홍길동"}'
 
-# 응답 예시:
-# {"id":1,"email":"hong@example.com","name":"홍길동","createdAt":"2026-04-09T..."}
+# 응답 예시 (비밀번호는 응답에 포함되지 않는다):
+# {"id":1,"email":"hong@example.com","name":"홍길동","createdAt":"2026-04-09"}
 ```
 
 ```bash
 # 두 번째 사용자
 curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
-  -d '{"email": "kim@example.com", "name": "김철수"}'
+  -d '{"email": "kim@example.com", "password": "password123", "name": "김철수"}'
 ```
 
 ### 2. 사용자 조회
@@ -1399,14 +1405,14 @@ curl -X POST http://localhost:3000/users \
 # 전체 조회
 curl http://localhost:3000/users
 
-# 단건 조회
+# 단건 조회 (응답으로 받은 ID 사용)
 curl http://localhost:3000/users/1
 ```
 
 ### 3. 게시글 작성
 
 ```bash
-# 게시글 작성 (authorId: 1번 사용자)
+# 게시글 작성 (authorId: 회원가입 후 응답받은 ID 사용)
 curl -X POST http://localhost:3000/posts \
   -H "Content-Type: application/json" \
   -d '{"title": "첫 번째 게시글", "content": "NestJS Provider를 배웠습니다!", "authorId": 1}'
@@ -1430,7 +1436,7 @@ curl -X POST http://localhost:3000/posts \
 # 목록 조회
 curl http://localhost:3000/posts
 
-# 상세 조회
+# 상세 조회 (응답으로 받은 ID 사용)
 curl http://localhost:3000/posts/1
 
 # 수정 (PATCH)
@@ -1445,7 +1451,7 @@ curl -X DELETE http://localhost:3000/posts/1
 ### 5. 댓글 작성/조회/삭제
 
 ```bash
-# 게시글에 댓글 작성
+# 게시글에 댓글 작성 (authorId: 두 번째 사용자의 ID 사용)
 curl -X POST http://localhost:3000/posts/1/comments \
   -H "Content-Type: application/json" \
   -d '{"content": "좋은 글이네요!", "authorId": 2}'
@@ -1453,7 +1459,7 @@ curl -X POST http://localhost:3000/posts/1/comments \
 # 게시글의 댓글 목록 조회
 curl http://localhost:3000/posts/1/comments
 
-# 댓글 삭제
+# 댓글 삭제 (응답으로 받은 ID 사용)
 curl -X DELETE http://localhost:3000/comments/1
 ```
 

@@ -577,7 +577,7 @@ export class RolesGuard implements CanActivate {
 
 ```typescript
 // src/cats/cats.controller.ts
-import { Controller, Get, Delete, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Delete, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { SimpleAuthGuard } from '../common/guards/simple-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -593,7 +593,7 @@ export class CatsController {
 
   @Delete(':id')
   @Roles('admin')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIntPipe) id: number) {
     return `고양이 ${id} 삭제 (admin만 가능)`;
   }
 }
@@ -710,16 +710,22 @@ export class SimpleAuthGuard implements CanActivate {
 
     // 2. x-user-id 헤더에서 사용자 ID 추출
     const request = context.switchToHttp().getRequest();
-    const userId = request.headers['x-user-id'];
+    const userIdHeader = request.headers['x-user-id'];
 
-    if (!userId) {
+    if (!userIdHeader) {
       throw new ForbiddenException(
         '인증이 필요합니다. x-user-id 헤더를 포함해주세요.'
       );
     }
 
+    const userId = parseInt(userIdHeader, 10);
+
+    if (isNaN(userId)) {
+      throw new ForbiddenException('x-user-id 헤더는 숫자여야 합니다.');
+    }
+
     // 3. 사용자 ID로 사용자 조회
-    const user = USERS.find((u) => u.id === Number(userId));
+    const user = USERS.find((u) => u.id === userId);
 
     if (!user) {
       throw new ForbiddenException(
@@ -806,11 +812,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
 import { SimpleAuthGuard } from './common/guards/simple-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { UsersModule } from './users/users.module';
 import { PostsModule } from './posts/posts.module';
 import { CommentsModule } from './comments/comments.module';
 
 @Module({
-  imports: [CommonModule, PostsModule, CommentsModule],
+  imports: [CommonModule, UsersModule, PostsModule, CommentsModule],
   providers: [
     // 글로벌 가드 등록 (순서대로 실행됨)
     // 1단계: 인증 - "누구인가?"
@@ -830,7 +837,77 @@ export class AppModule {}
 
 > `APP_GUARD`를 사용하면 모든 라우트에 가드가 자동 적용된다. `@Public()`을 붙인 라우트만 인증을 건너뛴다. 이 방식이 실전에서 가장 많이 사용되는 패턴이다.
 
-### 7-8. PostsController에 Guard 적용
+### 7-8. PostsService와 CreatePostDto 수정
+
+Guard가 `request.user`에서 인증된 사용자 정보를 추출해 컨트롤러에 전달하므로, 서비스 메서드가 `authorId`를 별도 파라미터로 받도록 시그니처를 변경해야 한다. 또한 클라이언트가 요청 바디에 `authorId`를 직접 보낼 필요가 없어지므로 DTO에서 해당 필드를 제거한다.
+
+```typescript
+// src/posts/dto/create-post.dto.ts
+// authorId 필드 제거 — Guard가 인증된 사용자의 id를 주입하므로 클라이언트가 별도로 보낼 필요 없음
+import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+
+export class CreatePostDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+
+  @IsString()
+  @IsOptional()
+  slug?: string;
+}
+```
+
+```typescript
+// src/posts/posts.service.ts
+// create 메서드 시그니처 수정 — Guard에서 추출한 userId를 authorId로 받는다
+create(createPostDto: CreatePostDto, authorId: number): Post {
+  const newPost: Post = {
+    id: this.nextId++,
+    ...createPostDto,
+    authorId,           // DTO의 authorId 대신 Guard에서 받은 값 사용
+    createdAt: this.commonService.formatDate(new Date()),
+    updatedAt: this.commonService.formatDate(new Date()),
+  };
+  this.posts.push(newPost);
+  return newPost;
+}
+
+// update 메서드 시그니처 수정 — 수정 권한을 확인하기 위해 userId를 받는다
+update(id: number, updatePostDto: UpdatePostDto, userId: number): Post {
+  const post = this.findOne(id);
+  if (post.authorId !== userId) {
+    throw new ForbiddenException('본인이 작성한 게시글만 수정할 수 있습니다.');
+  }
+  Object.assign(post, updatePostDto, {
+    updatedAt: this.commonService.formatDate(new Date()),
+  });
+  return post;
+}
+
+// remove 메서드 시그니처 수정 — 삭제 권한을 확인하기 위해 userId를 받는다
+remove(id: number, userId: number): void {
+  const post = this.findOne(id);
+  if (post.authorId !== userId) {
+    throw new ForbiddenException('본인이 작성한 게시글만 삭제할 수 있습니다.');
+  }
+  this.posts = this.posts.filter((p) => p.id !== id);
+}
+
+// forceRemove 메서드 — 관리자 전용, authorId 확인 없이 삭제
+forceRemove(id: number): { message: string } {
+  const post = this.findOne(id);
+  this.posts = this.posts.filter((p) => p.id !== post.id);
+  return { message: `게시글 ${id}이 관리자에 의해 삭제되었습니다.` };
+}
+```
+
+> **참고:** `update`, `remove`, `forceRemove` 메서드도 함께 수정하지 않으면 컨트롤러에서의 호출(`postsService.update(id, updatePostDto, userId)`, `postsService.remove(id, userId)`)과 시그니처가 맞지 않아 타입 오류가 발생한다. `PostsService` 상단에 `ForbiddenException` 임포트도 추가해야 한다.
+
+### 7-9. PostsController에 Guard 적용
 
 ```typescript
 // src/posts/posts.controller.ts
@@ -911,7 +988,57 @@ export class PostsController {
 }
 ```
 
-### 7-9. CommentsController에 Guard 적용
+### 7-10. CommentsService와 CreateCommentDto 수정
+
+PostsService와 동일한 이유로 CommentsService의 `create`, `remove` 메서드도 `authorId`를 별도 파라미터로 받도록 시그니처를 변경해야 한다. `CreateCommentDto`에서도 `authorId` 필드를 제거한다.
+
+```typescript
+// src/comments/dto/create-comment.dto.ts
+// authorId 필드 제거 — Guard가 인증된 사용자의 id를 주입하므로 클라이언트가 별도로 보낼 필요 없음
+import { IsString, IsNotEmpty } from 'class-validator';
+
+export class CreateCommentDto {
+  @IsString()
+  @IsNotEmpty()
+  content: string;
+}
+```
+
+```typescript
+// src/comments/comments.service.ts
+// create 메서드 시그니처 수정 — Guard에서 추출한 userId를 authorId로 받는다
+create(postId: number, createCommentDto: CreateCommentDto, authorId: number): Comment {
+  const newComment: Comment = {
+    id: this.nextId++,
+    postId,
+    ...createCommentDto,
+    authorId,           // DTO의 authorId 대신 Guard에서 받은 값 사용
+    createdAt: this.commonService.formatDate(new Date()),
+  };
+  this.comments.push(newComment);
+  return newComment;
+}
+
+// remove 메서드 시그니처 수정 — 삭제 권한을 확인하기 위해 userId를 받는다
+remove(postId: number, id: number, userId: number): void {
+  const comment = this.findOne(postId, id);
+  if (comment.authorId !== userId) {
+    throw new ForbiddenException('본인이 작성한 댓글만 삭제할 수 있습니다.');
+  }
+  this.comments = this.comments.filter((c) => c.id !== id);
+}
+
+// forceRemove 메서드 — 관리자 전용, authorId 확인 없이 삭제
+forceRemove(postId: number, id: number): { message: string } {
+  const comment = this.findOne(postId, id);
+  this.comments = this.comments.filter((c) => c.id !== comment.id);
+  return { message: `댓글 ${id}이 관리자에 의해 삭제되었습니다.` };
+}
+```
+
+> **참고:** `CommentsService` 상단에 `ForbiddenException` 임포트도 추가해야 한다.
+
+### 7-11. CommentsController에 Guard 적용
 
 ```typescript
 // src/comments/comments.controller.ts
@@ -982,7 +1109,7 @@ export class CommentsController {
 }
 ```
 
-### 7-10. API 테스트 시나리오
+### 7-12. API 테스트 시나리오
 
 Guard가 올바르게 동작하는지 확인해보자.
 
@@ -1061,7 +1188,7 @@ curl -X DELETE http://localhost:3000/posts/1/force \
 }
 ```
 
-### 7-11. 전체 흐름 정리
+### 7-13. 전체 흐름 정리
 
 ```
 1. 클라이언트가 요청을 보냄

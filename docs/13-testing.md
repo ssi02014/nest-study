@@ -1256,7 +1256,7 @@ describe('PostsService', () => {
       // create가 DTO + author 정보로 호출되었는지 검증
       expect(postsRepository.create).toHaveBeenCalledWith({
         ...createPostDto,
-        author: { id: userId },
+        author: { id: 1 },
       });
       // save가 호출되었는지 검증
       expect(postsRepository.save).toHaveBeenCalledWith(mockPost);
@@ -1667,15 +1667,21 @@ import { PostsService } from './posts.service';
 describe('PostsController', () => {
   let controller: PostsController;
 
+  // PostsService의 실제 메서드 시그니처를 반영한 Mock
+  // create(createPostDto: CreatePostDto, userId: number): Promise<Post>
+  // findAll(): Promise<Post[]>
+  // findOne(id: number): Promise<Post>
+  // update(id: number, updatePostDto: UpdatePostDto): Promise<Post>
+  // remove(id: number): Promise<void>
   const mockPostsService = {
-    create: jest.fn(),
+    create: jest.fn(), // (dto, userId) 형태로 호출됨
     findAll: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
   };
 
-  // 인증된 사용자의 request 객체를 시뮬레이션
+  // 인증된 사용자의 request 객체를 시뮬레이션 (JwtAuthGuard가 주입하는 req.user)
   const mockRequest = {
     user: { id: 1, email: 'test@test.com' },
   };
@@ -1781,7 +1787,183 @@ describe('PostsController', () => {
 
 가장 중요한 E2E 테스트다. **회원가입 -> 로그인 -> 게시글 작성 -> 조회 -> 수정 -> 삭제**의 전체 흐름을 하나의 테스트 파일에서 검증한다.
 
-### 전체 플로우 E2E 테스트
+### Posts E2E 테스트 (도메인별 분리 파일)
+
+규모가 커지면 도메인별로 E2E 테스트 파일을 분리하는 것이 좋다. 아래 예제는 Auth와 Posts 흐름을 하나의 파일에서 순서대로 검증한다.
+
+```typescript
+// test/posts.e2e-spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
+import * as request from 'supertest';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { UsersModule } from '../src/users/users.module';
+import { PostsModule } from '../src/posts/posts.module';
+import { AuthModule } from '../src/auth/auth.module';
+import { User } from '../src/users/entities/user.entity';
+import { Post } from '../src/posts/entities/post.entity';
+
+describe('Posts E2E', () => {
+  let app: INestApplication;
+  let authToken: string; // 로그인 후 획득한 JWT 토큰
+  let createdPostId: number;
+
+  beforeAll(async () => {
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          load: [
+            () => ({
+              JWT_ACCESS_SECRET: 'test-access-secret',
+              JWT_REFRESH_SECRET: 'test-refresh-secret',
+            }),
+          ],
+        }),
+        TypeOrmModule.forRoot({
+          type: 'sqlite',
+          database: ':memory:',
+          entities: [User, Post],
+          synchronize: true,
+        }),
+        UsersModule,
+        PostsModule,
+        AuthModule,
+      ],
+    }).compile();
+
+    app = moduleFixture.createNestApplication();
+
+    // 실제 앱과 동일한 전역 Pipe 설정
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      })
+    );
+
+    await app.init();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  // ─── Auth: 회원가입 & 로그인 ────────────────────────────────
+  describe('Auth', () => {
+    it('POST /users — 회원가입', () => {
+      return request(app.getHttpServer())
+        .post('/users')
+        .send({ email: 'e2e@test.com', password: 'Password123!' })
+        .expect(201)
+        .expect((res) => {
+          expect(res.body.id).toBeDefined();
+          expect(res.body.email).toBe('e2e@test.com');
+          // 비밀번호는 응답에 포함되지 않아야 한다
+          expect(res.body.password).toBeUndefined();
+        });
+    });
+
+    it('POST /auth/login — 로그인 후 토큰 획득', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'e2e@test.com', password: 'Password123!' })
+        .expect(200);
+
+      expect(response.body.accessToken).toBeDefined();
+      expect(response.body.refreshToken).toBeDefined();
+
+      // 이후 테스트에서 사용할 토큰 저장
+      authToken = response.body.accessToken;
+    });
+
+    it('POST /auth/login — 잘못된 비밀번호로 로그인 시 401', () => {
+      return request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'e2e@test.com', password: 'WrongPassword!' })
+        .expect(401);
+    });
+  });
+
+  // ─── Posts: 게시글 CRUD ──────────────────────────────────────
+  describe('Posts', () => {
+    it('POST /posts — 인증된 사용자 게시글 작성', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/posts')
+        .set('Authorization', `Bearer ${authToken}`) // JWT 토큰 포함
+        .send({ title: '테스트 게시글', content: 'E2E 테스트 내용입니다.' })
+        .expect(201);
+
+      expect(response.body.id).toBeDefined();
+      expect(response.body.title).toBe('테스트 게시글');
+
+      // 이후 테스트에서 사용할 게시글 ID 저장
+      createdPostId = response.body.id;
+    });
+
+    it('POST /posts — 토큰 없이 요청하면 401', () => {
+      return request(app.getHttpServer())
+        .post('/posts')
+        .send({ title: '인증 없는 요청', content: '실패해야 한다.' })
+        .expect(401);
+    });
+
+    it('GET /posts — 목록 조회 (인증 불필요)', () => {
+      return request(app.getHttpServer())
+        .get('/posts')
+        .expect(200)
+        .expect((res) => {
+          expect(Array.isArray(res.body)).toBe(true);
+          expect(res.body.length).toBeGreaterThanOrEqual(1);
+        });
+    });
+
+    it('GET /posts/:id — 단건 조회', () => {
+      return request(app.getHttpServer())
+        .get(`/posts/${createdPostId}`)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.id).toBe(createdPostId);
+          expect(res.body.title).toBe('테스트 게시글');
+        });
+    });
+
+    it('PATCH /posts/:id — 인증된 사용자 게시글 수정', () => {
+      return request(app.getHttpServer())
+        .patch(`/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${authToken}`) // JWT 토큰 포함
+        .send({ title: '수정된 게시글 제목' })
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.title).toBe('수정된 게시글 제목');
+          // 수정하지 않은 필드는 유지된다
+          expect(res.body.content).toBe('E2E 테스트 내용입니다.');
+        });
+    });
+
+    it('DELETE /posts/:id — 인증된 사용자 게시글 삭제', () => {
+      return request(app.getHttpServer())
+        .delete(`/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${authToken}`) // JWT 토큰 포함
+        .expect(200);
+    });
+
+    it('GET /posts/:id — 삭제된 게시글 조회 시 404', () => {
+      return request(app.getHttpServer())
+        .get(`/posts/${createdPostId}`)
+        .expect(404);
+    });
+  });
+});
+```
+
+> **팁:** `authToken` 변수를 `describe` 블록 바깥(상위 스코프)에 선언해두면, Auth 단계에서 저장한 토큰을 Posts 단계에서 그대로 사용할 수 있다. 이처럼 E2E 테스트에서는 이전 단계의 결과를 변수에 저장하여 다음 단계로 넘기는 패턴이 핵심이다.
+
+---
+
+### 전체 플로우 E2E 테스트 (모든 도메인 통합)
 
 ```typescript
 // test/blog.e2e-spec.ts
@@ -2025,6 +2207,8 @@ describe('블로그 API 전체 플로우 (E2E)', () => {
 
 4. **인증 테스트 포함**: 토큰이 없는 요청이 `401`을 반환하는지도 함께 검증하여, Guard가 정상 동작하는지 확인한다.
 
+5. **도메인별 파일 분리**: `posts.e2e-spec.ts`, `auth.e2e-spec.ts`처럼 도메인 단위로 E2E 파일을 분리하면 유지보수가 쉬워진다. 공통 초기화 로직(앱 생성, DB 설정)은 별도 헬퍼 함수로 추출하여 재사용한다.
+
 > **팁:** E2E 테스트에서 `beforeAll`/`afterAll`을 사용하는 이유는 앱 초기화 비용이 크기 때문이다. 매 테스트마다 앱을 새로 만들면 너무 느려진다. 반면 단위 테스트에서는 `beforeEach`를 사용하여 매 테스트마다 깨끗한 Mock 상태를 보장한다.
 
 ---
@@ -2121,6 +2305,18 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
+// 테스트 대상 Guard 예시:
+// @Injectable()
+// export class JwtAuthGuard extends AuthGuard('jwt') {
+//   // handleRequest를 오버라이드하여 인증 실패 시 UnauthorizedException을 던진다
+//   handleRequest(err: any, user: any, info: any) {
+//     if (err || !user) {
+//       throw err || new UnauthorizedException('유효하지 않은 토큰입니다.');
+//     }
+//     return user;
+//   }
+// }
+
 describe('JwtAuthGuard', () => {
   let guard: JwtAuthGuard;
 
@@ -2139,31 +2335,86 @@ describe('JwtAuthGuard', () => {
       getClass: () => jest.fn(),
     }) as unknown as ExecutionContext;
 
-  it('JWT 토큰이 유효하면 canActivate가 true를 반환한다', async () => {
-    // AuthGuard('jwt')의 canActivate를 모킹
-    jest
-      .spyOn(AuthGuard('jwt').prototype, 'canActivate')
-      .mockResolvedValue(true);
+  describe('canActivate', () => {
+    it('유효한 JWT 토큰이면 canActivate가 true를 반환한다', async () => {
+      // AuthGuard('jwt')의 canActivate를 모킹하여 유효한 토큰 시나리오 시뮬레이션
+      jest
+        .spyOn(AuthGuard('jwt').prototype, 'canActivate')
+        .mockResolvedValue(true);
 
-    const context = createMockContext('Bearer valid.jwt.token');
-    const result = await guard.canActivate(context);
+      const context = createMockContext('Bearer valid.jwt.token');
+      const result = await guard.canActivate(context);
 
-    expect(result).toBe(true);
+      expect(result).toBe(true);
+    });
+
+    it('JWT 토큰이 없으면 UnauthorizedException을 던진다', async () => {
+      // canActivate가 false를 반환하면 handleRequest에서 UnauthorizedException 발생
+      jest
+        .spyOn(AuthGuard('jwt').prototype, 'canActivate')
+        .mockResolvedValue(false);
+
+      const context = createMockContext(); // Authorization 헤더 없음
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException
+      );
+    });
+
+    it('만료된 토큰이면 UnauthorizedException을 던진다', async () => {
+      // Passport가 만료된 토큰을 감지하면 canActivate가 false를 반환
+      jest
+        .spyOn(AuthGuard('jwt').prototype, 'canActivate')
+        .mockResolvedValue(false);
+
+      // 만료된 토큰 형태로 Authorization 헤더를 전달해도 false → 예외 발생
+      const context = createMockContext('Bearer expired.jwt.token');
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException
+      );
+    });
+
+    it('형식이 잘못된 토큰이면 UnauthorizedException을 던진다', async () => {
+      jest
+        .spyOn(AuthGuard('jwt').prototype, 'canActivate')
+        .mockResolvedValue(false);
+
+      const context = createMockContext('InvalidTokenFormat');
+
+      await expect(guard.canActivate(context)).rejects.toThrow(
+        UnauthorizedException
+      );
+    });
   });
 
-  it('JWT 토큰이 없으면 UnauthorizedException을 던진다', async () => {
-    jest
-      .spyOn(AuthGuard('jwt').prototype, 'canActivate')
-      .mockResolvedValue(false);
+  describe('handleRequest', () => {
+    it('user 객체가 있으면 그대로 반환한다', () => {
+      const mockUser = { id: 1, email: 'test@test.com' };
 
-    const context = createMockContext();
+      const result = guard.handleRequest(null, mockUser, null);
 
-    await expect(guard.canActivate(context)).rejects.toThrow(
-      UnauthorizedException
-    );
+      expect(result).toEqual(mockUser);
+    });
+
+    it('err가 있으면 해당 에러를 던진다', () => {
+      const error = new UnauthorizedException('토큰 검증 실패');
+
+      expect(() => guard.handleRequest(error, null, null)).toThrow(
+        UnauthorizedException
+      );
+    });
+
+    it('user가 없으면 UnauthorizedException을 던진다', () => {
+      expect(() => guard.handleRequest(null, null, null)).toThrow(
+        UnauthorizedException
+      );
+    });
   });
 });
 ```
+
+> **참고:** `JwtAuthGuard`가 `handleRequest`를 오버라이드하는 이유는, Passport의 기본 동작은 인증 실패 시 `401`을 자동으로 반환하지만, 커스텀 에러 메시지나 로직을 추가하려면 `handleRequest`를 오버라이드해야 하기 때문이다. `canActivate` 테스트와 `handleRequest` 테스트를 분리하면 Guard의 두 가지 책임(토큰 검증 흐름 / 에러 처리)을 각각 명확하게 검증할 수 있다.
 
 ### ValidationPipe 동작 테스트
 
@@ -2548,7 +2799,8 @@ src/
     └── ...
 
 test/
-├── app.e2e-spec.ts                ← [이번 챕터 추가]
+├── posts.e2e-spec.ts              ← [이번 챕터 추가] Auth+Posts 도메인별 E2E 테스트
+├── blog.e2e-spec.ts               ← [이번 챕터 추가] 전체 통합 E2E 테스트
 └── jest-e2e.json
 ```
 
@@ -2571,9 +2823,10 @@ test/
 | `jest.useFakeTimers()`       | setTimeout, setInterval, Date를 가짜로 대체하여 시간 제어       |
 | `getRepositoryToken()`       | TypeORM Repository의 DI 토큰을 가져와 모킹에 사용               |
 | `supertest`                  | HTTP 요청 시뮬레이션 라이브러리                                 |
-| Guard 테스트                 | `ExecutionContext` 모킹으로 canActivate 로직 검증               |
-| ValidationPipe 테스트        | `class-validator`의 validate() 또는 Pipe 직접 인스턴스화로 검증 |
-| `coverageThreshold`          | 커버리지 최솟값 설정. 미달 시 CI 실패 처리 가능                 |
+| Guard 테스트                 | `ExecutionContext` 모킹으로 `canActivate` 로직 검증; `handleRequest` 오버라이드로 에러 처리 검증 |
+| JwtAuthGuard 테스트          | 유효한 토큰 → true, 만료/잘못된 토큰 → UnauthorizedException 검증                               |
+| ValidationPipe 테스트        | `class-validator`의 validate() 또는 Pipe 직접 인스턴스화로 검증                                  |
+| `coverageThreshold`          | 커버리지 최솟값 설정. 미달 시 CI 실패 처리 가능                                                  |
 
 ### 이 챕터에서 작성한 테스트 파일
 
@@ -2597,18 +2850,20 @@ src/
 └── cache/
     └── cache.service.spec.ts             ← jest.useFakeTimers() 타이머 모킹 예제
 test/
-└── blog.e2e-spec.ts                       ← 회원가입→로그인→CRUD 전체 플로우 E2E 테스트
+├── posts.e2e-spec.ts                      ← Auth→Posts JWT 인증 포함 도메인별 E2E 테스트
+└── blog.e2e-spec.ts                       ← 회원가입→로그인→CRUD 전체 플로우 통합 E2E 테스트
 ```
 
 ### 이 챕터를 마치면
 
 - PostsService의 CRUD 로직이 단위 테스트와 통합 테스트(실제 SQLite DB) 두 가지로 검증된다.
 - AuthService의 로그인, 토큰 발급, 갱신, 로그아웃 로직이 테스트 코드로 검증된다.
-- PostsController의 라우트 핸들러가 Service를 올바르게 호출하는지 검증된다.
+- PostsController의 라우트 핸들러가 `create(dto, userId)` 시그니처를 포함하여 Service를 올바르게 호출하는지 검증된다.
 - async/await, Promise.reject, 타이머 모킹 등 비동기 테스트 심화 패턴을 적용할 수 있다.
-- Guard의 canActivate 로직과 ValidationPipe의 DTO 검증 동작을 독립적으로 테스트할 수 있다.
+- JwtAuthGuard의 `canActivate`(유효/만료/잘못된 토큰)와 `handleRequest`(에러 처리) 로직을 독립적으로 테스트할 수 있다.
+- RolesGuard의 역할 기반 접근 제어 로직과 ValidationPipe의 DTO 검증 동작을 독립적으로 테스트할 수 있다.
 - `coverageThreshold`로 커버리지 80% 목표를 강제하여 품질 게이트를 설정할 수 있다.
-- 회원가입부터 게시글 삭제까지의 전체 API 플로우가 E2E 테스트로 검증된다.
+- Auth→Posts JWT 인증 흐름이 `posts.e2e-spec.ts` 도메인별 파일로, 전체 API 플로우가 `blog.e2e-spec.ts` 통합 파일로 각각 E2E 검증된다.
 - `npm run test`와 `npm run test:e2e` 명령어로 언제든 핵심 로직의 정상 동작을 확인할 수 있다.
 
 ## 다음 챕터 예고

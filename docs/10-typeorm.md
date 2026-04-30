@@ -181,8 +181,8 @@ import {
 
 @Entity('cats') // 'cats' 테이블에 매핑 (생략하면 클래스명 소문자가 사용됨)
 export class Cat {
-  @PrimaryGeneratedColumn() // 자동 증가 Primary Key (1, 2, 3, ...)
-  id: number;
+  @PrimaryGeneratedColumn('uuid') // 자동으로 UUID v4를 생성한다
+  id: string;
 
   @Column({ type: 'varchar', length: 50 }) // VARCHAR(50)
   name: string;
@@ -206,7 +206,7 @@ export class Cat {
 ├────────────┬────────────┬────────────────────┤
 │  컬럼명     │  타입       │  제약조건            │
 ├────────────┼────────────┼────────────────────┤
-│  id        │  INTEGER   │  PK, 자동증가        │
+│  id        │  VARCHAR   │  PK, UUID v4 자동생성│
 │  name      │  VARCHAR   │  NOT NULL           │
 │  age       │  INTEGER   │  NOT NULL           │
 │  breed     │  VARCHAR   │  NULL 허용           │
@@ -220,7 +220,7 @@ export class Cat {
 | ---------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------ |
 | [`@Entity()`](references/decorators.md#entitytablename)                                              | 클래스를 테이블로 매핑 | [`@Entity('users')`](references/decorators.md#entitytablename)           |
 | [`@PrimaryGeneratedColumn()`](references/decorators.md#컬럼-데코레이터)                              | 자동 증가 PK           | `id: number`                                                             |
-| [`@PrimaryGeneratedColumn('uuid')`](references/decorators.md#컬럼-데코레이터)                        | UUID PK                | `id: string`                                                             |
+| [`@PrimaryGeneratedColumn('uuid')`](references/decorators.md#컬럼-데코레이터)                        | UUID v4 자동 생성 PK (권장) | `id: string`                                                        |
 | [`@Column()`](references/decorators.md#columnoptions)                                                | 일반 컬럼              | [`@Column({ type: 'varchar' })`](references/decorators.md#columnoptions) |
 | [`@CreateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn) | 생성 시간 자동 기록    | `createdAt: Date`                                                        |
 | [`@UpdateDateColumn()`](references/decorators.md#createdatecolumn-updatedatecolumn-deletedatecolumn) | 수정 시간 자동 기록    | `updatedAt: Date`                                                        |
@@ -327,7 +327,7 @@ export class CatsService {
     return this.catsRepository.find(); // SELECT * FROM cats
   }
 
-  async findOne(id: number): Promise<Cat> {
+  async findOne(id: string): Promise<Cat> {
     const cat = await this.catsRepository.findOne({ where: { id } });
     if (!cat) {
       throw new NotFoundException(`Cat #${id}을 찾을 수 없습니다`);
@@ -377,8 +377,8 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('profiles')
 export class Profile {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', nullable: true })
   bio: string;
@@ -421,8 +421,8 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('posts')
 export class Post {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', length: 200 })
   title: string;
@@ -465,8 +465,8 @@ import { Post } from '../../posts/entities/post.entity';
 
 @Entity('tags')
 export class Tag {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', length: 50, unique: true })
   name: string;
@@ -792,7 +792,7 @@ import {
 
 @Entity('cats')
 export class Cat {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'varchar', length: 50 })
@@ -1004,7 +1004,7 @@ import { Cat } from '../../cats/entities/cat.entity';
 
 @Entity('owners')
 export class Owner {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'varchar', length: 50 })
@@ -1037,7 +1037,7 @@ import { Owner } from '../../owners/entities/owner.entity';
 
 @Entity('cats')
 export class Cat {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'varchar', length: 50 })
@@ -1181,7 +1181,7 @@ export enum UserRole {
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'varchar', length: 100, unique: true })
@@ -1210,6 +1210,8 @@ export class User {
 }
 ```
 
+> **팁:** 실무에서는 순차 정수 ID 대신 `@PrimaryGeneratedColumn('uuid')`로 UUID를 사용하는 것이 보안상 권장된다. 순차 ID는 사용자 수·게시글 수가 외부에 노출되고 순차 탐색 공격에 취약하다. 학습 예제에서는 가독성을 위해 정수 ID를 사용한다.
+
 ### Post Entity
 
 ```typescript
@@ -1228,7 +1230,7 @@ import { Comment } from '../../comments/entities/comment.entity';
 
 @Entity('posts')
 export class Post {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'varchar', length: 200 })
@@ -1272,7 +1274,7 @@ import { Post } from '../../posts/entities/post.entity';
 
 @Entity('comments')
 export class Comment {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn() // 자동 증가 정수 ID
   id: number;
 
   @Column({ type: 'text' })
@@ -1368,7 +1370,7 @@ export class UpdateUserDto extends PartialType(
 
 ```typescript
 // src/posts/dto/create-post.dto.ts
-import { IsString, IsNumber, MaxLength } from 'class-validator';
+import { IsString, IsInt, MaxLength } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
@@ -1378,7 +1380,7 @@ export class CreatePostDto {
   @IsString()
   content: string;
 
-  @IsNumber()
+  @IsInt()
   authorId: number; // 작성자 ID
 }
 ```
@@ -1396,16 +1398,16 @@ export class UpdatePostDto extends PartialType(
 
 ```typescript
 // src/comments/dto/create-comment.dto.ts
-import { IsString, IsNumber } from 'class-validator';
+import { IsString, IsInt } from 'class-validator';
 
 export class CreateCommentDto {
   @IsString()
   content: string;
 
-  @IsNumber()
+  @IsInt()
   authorId: number; // 댓글 작성자 ID
 
-  @IsNumber()
+  @IsInt()
   postId: number; // 댓글이 달릴 글 ID
 }
 ```
@@ -1468,7 +1470,7 @@ export class PostsService {
 > **팁:** 리팩토링 핵심 변화 3가지
 >
 > 1. `private 배열` 삭제 → [`@InjectRepository()`](references/decorators.md#injectrepositoryentity)로 Repository 주입
-> 2. `idCounter` 삭제 → [`@PrimaryGeneratedColumn()`](references/decorators.md#컬럼-데코레이터)이 ID 자동 생성
+> 2. `idCounter` 삭제 → [`@PrimaryGeneratedColumn()`](references/decorators.md#컬럼-데코레이터)이 정수 ID를 자동 증가
 > 3. 모든 메서드가 `async`가 됨 → DB 작업은 비동기(I/O)이므로
 
 ### UsersService (전체)
@@ -2068,13 +2070,13 @@ curl -X POST http://localhost:3000/users \
   -d '{"email": "hong@test.com", "password": "12345678", "name": "홍길동"}'
 # 응답: { "id": 1, "email": "hong@test.com", "name": "홍길동", ... }
 
-# 2. 글 작성
+# 2. 글 작성 (authorId는 위에서 받은 정수 ID 사용)
 curl -X POST http://localhost:3000/posts \
   -H "Content-Type: application/json" \
   -d '{"title": "첫 번째 글", "content": "안녕하세요!", "authorId": 1}'
 # 응답: { "id": 1, "title": "첫 번째 글", ... }
 
-# 3. 댓글 작성
+# 3. 댓글 작성 (authorId, postId 모두 정수 ID 사용)
 curl -X POST http://localhost:3000/comments \
   -H "Content-Type: application/json" \
   -d '{"content": "좋은 글이네요!", "authorId": 1, "postId": 1}'
@@ -2390,7 +2392,7 @@ src/
 | 주제          | 핵심 포인트                                                                                                                                                                                                                                               |
 | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ORM / TypeORM | SQL 대신 TypeScript 코드로 DB 조작. NestJS 공식 지원                                                                                                                                                                                                      |
-| Entity        | [`@Entity`](references/decorators.md#entitytablename), [`@Column`](references/decorators.md#columnoptions), [`@PrimaryGeneratedColumn`](references/decorators.md#컬럼-데코레이터)으로 테이블 매핑                                                         |
+| Entity        | [`@Entity`](references/decorators.md#entitytablename), [`@Column`](references/decorators.md#columnoptions), [`@PrimaryGeneratedColumn()`](references/decorators.md#컬럼-데코레이터)으로 테이블 매핑 (실무에서는 `'uuid'` 방식 권장)                         |
 | Repository    | [`@InjectRepository()`](references/decorators.md#injectrepositoryentity)로 주입. `find`, `save`, `remove` 등 기본 메서드 내장                                                                                                                             |
 | 관계          | [`@OneToMany`](references/decorators.md#관계-데코레이터) / [`@ManyToOne`](references/decorators.md#관계-데코레이터) (1:N), [`@OneToOne`](references/decorators.md#관계-데코레이터) (1:1), [`@ManyToMany`](references/decorators.md#관계-데코레이터) (N:M) |
 | 마이그레이션  | 프로덕션에서는 `synchronize: false` + 마이그레이션으로 스키마 관리                                                                                                                                                                                        |

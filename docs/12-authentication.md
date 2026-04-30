@@ -1459,6 +1459,47 @@ findOne(@Param('id', ParseIntPipe) id: number) {
 
 이전에는 `x-user-id` 헤더에서 userId를 가져왔지만, 이제는 JWT 토큰의 payload에서 추출한 `request.user.id`를 사용한다.
 
+### CreatePostDto에서 authorId 제거
+
+챕터 10에서 작성한 `CreatePostDto`에는 `authorId: number` 필드가 있었다. 당시에는 클라이언트가 요청 body에 작성자 ID를 직접 전달했기 때문이다. 그러나 JWT 인증을 도입한 이후에는 **토큰에서 userId를 안전하게 추출**할 수 있으므로, 클라이언트가 `authorId`를 별도로 보낼 필요가 없다.
+
+`authorId` 필드를 DTO에 남겨두면 다음 문제가 생긴다.
+- 클라이언트가 토큰 소유자가 아닌 **다른 사람의 ID를 body에 위조**하여 전송할 수 있다.
+- 인증된 사용자 정보를 활용하지 않고 클라이언트 입력에 의존하게 된다.
+
+```typescript
+// src/posts/dto/create-post.dto.ts
+import { IsString, MinLength, IsOptional } from 'class-validator';
+
+export class CreatePostDto {
+  @IsString()
+  @MinLength(1)
+  title: string;
+
+  @IsString()
+  content: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  // authorId는 제거한다 — JWT 토큰에서 추출하므로 클라이언트가 보낼 필요 없음
+}
+```
+
+`PostsService.create()`는 DTO 대신 두 번째 파라미터로 받은 `userId`를 author로 사용한다.
+
+```typescript
+// src/posts/posts.service.ts
+async create(createPostDto: CreatePostDto, userId: number): Promise<Post> {
+  const post = this.postsRepository.create({
+    ...createPostDto,
+    author: { id: userId }, // DTO의 authorId가 아닌, 토큰에서 추출한 userId
+  });
+  return this.postsRepository.save(post);
+}
+```
+
 ### @CurrentUser() 커스텀 데코레이터 (챕터 9에서 만든 것 활용)
 
 ```typescript
@@ -1545,7 +1586,50 @@ export class PostsController {
 }
 ```
 
-### CommentsController에서도 동일 적용
+### CommentsController 리팩토링 - 경로 변경 및 DTO 수정
+
+챕터 10에서 `CommentsController`는 `@Controller('comments')`로 선언되었고, `CreateCommentDto`에는 `postId: number`와 `authorId: number` 필드가 있었다. JWT 인증 도입과 함께 두 가지를 개선한다.
+
+**1. 컨트롤러 경로 변경**: `@Controller('comments')` → `@Controller('posts/:postId/comments')`
+
+댓글은 특정 게시글에 속하는 **중첩 리소스(nested resource)**다. RESTful 설계에서는 이런 계층 관계를 URL 경로에 표현하는 것이 일반적이다. `POST /posts/1/comments` 형태로 "게시글 1에 댓글을 작성"한다는 의미가 URL에서 바로 드러난다.
+
+**2. CreateCommentDto에서 postId와 authorId 제거**
+
+- `postId`: URL 파라미터(`/posts/:postId/comments`)에서 추출하므로 body에 중복으로 전달할 필요 없음
+- `authorId`: JWT 토큰에서 추출한 userId를 사용하므로 클라이언트가 직접 보낼 필요 없음
+
+```typescript
+// src/comments/dto/create-comment.dto.ts
+import { IsString, MinLength } from 'class-validator';
+
+export class CreateCommentDto {
+  @IsString()
+  @MinLength(1)
+  content: string;
+
+  // postId는 제거 — URL 파라미터(:postId)에서 추출
+  // authorId는 제거 — JWT 토큰에서 추출
+}
+```
+
+`CommentsService.create()`는 URL의 `postId`와 토큰의 `userId`를 각각 별도 파라미터로 받아 사용한다.
+
+```typescript
+// src/comments/comments.service.ts
+async create(
+  postId: number,
+  createCommentDto: CreateCommentDto,
+  userId: number
+): Promise<Comment> {
+  const comment = this.commentsRepository.create({
+    ...createCommentDto,
+    post: { id: postId },   // URL 파라미터에서 받은 postId
+    author: { id: userId }, // JWT 토큰에서 추출한 userId
+  });
+  return this.commentsRepository.save(comment);
+}
+```
 
 ```typescript
 // src/comments/comments.controller.ts
@@ -2244,7 +2328,12 @@ src/
 │   └── entities/
 │       └── user.entity.ts            ← hashedRefreshToken 컬럼 추가
 ├── posts/
+│   └── dto/
+│       └── create-post.dto.ts        ← authorId 필드 제거 (토큰에서 추출)
 └── comments/
+    ├── dto/
+    │   └── create-comment.dto.ts     ← postId, authorId 필드 제거 (각각 URL 파라미터, 토큰에서 추출)
+    └── comments.controller.ts        ← @Controller('comments') → @Controller('posts/:postId/comments')
 ```
 
 ---

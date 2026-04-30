@@ -660,7 +660,12 @@ export class NotificationsService {
 ```typescript
 // src/notifications/notifications.controller.ts
 import { Controller } from '@nestjs/common';
-import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
+import {
+  EventPattern,
+  MessagePattern,
+  Payload,
+  RpcException,
+} from '@nestjs/microservices';
 import { NotificationsService } from './notifications.service';
 
 @Controller()
@@ -672,7 +677,7 @@ export class NotificationsController {
   // ──────────────────────────────────────────────
 
   @EventPattern('comment_created')
-  handleCommentCreated(
+  async handleCommentCreated(
     @Payload()
     data: {
       postId: number;
@@ -688,18 +693,23 @@ export class NotificationsController {
     console.log(`  댓글 작성자: ${data.authorName}`);
     console.log('──────────────────────────────────────');
 
-    // 게시글 작성자에게 알림 생성
-    this.notificationsService.create({
-      type: 'comment_created',
-      message: `${data.authorName}님이 "${data.postTitle}" 게시글에 댓글을 남겼습니다.`,
-      recipientId: data.postAuthorId,
-      postId: data.postId,
-      commentId: data.commentId,
-    });
+    try {
+      // 게시글 작성자에게 알림 생성
+      await this.notificationsService.create({
+        type: 'comment_created',
+        message: `${data.authorName}님이 "${data.postTitle}" 게시글에 댓글을 남겼습니다.`,
+        recipientId: data.postAuthorId,
+        postId: data.postId,
+        commentId: data.commentId,
+      });
+    } catch (error) {
+      // EventPattern은 응답을 반환하지 않으므로 로그만 남긴다
+      console.error('[알림 서비스] 알림 생성 실패:', error.message);
+    }
   }
 
   @EventPattern('post_liked')
-  handlePostLiked(
+  async handlePostLiked(
     @Payload()
     data: {
       postId: number;
@@ -712,12 +722,16 @@ export class NotificationsController {
       `[알림 서비스] 좋아요 이벤트: ${data.likerName}님이 "${data.postTitle}"에 좋아요`
     );
 
-    this.notificationsService.create({
-      type: 'post_liked',
-      message: `${data.likerName}님이 "${data.postTitle}" 게시글에 좋아요를 눌렀습니다.`,
-      recipientId: data.postAuthorId,
-      postId: data.postId,
-    });
+    try {
+      await this.notificationsService.create({
+        type: 'post_liked',
+        message: `${data.likerName}님이 "${data.postTitle}" 게시글에 좋아요를 눌렀습니다.`,
+        recipientId: data.postAuthorId,
+        postId: data.postId,
+      });
+    } catch (error) {
+      console.error('[알림 서비스] 좋아요 알림 생성 실패:', error.message);
+    }
   }
 
   // ──────────────────────────────────────────────
@@ -729,14 +743,22 @@ export class NotificationsController {
     console.log(
       `[알림 서비스] 알림 목록 조회 요청 - 사용자 ID: ${data.recipientId}`
     );
-    return this.notificationsService.findByRecipient(data.recipientId);
+    try {
+      return this.notificationsService.findByRecipient(data.recipientId);
+    } catch (error) {
+      throw new RpcException(error.message);
+    }
   }
 
   @MessagePattern({ cmd: 'get_unread_count' })
   getUnreadCount(@Payload() data: { recipientId: number }) {
-    const count = this.notificationsService.countUnread(data.recipientId);
-    console.log(`[알림 서비스] 읽지 않은 알림 수: ${count}`);
-    return { count };
+    try {
+      const count = this.notificationsService.countUnread(data.recipientId);
+      console.log(`[알림 서비스] 읽지 않은 알림 수: ${count}`);
+      return { count };
+    } catch (error) {
+      throw new RpcException(error.message);
+    }
   }
 
   @MessagePattern({ cmd: 'mark_as_read' })
@@ -750,6 +772,8 @@ export class NotificationsController {
   }
 }
 ```
+
+> **참고:** `@EventPattern` 핸들러는 클라이언트에 응답을 반환하지 않는다(fire-and-forget). 따라서 내부 오류가 발생해도 `RpcException`을 던지는 대신 로그만 남긴다. 반면 `@MessagePattern` 핸들러는 클라이언트가 응답을 기다리므로, 오류 발생 시 `RpcException`을 던져 클라이언트가 오류를 인식할 수 있도록 해야 한다.
 
 ### Step 3: 알림 모듈 등록
 
@@ -827,7 +851,7 @@ export class CommentsService {
     };
 
     // 2. 게시글 정보 조회 (기존 로직, 예시)
-    const post = { id: postId, title: '예제 게시글', authorId: 99 };
+    const post = { id: postId, title: '예제 게시글', authorId: 1 };
 
     // 3. 알림 마이크로서비스에 이벤트 발행!
     //    게시글 작성자 본인이 댓글을 단 경우에는 알림을 보내지 않는다
@@ -847,6 +871,63 @@ export class CommentsService {
   }
 }
 ```
+
+### Step 4-1: CQRS와 마이크로서비스 통합
+
+챕터 16에서 CQRS 패턴을 적용했다면, **이벤트 발행은 `CommentsService`가 아닌 `CommandHandler`에서** 해야 한다. `CommandHandler`가 댓글 저장과 이벤트 발행을 모두 책임지는 것이 CQRS 아키텍처에 더 어울린다.
+
+```typescript
+// src/comments/commands/handlers/create-comment.handler.ts
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { Inject } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ClientProxy } from '@nestjs/microservices';
+import { CreateCommentCommand } from '../create-comment.command';
+import { Comment } from '../../entities/comment.entity';
+
+@CommandHandler(CreateCommentCommand)
+export class CreateCommentHandler implements ICommandHandler<CreateCommentCommand> {
+  constructor(
+    @InjectRepository(Comment)
+    private readonly commentRepository: Repository<Comment>,
+    @Inject('NOTIFICATION_SERVICE')
+    private readonly notificationClient: ClientProxy,
+  ) {}
+
+  async execute(command: CreateCommentCommand): Promise<Comment> {
+    const { postId, content, authorId, authorName, postAuthorId, postTitle } = command;
+
+    // 1. 댓글 저장
+    const comment = await this.commentRepository.save({
+      postId,
+      content,
+      authorId,
+      authorName,
+    });
+
+    // 2. 마이크로서비스로 댓글 생성 이벤트 발행
+    //    게시글 작성자 본인이 댓글을 단 경우에는 알림을 보내지 않는다
+    if (postAuthorId !== authorId) {
+      this.notificationClient.emit('comment_created', {
+        postId,
+        postTitle,
+        commentId: comment.id,
+        authorName,
+        postAuthorId,
+      });
+
+      console.log(`[CreateCommentHandler] 알림 이벤트 발행 완료 → comment_created`);
+    }
+
+    return comment;
+  }
+}
+```
+
+CQRS를 사용하지 않는 경우에는 위 Step 4의 `CommentsService.createComment()`에서 직접 `notificationClient.emit()`을 호출하면 된다. 두 방식 모두 동일한 이벤트를 발행하므로, `NotificationsController`의 `@EventPattern('comment_created')` 핸들러는 수정 없이 그대로 사용할 수 있다.
+
+> **참고:** `CreateCommentCommand`에 `postAuthorId`, `postTitle` 같은 알림에 필요한 정보를 포함시켜야 한다. 명령(Command) 객체는 핸들러가 작업을 완료하는 데 필요한 모든 데이터를 담아야 한다.
 
 ### Step 5: 알림 조회 HTTP 엔드포인트 추가
 
@@ -872,7 +953,7 @@ export class NotificationsHttpController {
     private readonly notificationClient: ClientProxy
   ) {}
 
-  // GET /notifications/user/1 → 사용자 1의 알림 목록
+  // GET /notifications/user/:userId → 사용자의 알림 목록
   @Get('user/:userId')
   async getNotifications(@Param('userId', ParseIntPipe) userId: number) {
     const notifications = await firstValueFrom(
@@ -884,7 +965,7 @@ export class NotificationsHttpController {
     return { data: notifications };
   }
 
-  // GET /notifications/user/1/unread-count → 읽지 않은 알림 수
+  // GET /notifications/user/:userId/unread-count → 읽지 않은 알림 수
   @Get('user/:userId/unread-count')
   async getUnreadCount(@Param('userId', ParseIntPipe) userId: number) {
     return firstValueFrom(
@@ -895,7 +976,7 @@ export class NotificationsHttpController {
     );
   }
 
-  // PATCH /notifications/5/read → 알림 읽음 처리
+  // PATCH /notifications/:id/read → 알림 읽음 처리
   @Patch(':id/read')
   async markAsRead(@Param('id', ParseIntPipe) id: number) {
     return firstValueFrom(
@@ -981,7 +1062,7 @@ async function bootstrap() {
     transport: Transport.TCP,
     options: {
       host: '127.0.0.1',
-      port: 3001,
+      port: 3002,
     },
   });
 
@@ -994,7 +1075,7 @@ async function bootstrap() {
   console.log('========================================');
   console.log('  블로그 API 서버 시작!');
   console.log('  HTTP: http://localhost:3000');
-  console.log('  TCP 마이크로서비스: 포트 3001');
+  console.log('  TCP 마이크로서비스: 포트 3002');
   console.log('========================================');
 }
 bootstrap();
@@ -1088,7 +1169,7 @@ cd blog-api && npm run start:dev
 │                                                  │
 │  ──────────────────────────────────────────────  │
 │                                                  │
-│  나중에 사용자가 GET /notifications/user/99 하면:   │
+│  나중에 사용자가 GET /notifications/user/1 하면:    │
 │                                                  │
 │  NotificationsController                         │
 │    @MessagePattern({ cmd: 'get_notifications' }) │
@@ -1118,12 +1199,12 @@ curl -X POST http://localhost:3000/posts/1/comments \
 # ──────────────────────────────────────
 # [알림 서비스] 새 알림 생성: "김철수님이 "예제 게시글" 게시글에 댓글을 남겼습니다."
 
-# 2. 게시글 작성자(ID: 99)의 알림 목록 조회
-curl http://localhost:3000/notifications/user/99
+# 2. 게시글 작성자(ID: 1)의 알림 목록 조회
+curl http://localhost:3000/notifications/user/1
 # → { "data": [{ "id": 1, "type": "comment_created", "message": "김철수님이 ...", ... }] }
 
 # 3. 읽지 않은 알림 수 조회
-curl http://localhost:3000/notifications/user/99/unread-count
+curl http://localhost:3000/notifications/user/1/unread-count
 # → { "count": 1 }
 
 # 4. 알림 읽음 처리
@@ -1249,7 +1330,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   UseFilters,
 } from '@nestjs/common';
 import { RpcExceptionFilter } from '../common/filters/rpc-exception.filter';
@@ -1273,9 +1353,9 @@ import {
   Patch,
   Param,
   Inject,
-  ParseIntPipe,
   NotFoundException,
   BadRequestException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
@@ -1466,7 +1546,7 @@ export class NotificationsHttpController {
 ```bash
 # 터미널 1개만 필요
 npm run start:dev
-# → HTTP(3000) + TCP(3001) 동시 기동
+# → HTTP(3000) + TCP(3002) 동시 기동
 ```
 
 ### 독립 서비스 방식 (별도 프로세스)

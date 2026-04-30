@@ -538,9 +538,11 @@ export class OrdersService {
   constructor(private readonly usersService: UsersService) {}
   // ↑ UsersModule이 export한 UsersService를 주입받는다
 
+  private nextOrderId = 1;
+
   createOrder(userId: number) {
     const user = this.usersService.findOne(userId);
-    return { orderId: 1, user };
+    return { orderId: this.nextOrderId++, user };
   }
 }
 ```
