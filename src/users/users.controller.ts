@@ -10,8 +10,8 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { UsersService } from './users.service';
 import type { CreateUserDto } from './dto/create-user.dto';
-import type { UsersService } from './users.service';
 import type { UpdateUserDto } from './dto/update.user.dto';
 import type { User } from './interfaces/user.interface';
 

@@ -11,10 +11,10 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { PostsService } from './posts.service';
 import type { CreatePostDto } from './dto/create-post.dto';
 import type { UpdatePostDto } from './dto/update-post.dto';
 import type { Post as BlogPost } from './interfaces/post.interface';
-import type { PostsService } from './posts.service';
 
 @Controller('posts')
 export class PostsController {
