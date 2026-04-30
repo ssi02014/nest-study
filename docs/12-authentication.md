@@ -1210,7 +1210,8 @@ export class AuthService {
       throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
     }
 
-    // DB에 저장된 해시와 현재 Refresh Token 비교
+    // 참고: 이 bcrypt.compare는 JwtRefreshStrategy에서 이미 검증이 완료된 후 호출되므로
+    // 생략 가능하다. 여기서는 서비스 레이어에서도 명시적으로 검증하는 방어적 패턴을 보여준다.
     const isRefreshTokenValid = await bcrypt.compare(
       refreshToken,
       user.hashedRefreshToken
@@ -2139,7 +2140,7 @@ async updateRefreshToken(
   AuthController.refresh() 실행 → 새 토큰 쌍 반환
 ```
 
-> **팁:** `AuthService.refreshTokens()`에서 한 번 더 `bcrypt.compare`를 수행하는 코드를 볼 수 있다. Strategy에서 이미 검증했으므로 이 중복 비교는 제거해도 된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미한다.
+> **참고:** `AuthService.refreshTokens()`의 `bcrypt.compare`는 `JwtRefreshStrategy`에서 이미 검증이 완료된 후 호출된다. Strategy가 통과했다는 것 자체가 검증 완료를 의미하므로 이 비교는 생략 가능하다. 위 코드에서는 서비스 레이어에서도 명시적으로 검증하는 방어적 패턴을 보여준다.
 
 ---
 

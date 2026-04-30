@@ -559,7 +559,7 @@ export class Post {
 export class CreatePostDto {
   title: string;
   content: string;
-  authorId: number;  // User의 ID를 받는다
+  // authorId는 JWT 토큰에서 추출하므로 DTO에 포함하지 않는다 (챕터 12 참고)
 }
 ```
 
@@ -644,7 +644,7 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
 
     // 3. 게시글 생성 이벤트 발행
     this.eventBus.publish(
-      new PostCreatedEvent(savedPost.id, savedPost.title, savedPost.author.username)
+      new PostCreatedEvent(savedPost.id, savedPost.title, savedPost.author.name)
     );
 
     return savedPost;
@@ -982,6 +982,8 @@ import { GetPostQuery } from './queries/impl/get-post.query';
 import { GetPostListQuery } from './queries/impl/get-post-list.query';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('posts')
 export class PostsController {
@@ -990,34 +992,40 @@ export class PostsController {
     private readonly queryBus: QueryBus
   ) {}
 
-  // 게시글 생성 → Command
+  // 게시글 생성 → Command (인증 필요: JWT 토큰에서 userId 추출)
   @Post()
-  async create(@Body() dto: CreatePostDto) {
+  async create(
+    @Body() dto: CreatePostDto,
+    @CurrentUser('id') userId: number
+  ) {
     const post = await this.commandBus.execute(
-      new CreatePostCommand(dto.title, dto.content, dto.authorId)
+      new CreatePostCommand(dto.title, dto.content, userId)
     );
     return { data: post, message: '게시글이 생성되었습니다.' };
   }
 
-  // 게시글 목록 조회 → Query
+  // 게시글 목록 조회 → Query (공개 API)
+  @Public()
   @Get()
   async findAll() {
     const posts = await this.queryBus.execute(new GetPostListQuery());
     return { data: posts };
   }
 
-  // 게시글 단일 조회 → Query
+  // 게시글 단일 조회 → Query (공개 API)
+  @Public()
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const post = await this.queryBus.execute(new GetPostQuery(id));
     return { data: post };
   }
 
-  // 게시글 수정 → Command
+  // 게시글 수정 → Command (인증 필요: JWT 토큰에서 userId 추출)
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdatePostDto
+    @Body() dto: UpdatePostDto,
+    @CurrentUser('id') userId: number
   ) {
     const post = await this.commandBus.execute(
       new UpdatePostCommand(id, dto.title, dto.content)
@@ -1025,10 +1033,13 @@ export class PostsController {
     return { data: post, message: '게시글이 수정되었습니다.' };
   }
 
-  // 게시글 삭제 → Command
+  // 게시글 삭제 → Command (인증 필요: JWT 토큰에서 userId 추출)
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser('id') userId: number
+  ): Promise<void> {
     await this.commandBus.execute(new DeletePostCommand(id));
   }
 }

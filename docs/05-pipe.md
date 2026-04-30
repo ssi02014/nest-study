@@ -1270,7 +1270,7 @@ export class CommentsController {
 
   @Get('posts/:postId/comments')
   findAll(@Param('postId', ParseIntPipe) postId: number) {
-    return this.commentsService.findAllByPost(postId);
+    return this.commentsService.findByPostId(postId);
   }
 
   @Delete('comments/:id')

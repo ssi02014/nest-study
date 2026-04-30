@@ -998,15 +998,13 @@ export class PostsController {
 // GET /posts/1 - 게시글 조회 성공
 {
   "success": true,
-  "statusCode": 200,
   "data": {
     "id": 1,
     "title": "첫 번째 게시글",
     "content": "NestJS 시작하기",
     "authorId": 1
   },
-  "timestamp": "2026-04-09T12:00:00.000Z",
-  "path": "/posts/1"
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1067,13 +1065,11 @@ GET /posts
 # 응답:
 {
   "success": true,
-  "statusCode": 200,
   "data": [
     { "id": 1, "title": "첫 번째 게시글", "content": "NestJS 시작하기", "authorId": 1 },
     { "id": 2, "title": "두 번째 게시글", "content": "Exception Filter 배우기", "authorId": 2 }
   ],
-  "timestamp": "2026-04-09T12:00:00.000Z",
-  "path": "/posts"
+  "timestamp": "2026-04-09T12:00:00.000Z"
 }
 ```
 
@@ -1097,7 +1093,7 @@ GET /posts/999
 ```bash
 # 3. 다른 사람의 게시글 수정 시도 (403 에러)
 # (userId=1인 사용자가 authorId=2인 게시글을 수정하려고 함)
-PUT /posts/2
+PATCH /posts/2
 { "title": "수정된 제목" }
 
 # 응답:
@@ -1196,11 +1192,11 @@ src/
 성공 응답 (TransformInterceptor)     에러 응답 (HttpExceptionFilter)
 {                                    {
   "success": true,                     "success": false,
-  "statusCode": 200,                   "data": null,
-  "data": { ... },                     "error": {
-  "timestamp": "...",                    "statusCode": 404,
-  "path": "/posts"                       "message": "...",
-}                                        "path": "/posts/999"
+  "data": { ... },                     "data": null,
+  "timestamp": "..."                   "error": {
+}                                        "statusCode": 404,
+                                         "message": "...",
+                                         "path": "/posts/999"
                                        },
                                        "timestamp": "..."
                                      }

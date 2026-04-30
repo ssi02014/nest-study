@@ -217,7 +217,21 @@ yarn install
 yarn run start:dev
 ```
 
-### 4. 학습 시작
+서버가 정상 기동되면 `http://localhost:3000`에서 응답을 확인할 수 있다.
+
+### 4. API Playground (선택)
+
+챕터별 API를 브라우저에서 직접 테스트할 수 있는 플레이그라운드가 제공된다.
+
+**실행 방법**
+
+1. VS Code에서 [Live Server](https://marketplace.visualstudio.com/items?itemName=ritwickdey.LiveServer) 확장 설치
+2. `playground.html` 파일을 열고 우하단 **Go Live** 클릭 → `http://127.0.0.1:5500/playground.html`
+3. 개발 서버(`yarn run start:dev`)를 실행한 상태에서 사용
+
+> **CORS 설정 필요**: Live Server(`127.0.0.1:5500`)에서 NestJS 서버(`localhost:3000`)로 요청을 보낼 때 CORS 오류가 발생한다. `src/main.ts`에 `app.enableCors()`가 추가되어 있어야 한다. 이미 포함되어 있으므로 별도 설정은 불필요하다. CORS에 대한 자세한 설명은 [`docs/references/cors.md`](./docs/references/cors.md)를 참고하세요.
+
+### 5. 학습 시작
 
 [`docs/00-roadmap.md`](./docs/00-roadmap.md)를 열고 챕터 1부터 순서대로 진행하세요.
 ide(vscode)에서 보는 것보다 github에서 보는 것이 조금 더 가독성이 좋습니다.
@@ -249,8 +263,9 @@ nest-study/
 │   ├── 15-websocket.md
 │   ├── 16-cqrs.md              ← Phase 7
 │   └── 17-microservices.md
+├── playground.html              ← 챕터별 API 테스트 플레이그라운드
 ├── src/                         ← NestJS 소스 코드
-│   ├── main.ts
+│   ├── main.ts                  ← app.enableCors() 포함
 │   ├── app.module.ts
 │   ├── app.controller.ts
 │   └── app.service.ts
@@ -299,7 +314,7 @@ Client Response
 ## 학습 팁
 
 1. **순서대로 진행** — 각 챕터는 이전 내용을 이어받아 블로그 API를 확장합니다
-2. **3단계 따라가기** — 개념 → 예제 → 블로그 적용 순서로 읽으세요
+2. **4단계 따라가기** — 개념 → 예제 → 블로그 적용 → 정리 순서로 읽으세요
 3. **직접 타이핑** — 코드를 복붙하지 말고 직접 타이핑하세요 (이해도가 다릅니다)
 4. **공식 문서 병행** — [NestJS Docs](https://docs.nestjs.com)와 함께 보면 더 효과적입니다
 5. **커밋 습관** — 각 챕터를 마칠 때마다 git commit으로 진행 상황을 기록하세요

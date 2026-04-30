@@ -969,7 +969,7 @@ E2E 테스트:   HTTP 요청 → Controller → Service → Repository → SQLit
 ```typescript
 // src/posts/posts.service.integration.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { Post } from './entities/post.entity';
@@ -1005,7 +1005,7 @@ describe('PostsService (통합 테스트)', () => {
 
   // 각 테스트 후 데이터 초기화 (테스트 간 데이터 오염 방지)
   afterEach(async () => {
-    const postRepository = module.get('PostRepository');
+    const postRepository = module.get(getRepositoryToken(Post));
     await postRepository.clear();
   });
 
@@ -1856,9 +1856,9 @@ describe('Posts E2E', () => {
 
   // ─── Auth: 회원가입 & 로그인 ────────────────────────────────
   describe('Auth', () => {
-    it('POST /users — 회원가입', () => {
+    it('POST /auth/signup — 회원가입', () => {
       return request(app.getHttpServer())
-        .post('/users')
+        .post('/auth/signup')
         .send({ email: 'e2e@test.com', password: 'Password123!' })
         .expect(201)
         .expect((res) => {
@@ -1950,7 +1950,7 @@ describe('Posts E2E', () => {
       return request(app.getHttpServer())
         .delete(`/posts/${createdPostId}`)
         .set('Authorization', `Bearer ${authToken}`) // JWT 토큰 포함
-        .expect(200);
+        .expect(204);
     });
 
     it('GET /posts/:id — 삭제된 게시글 조회 시 404', () => {
@@ -2035,9 +2035,9 @@ describe('블로그 API 전체 플로우 (E2E)', () => {
 
   // ─── 1단계: 회원가입 ───────────────────────────────────────
   describe('1. 회원가입', () => {
-    it('POST /users → 새 사용자를 등록한다', () => {
+    it('POST /auth/signup → 새 사용자를 등록한다', () => {
       return request(app.getHttpServer())
-        .post('/users')
+        .post('/auth/signup')
         .send({
           email: 'blogger@test.com',
           password: 'Password123!',
@@ -2051,9 +2051,9 @@ describe('블로그 API 전체 플로우 (E2E)', () => {
         });
     });
 
-    it('POST /users → 이미 존재하는 이메일로 가입 시 409를 반환한다', () => {
+    it('POST /auth/signup → 이미 존재하는 이메일로 가입 시 409를 반환한다', () => {
       return request(app.getHttpServer())
-        .post('/users')
+        .post('/auth/signup')
         .send({
           email: 'blogger@test.com',
           password: 'Password123!',
@@ -2182,7 +2182,7 @@ describe('블로그 API 전체 플로우 (E2E)', () => {
       return request(app.getHttpServer())
         .delete(`/posts/${createdPostId}`)
         .set('Authorization', `Bearer ${accessToken}`)
-        .expect(200);
+        .expect(204);
     });
 
     it('GET /posts/:id → 삭제된 게시글 조회 시 404를 반환한다', () => {

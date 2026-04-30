@@ -550,11 +550,13 @@ export class SimpleAuthGuard implements CanActivate {
 
     // 2. 헤더에서 x-user-id 확인
     const request = context.switchToHttp().getRequest();
-    const userId = request.headers['x-user-id'];
+    const userIdHeader = request.headers['x-user-id'];
 
-    if (!userId) {
+    if (!userIdHeader) {
       throw new UnauthorizedException('x-user-id 헤더가 필요합니다.');
     }
+
+    const userId = parseInt(String(userIdHeader), 10);
 
     // 3. 챕터 6에서 분리한 공용 데이터 파일에서 유저 찾기
     const user = USERS.find((u) => u.id === userId);
@@ -677,7 +679,7 @@ export class CommentsController {
   @Public()
   @Get('posts/:postId/comments')
   findAll(@Param('postId', ParseIntPipe) postId: number) {
-    return this.commentsService.findByPost(postId);
+    return this.commentsService.findByPostId(postId);
   }
 
   // 댓글 작성 - 인증 필요

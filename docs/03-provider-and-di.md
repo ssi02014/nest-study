@@ -397,7 +397,7 @@ export class LoggerModule {}
 | 방식          | 언제 쓰나                | 새 인스턴스 생성?          |
 | ------------- | ------------------------ | -------------------------- |
 | `useValue`    | 상수, 설정값, Mock 객체  | 해당 없음 (값 자체를 사용) |
-| `useClass`    | 환경별 다른 클래스 주입  | O (매번 새로 생성)         |
+| `useClass`    | 환경별 다른 클래스 주입  | O (DI 컨테이너가 인스턴스 생성 및 관리) |
 | `useFactory`  | 동적 생성, 비동기 초기화 | O (팩토리가 생성)          |
 | `useExisting` | 기존 Provider의 별칭     | X (기존 것 재사용)         |
 
@@ -1561,7 +1561,7 @@ src/
 | `/users`                  | POST   | 회원가입         |
 | `/users`                  | GET    | 전체 사용자 조회 |
 | `/users/:id`              | GET    | 사용자 상세 조회 |
-| `/users/:id`              | PUT    | 사용자 정보 수정 |
+| `/users/:id`              | PATCH  | 사용자 정보 수정 |
 | `/users/:id`              | DELETE | 사용자 삭제      |
 | `/posts`                  | POST   | 게시글 작성      |
 | `/posts`                  | GET    | 게시글 목록      |

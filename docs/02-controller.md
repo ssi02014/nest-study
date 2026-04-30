@@ -1129,7 +1129,7 @@ export class PostCommentsController {
 
   @Get()
   findAll(@Param('postId') postId: string) {
-    return PostCommentsController.comments.filter((c) => c.postId === postId);
+    return PostCommentsController.comments.filter((c) => c.postId === +postId);
   }
 }
 

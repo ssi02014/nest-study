@@ -339,8 +339,9 @@ const sockets = await this.server.in('room-name').fetchSockets();
 
 ```bash
 npm install @nestjs/websockets @nestjs/platform-socket.io
-npm install -D @types/socket.io
 ```
+
+> **주의:** socket.io v4부터 타입 정의가 패키지에 내장되어 있습니다. `@types/socket.io`는 deprecated 상태이며 설치 시 타입 충돌이 발생할 수 있으므로 설치하지 마세요.
 
 ### 에코 Gateway
 
@@ -604,8 +605,9 @@ export class RoomGateway {
 
 ```bash
 npm install @nestjs/websockets @nestjs/platform-socket.io
-npm install -D @types/socket.io
 ```
+
+> **주의:** socket.io v4부터 타입 정의가 패키지에 내장되어 있습니다. `@types/socket.io`는 deprecated 상태이며 설치 시 타입 충돌이 발생할 수 있으므로 설치하지 마세요.
 
 ### 9-1. Post Entity
 
@@ -806,10 +808,10 @@ export class BlogGateway
       comment: {
         id: comment.id,
         content: comment.content,
-        authorName: comment.author.username,
+        authorName: comment.author.name,
         createdAt: comment.createdAt,
       },
-      message: `${comment.author.username}님이 새 댓글을 작성했습니다.`,
+      message: `${comment.author.name}님이 새 댓글을 작성했습니다.`,
     });
     this.logger.log(`게시글 ${postId}에 새 댓글 알림 전송`);
   }

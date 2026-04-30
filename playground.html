@@ -687,6 +687,7 @@ const CHAPTERS = [
 ───────────────────────────────────────── */
 
 let currentChId = '02';
+const EP_MAP = {};
 
 function renderSidebar() {
   const aside = document.getElementById('sidebar');
@@ -754,6 +755,8 @@ function renderEndpoint(ep, uid) {
   const hasQuery  = (ep.query  || []).length > 0;
   const hasBody   = (ep.body   || []).length > 0;
 
+  EP_MAP[uid] = ep;
+
   const formHtml = (hasParams || hasQuery || hasBody) ? `
     ${hasParams ? `<div class="form-section"><div class="form-label">Path Params</div>${paramFields}</div>` : ''}
     ${hasQuery  ? `<div class="form-section"><div class="form-label">Query Params</div>${queryFields}</div>` : ''}
@@ -771,7 +774,7 @@ function renderEndpoint(ep, uid) {
       </div>
       <div class="ep-body" id="body-${uid}">
         ${formHtml}
-        <button class="send-btn" onclick="send('${uid}', ${JSON.stringify(ep).replace(/'/g, '&#39;')})">▶ Send</button>
+        <button class="send-btn" onclick="send('${uid}')">▶ Send</button>
         <div class="resp-area" id="resp-${uid}"></div>
       </div>
     </div>
@@ -792,7 +795,8 @@ function selectChapter(id) {
    Request Logic
 ───────────────────────────────────────── */
 
-async function send(uid, ep) {
+async function send(uid) {
+  const ep = EP_MAP[uid];
   const serverUrl = document.getElementById('serverUrl').value.trim().replace(/\/$/, '');
   const jwtToken  = document.getElementById('jwtToken').value.trim();
   const bodyEl    = document.getElementById(`body-${uid}`);
@@ -872,7 +876,7 @@ async function send(uid, ep) {
     <div class="resp-meta">
       <span class="status ${statusClass}">${status || 'ERR'}</span>
       <span class="resp-time">${elapsed}ms</span>
-      <span style="color:var(--muted);font-size:11px;">${url}</span>
+      <span style="color:var(--muted);font-size:11px;">${escHtml(url)}</span>
     </div>
     <pre class="resp-body">${escHtml(respText)}</pre>
     ${corsHtml}

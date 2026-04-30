@@ -875,7 +875,7 @@ export class PostsService {
 
 **왜 쓰는가:** 특정 엔드포인트를 로그인한 사용자만, 또는 특정 역할(관리자 등)만 접근할 수 있도록 제한할 때 사용합니다.
 
-**Guard 실행 순서:** 여러 Guard를 나열하면 **왼쪽에서 오른쪽** 순서로 실행됩니다. 하나라도 `false`를 반환하면 이후 Guard는 실행되지 않고 `403 Forbidden`이 반환됩니다.
+**Guard 실행 순서:** 여러 Guard를 나열하면 **왼쪽에서 오른쪽** 순서로 실행됩니다. 하나라도 `false`를 반환하면 이후 Guard는 실행되지 않고 `401 Unauthorized`가 반환됩니다. `403 Forbidden`은 Guard에서 `throw new ForbiddenException()`을 직접 던질 때 발생합니다.
 
 **예제 코드:**
 
@@ -2374,7 +2374,8 @@ Interceptor의 응답 처리는 역순(메서드 → 컨트롤러 → 글로벌)
 export class Post {} // 테이블명: 'post'
 
 @Entity()
-export class UserProfile {} // 테이블명: 'user_profile' (TypeORM이 카멜케이스를 스네이크로 변환)
+export class UserProfile {} // 테이블명: 'userprofile' (기본값, 소문자 변환만 적용)
+// 스네이크케이스 변환을 원하면 SnakeNamingStrategy 같은 커스텀 네이밍 전략이 필요하다
 ```
 
 일관된 테이블명 관리를 위해 `@Entity('테이블명')`으로 명시적으로 지정하는 것을 권장합니다.
