@@ -1,37 +1,40 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-import { CommonService } from '@src/common/common.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+} from '@nestjs/common';
+import type { CreateUserDto } from './dto/create-user.dto';
+import type { UsersService } from './users.service';
+import type { UpdateUserDto } from './dto/update.user.dto';
+import type { User } from './interfaces/user.interface';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly commonService: CommonService) {}
-
-  private users = [
-    {
-      id: 1,
-      email: 'hong@example.com',
-      name: '홍길동',
-      createdAt: '2025-01-01',
-    },
-  ];
-  private nextId = 2;
+  constructor(private readonly usersService: UsersService) {}
 
   /**
    * POST /users
    * 회원가입
    */
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    const now = this.commonService.formatDate(new Date());
+  create(@Body() dto: CreateUserDto): User {
+    return this.usersService.create(dto);
+  }
 
-    const newUser = {
-      id: this.nextId++,
-      email: createUserDto.email,
-      name: createUserDto.name,
-      createdAt: now,
-    };
-    this.users.push(newUser);
-    return newUser;
+  /**
+   * GET /users
+   * 전체 사용자 조회
+   */
+  @Get()
+  findAll(): User[] {
+    return this.usersService.findAll();
   }
 
   /**
@@ -39,11 +42,29 @@ export class UsersController {
    * 프로필 조회
    */
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    const user = this.users.find((u) => u.id === +id);
-    if (!user) {
-      return { message: `User #${id}를 찾을 수 없습니다` };
-    }
-    return user;
+  findOne(@Param('id', ParseIntPipe) id: number): User {
+    return this.usersService.findOne(id);
+  }
+
+  /**
+   * Patch /users/:id
+   * 사용자 정보 수정
+   */
+  @Patch(':id')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto
+  ): User {
+    return this.usersService.update(id, dto);
+  }
+
+  /**
+   * DELETE /users/:id
+   * 사용자 삭제
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(@Param('id', ParseIntPipe) id: number): void {
+    this.usersService.remove(id);
   }
 }

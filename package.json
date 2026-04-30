@@ -63,7 +63,7 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "moduleNameMapper": { 
+    "moduleNameMapper": {
       "^@src/(.*)$": "<rootDir>/../src/$1"
     },
     "collectCoverageFrom": [
